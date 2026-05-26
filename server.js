@@ -68,6 +68,14 @@ app.delete('/api/schedule/:userId/:id', (req, res) => {
   res.json({ ok: true })
 })
 
+// 驗證存取密碼（新訪客用，已有代碼的直接略過）
+app.post('/api/auth', (req, res) => {
+  const expected = process.env.CCAL_ACCESS_CODE
+  if (!expected) return res.json({ ok: true })          // 未設密碼 = 開放
+  if ((req.body.code || '') === expected) return res.json({ ok: true })
+  res.status(401).json({ ok: false, error: '密碼錯誤' })
+})
+
 // 整批取代（iOS Shortcuts / eCrew 匯入用）
 app.post('/api/bulk/:userId', (req, res) => {
   const fp = userPath(req.params.userId)

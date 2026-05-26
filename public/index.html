@@ -143,6 +143,18 @@
       body:not(.desktop-mode) .modal { max-width:390px; margin:0 auto; }
     }
 
+    /* 密碼閘門 */
+    .gate-overlay { display:none; position:fixed; inset:0; background:#f2f2f7; z-index:200; align-items:center; justify-content:center; }
+    .gate-overlay.active { display:flex; }
+    .gate-card { background:#fff; border-radius:20px; padding:32px 24px; width:calc(100% - 48px); max-width:340px; box-shadow:0 4px 24px rgba(0,0,0,0.10); }
+    .gate-title { font-size:22px; font-weight:800; color:#1c1c1e; margin-bottom:4px; }
+    .gate-sub { font-size:13px; color:#8e8e93; margin-bottom:24px; }
+    .gate-input { width:100%; border:1.5px solid #e5e5ea; border-radius:12px; padding:13px 14px; font-size:16px; outline:none; font-family:inherit; background:#f9f9f9; margin-bottom:12px; }
+    .gate-input:focus { border-color:#007aff; background:#fff; }
+    .gate-btn { width:100%; background:#007aff; color:#fff; border:none; border-radius:12px; padding:14px; font-size:16px; font-weight:700; cursor:pointer; }
+    .gate-btn:disabled { background:#a8d4ff; cursor:not-allowed; }
+    .gate-err { font-size:12px; color:#ff3b30; min-height:16px; margin-top:6px; text-align:center; }
+
     /* Settings */
     .settings-btn { font-size:18px; cursor:pointer; padding:4px 8px; background:none; border:none; color:#8e8e93; }
     .sf-group { display:flex; flex-direction:column; gap:4px; }
@@ -171,6 +183,17 @@
 <div class="calendar-grid" id="calendar"></div>
 </div><!-- #app -->
 
+<div class="gate-overlay" id="gate-overlay">
+  <div class="gate-card">
+    <div class="gate-title">CCal 班表</div>
+    <div class="gate-sub">請輸入存取密碼</div>
+    <input class="gate-input" id="gate-input" type="password" placeholder="密碼" autocomplete="off"
+      onkeydown="if(event.key==='Enter')submitGate()">
+    <button class="gate-btn" id="gate-btn" onclick="submitGate()">進入</button>
+    <div class="gate-err" id="gate-err"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -185,16 +208,12 @@ let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
 
 // ── 使用者 ID（房間代碼）──────────────────────────────────────
-function getOrCreateUserId() {
-  let id = localStorage.getItem('cCalUserId')
-  if (!id || !/^[A-Z0-9]{6}$/.test(id)) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    id = Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
-    localStorage.setItem('cCalUserId', id)
-  }
-  return id
+function _genId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
 }
-const MY_USER_ID = getOrCreateUserId()
+// 從 localStorage 取，或在記憶體暫存一個（通過密碼後才真正寫入）
+const MY_USER_ID = localStorage.getItem('cCalUserId') || _genId()
 // ?view=XXXXXX → 查看他人班表
 let viewUserId = (new URLSearchParams(location.search).get('view') || MY_USER_ID).toUpperCase()
 const IS_VIEWING_OTHER = viewUserId !== MY_USER_ID
@@ -1217,7 +1236,42 @@ document.addEventListener('touchend', e => {
   }
 })()
 
-loadSchedule()
+// ── 密碼閘門 ─────────────────────────────────────────────────
+async function submitGate() {
+  const btn = document.getElementById('gate-btn')
+  const code = document.getElementById('gate-input').value.trim()
+  if (!code) return
+  btn.disabled = true
+  btn.textContent = '驗證中…'
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    })
+    if (res.ok) {
+      document.getElementById('gate-overlay').classList.remove('active')
+      localStorage.setItem('cCalUserId', MY_USER_ID)
+      await loadSchedule()
+    } else {
+      document.getElementById('gate-err').textContent = '密碼錯誤，請再試一次'
+      btn.disabled = false
+      btn.textContent = '進入'
+    }
+  } catch {
+    document.getElementById('gate-err').textContent = '連線失敗，請稍後再試'
+    btn.disabled = false
+    btn.textContent = '進入'
+  }
+}
+
+// 已有代碼 → 直接載入；沒有 → 顯示密碼閘門
+if (localStorage.getItem('cCalUserId')) {
+  loadSchedule()
+} else {
+  document.getElementById('gate-overlay').classList.add('active')
+  setTimeout(() => document.getElementById('gate-input').focus(), 100)
+}
 </script>
 </body>
 </html>
