@@ -490,8 +490,8 @@ function showDetail(task) {
       const ftDepS = leg.departure_scheduled || leg.departure
       const ftArrS = leg.arrival_scheduled   || leg.arrival
       const hasTimeData = leg.reporting || ftDepS || ftArrS || leg.departure_actual || leg.arrival_actual
-      // 日期只在有時間資料、或是該段第一腿時顯示
-      const showLegDate = !sameDay && (hasTimeData || leg === seg.legs[0])
+      // 日期只在有時間資料、或是整個 task 第一腿時顯示
+      const showLegDate = !sameDay && (hasTimeData || (si === 0 && leg === seg.legs[0]))
       const legLabel = showLegDate ? `${+legD[1]}/${+legD[2]}（${wd[new Date(leg.date).getDay()]}）　` : ''
 
       const rep  = cvt(leg.reporting)
@@ -518,8 +518,8 @@ function showDetail(task) {
       html += `<div class="leg-block">
         <div class="leg-title">${legLabel}${fnPart}${routePart}</div>`
       html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${rep.t ? D(repDate)+fmtT(rep) : '--'}</span></div>`
-      html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
-      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${(depS.t||depA.t) ? D(depDate)+fmtInline(depS,depA) : '--'}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${(arrS.t||arrA.t) ? D(arrDate)+fmtInline(arrS,arrA) : '--'}</span></div>`
       html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${(ftMinS || ftMinA) ? ftLabel : '--'}</span></div>`
 
       if (leg === lastLeg) {
