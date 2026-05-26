@@ -466,9 +466,12 @@ function showDetail(task) {
 
   let html = `<div class="task-date">${dateLabel}</div><div class="task-route">${taskRoute(task)}</div>${tzNote}`
 
+  // 手動多天班（無 reporting 欄位）強制每腿拆成獨立 segment，才能顯示 Layover 區塊
+  const isManualMultiDay = task.startDate !== task.endDate && task.legs.every(l => l.manually_added)
   const segments = []
   task.legs.forEach(leg => {
-    if (leg.reporting || segments.length === 0) segments.push({ legs: [] })
+    const forceNew = isManualMultiDay && segments.length > 0
+    if (leg.reporting || segments.length === 0 || forceNew) segments.push({ legs: [] })
     segments[segments.length - 1].legs.push(leg)
   })
 
@@ -514,10 +517,10 @@ function showDetail(task) {
       const fnPart = leg.flight_number ? `CI ${padFN(leg.flight_number)}` : ''
       html += `<div class="leg-block">
         <div class="leg-title">${legLabel}${fnPart}${routePart}</div>`
-      if (rep.t) html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${D(repDate)}${fmtT(rep)}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${rep.t ? D(repDate)+fmtT(rep) : '--'}</span></div>`
       html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
       html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
-      if (ftMinS || ftMinA) html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${ftLabel}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${(ftMinS || ftMinA) ? ftLabel : '--'}</span></div>`
 
       if (leg === lastLeg) {
         const fdpLabel = segFdpMin
@@ -531,19 +534,20 @@ function showDetail(task) {
     })
 
     if (si < segments.length - 1) {
-      const station = lastLeg.to
-      const info = OUTSTATION_INFO[station]
+      const station = lastLeg.to || null
+      const info = station ? OUTSTATION_INFO[station] : null
       const nextSeg = segments[si + 1]
       const nextETDraw = nextSeg.legs[0].departure_scheduled || nextSeg.legs[0].departure || nextSeg.legs[0].departure_actual
+      const mrtStr = segFdpMin ? `MRT ${getMRTLabel(segFdpMin)}` : 'MRT --'
       let lb = `<div class="layover-block">
-        <div class="layover-row"><span class="lbl">Layover ${station}</span><span class="val">MRT ${getMRTLabel(segFdpMin)}</span></div>`
+        <div class="layover-row"><span class="lbl">Layover ${station || '--'}</span><span class="val">${mrtStr}</span></div>`
+      lb += `<div class="layover-row"><span class="lbl">飯店</span><span class="val">${info ? `<a href="${info.mapUrl}" target="_blank">${info.hotel}</a>` : '--'}</span></div>`
       if (info && nextETDraw) {
         const nextDate = nextSeg.legs[0].date
         const LD = (t) => {
           const d = t > nextETDraw ? addDays(nextDate, -1) : nextDate
           return `<span class="dt">${md(d)}</span> `
         }
-        lb += `<div class="layover-row"><span class="lbl">飯店</span><span class="val"><a href="${info.mapUrl}" target="_blank">${info.hotel}</a></span></div>`
         if (info.checkoutMins) {
           if (info.wakeupMins) {
             const wt = subMins(nextETDraw, info.wakeupMins)
@@ -556,6 +560,9 @@ function showDetail(task) {
         } else {
           lb += `<div class="layover-row"><span class="lbl">Check-out</span><span class="val" style="color:#8e8e93">待補</span></div>`
         }
+      } else {
+        lb += `<div class="layover-row"><span class="lbl">起床</span><span class="val">--</span></div>`
+        lb += `<div class="layover-row"><span class="lbl">Check-out</span><span class="val">--</span></div>`
       }
       lb += `</div>`
       html += lb
