@@ -466,14 +466,8 @@ function showDetail(task) {
 
   let html = `<div class="task-date">${dateLabel}</div><div class="task-route">${taskRoute(task)}</div>${tzNote}`
 
-  // 過濾完全空白的非首腿（只有 date/id 沒有任何有用資料）
-  const displayLegs = task.legs.filter((leg, idx) =>
-    idx === 0 || leg.from || leg.to ||
-    leg.departure_scheduled || leg.departure ||
-    leg.arrival_scheduled   || leg.arrival   || leg.reporting
-  )
   const segments = []
-  displayLegs.forEach(leg => {
+  task.legs.forEach(leg => {
     if (leg.reporting || segments.length === 0) segments.push({ legs: [] })
     segments[segments.length - 1].legs.push(leg)
   })
@@ -518,8 +512,8 @@ function showDetail(task) {
       html += `<div class="leg-block">
         <div class="leg-title">${legLabel}CI ${padFN(leg.flight_number)}${routePart}</div>`
       if (rep.t) html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${D(repDate)}${fmtT(rep)}</span></div>`
-      if (depS.t || depA.t) html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
-      if (arrS.t || arrA.t) html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
       if (ftMinS || ftMinA) html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${ftLabel}</span></div>`
 
       if (leg === lastLeg && segFdpMin) {
