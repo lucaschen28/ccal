@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCal 班表</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f2f2f7; color: #1c1c1e; }
+
+    /* 電腦上預設：模擬手機寬度置中 */
+    @media (min-width: 600px) {
+      body:not(.desktop-mode) #app {
+        max-width: 390px;
+        margin: 0 auto;
+        box-shadow: 0 0 40px rgba(0,0,0,0.12);
+        min-height: 100vh;
+        background: #f2f2f7;
+      }
+    }
+    /* 電腦寬版 */
+    @media (min-width: 600px) {
+      body.desktop-mode .day-cell { min-height: 90px; }
+      body.desktop-mode .event-pill { font-size: 11px; height: 20px; line-height: 20px; }
+      body.desktop-mode .day-num { font-size: 15px; width: 24px; height: 24px; }
+      body.desktop-mode header, body.desktop-mode .weekday-row { max-width: none; }
+    }
+    /* 切換按鈕：手機隱藏，電腦才顯示 */
+    .view-toggle-btn { display: none; }
+    @media (min-width: 600px) {
+      .view-toggle-btn { display: block; font-size: 16px; cursor: pointer; padding: 4px 8px; background: none; border: none; color: #8e8e93; }
+    }
+
+    header { background:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
+    .nav-btn { background:none; border:none; font-size:22px; cursor:pointer; padding:4px 12px; color:#007aff; }
+    .month-label { font-size:17px; font-weight:600; }
+    .refresh-btn { background:none; border:none; font-size:16px; cursor:pointer; padding:4px 8px; color:#8e8e93; }
+
+    .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); background:#fff; border-bottom:1px solid #e5e5ea; }
+    .weekday-row div { text-align:center; padding:5px 0; font-size:11px; color:#8e8e93; font-weight:500; }
+    .weekday-row div:first-child { color:#ff3b30; }
+    .weekday-row div:last-child { color:#007aff; }
+
+    .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:#e5e5ea; }
+
+    .day-cell { background:#fff; min-height:72px; padding:4px 0; overflow:visible; position:relative; }
+    .day-num-wrap { padding:0 4px; margin-bottom:3px; }
+    .day-num { font-size:14px; font-weight:500; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
+    .day-cell.other-month .day-num { color:#c7c7cc; }
+    .day-cell.today .day-num { background:#007aff; color:#fff !important; border-radius:50%; }
+    .col-sun .day-num { color:#ff3b30; }
+    .col-sat .day-num { color:#007aff; }
+
+    /* Pills */
+    .event-pill { font-size:10px; border-radius:4px; padding:0 5px; margin:1px 4px; height:18px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+    .event-pill.flight { background:#007aff; color:#fff; }
+    .event-pill.flight.past { background:#a8d4ff; color:#4a80c4; }
+    .event-pill.rdo { background:#fff3cd; color:#856404; }
+    .event-pill.al  { background:#d4f5e0; color:#1a7a42; }
+    .event-pill.xl  { background:#fde8d8; color:#8b3a00; }
+    .event-pill.cm  { background:#ede8fc; color:#5c35c9; }
+
+    /* Multi-day bar */
+    .event-pill.bar-start { border-radius:4px 0 0 4px; margin-right:-1px; }
+    .event-pill.bar-mid   { border-radius:0; margin-left:-1px; margin-right:-1px; }
+    .event-pill.bar-end   { border-radius:0 4px 4px 0; margin-left:-1px; }
+
+    /* Modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:100; align-items:flex-end; }
+    .modal-overlay.active { display:flex; }
+    .modal { background:#fff; border-radius:14px 14px 0 0; padding:10px 16px 24px; width:100%; max-height:55vh; overflow-y:auto; }
+    .modal-handle { width:32px; height:4px; background:#e5e5ea; border-radius:2px; margin:0 auto 10px; }
+
+    .task-date { font-size:11px; color:#8e8e93; margin-bottom:2px; }
+    .task-route { font-size:15px; font-weight:700; margin-bottom:10px; }
+
+    .leg-block { background:#f9f9f9; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
+    .leg-title { font-size:12px; font-weight:600; color:#007aff; margin-bottom:4px; }
+    .leg-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; }
+    .leg-row .lbl { font-size:11px; color:#8e8e93; min-width:36px; }
+    .leg-row .val { font-size:13px; font-weight:600; }
+    .leg-row.fdp-row { border-top:1px solid #ebebeb; margin-top:4px; padding-top:6px; }
+    .leg-row.fdp-row .lbl { color:#1c1c1e; font-weight:700; font-size:12px; }
+    .leg-row.fdp-row .val { font-weight:700; }
+    .actual { color:#34c759; }
+    .tz-note { font-size:10px; color:#ff9500; text-align:center; background:#fff8ee; border-radius:4px; padding:4px 8px; margin-bottom:10px; }
+    .day-shift { color:#ff9500; font-size:8px; vertical-align:super; }
+    .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
+    .layover-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:2px 0; }
+    .layover-row .lbl { color:#8e8e93; }
+    .layover-row .val { font-weight:600; }
+    .layover-row.warn .val { color:#ff3b30; }
+    .afterduty-block { background:#f9f9f9; border-radius:8px; padding:8px 10px; margin-top:4px; }
+    .afterduty-row { display:flex; justify-content:space-between; font-size:12px; padding:2px 0; }
+    .afterduty-row .lbl { color:#8e8e93; }
+    .afterduty-row .val { font-weight:600; }
+    .layover-block a { color:#007aff; text-decoration:none; }
+    .dt { font-size:10px; color:#8e8e93; margin-right:2px; font-weight:400; }
+
+    /* Swap form */
+    .swap-type-row { display:flex; background:#f2f2f7; border-radius:10px; padding:2px; margin-bottom:14px; }
+    .swap-type-btn { flex:1; border:none; background:none; border-radius:8px; padding:8px 0; font-size:14px; font-weight:600; color:#8e8e93; cursor:pointer; }
+    .swap-type-btn.active { background:#fff; color:#1c1c1e; box-shadow:0 1px 4px rgba(0,0,0,0.12); }
+    .swap-flight-info { font-size:13px; color:#8e8e93; margin-bottom:12px; }
+    .comm-label { font-size:12px; color:#8e8e93; margin-bottom:6px; }
+    .comm-grid { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+    .comm-btn { border:1.5px solid #e5e5ea; background:#fff; border-radius:8px; padding:7px 10px; font-size:13px; font-weight:600; color:#1c1c1e; cursor:pointer; min-width:52px; text-align:center; }
+    .comm-btn.active { border-color:#007aff; background:#e8f0fe; color:#007aff; }
+    .swap-note-input { width:100%; border:1px solid #e5e5ea; border-radius:8px; padding:8px 10px; font-size:14px; background:#f9f9f9; margin-bottom:14px; outline:none; font-family:inherit; }
+    .swap-note-input:focus { border-color:#007aff; background:#fff; }
+    .swap-post-btn { width:100%; background:#007aff; color:#fff; border:none; border-radius:12px; padding:14px; font-size:16px; font-weight:700; cursor:pointer; }
+    .swap-post-btn:disabled { background:#a8d4ff; cursor:not-allowed; }
+    .open-swap-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#007aff; cursor:pointer; margin-top:12px; }
+
+    /* Settings */
+    .settings-btn { font-size:18px; cursor:pointer; padding:4px 8px; background:none; border:none; color:#8e8e93; }
+    .sf-group { display:flex; flex-direction:column; gap:4px; }
+    .sf-label { font-size:12px; color:#8e8e93; }
+    .sf-input { width:100%; border:1px solid #e5e5ea; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; font-family:inherit; background:#fff; }
+    .sf-input:focus { border-color:#007aff; }
+    .sf-save-btn { width:100%; background:#34c759; color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; margin-top:4px; }
+  </style>
+</head>
+<body>
+<div id="app">
+<header>
+  <button class="nav-btn" id="prev">‹</button>
+  <span class="month-label" id="month-label"></span>
+  <div style="display:flex;align-items:center;gap:4px">
+    <button class="view-toggle-btn" id="view-toggle-btn" title="切換手機/電腦版">📱</button>
+    <button class="settings-btn" id="settings-btn" title="換班板設定">⚙</button>
+    <button class="refresh-btn" id="refresh-btn" title="從行事曆更新資料">↻</button>
+    <button class="nav-btn" id="next">›</button>
+  </div>
+</header>
+<div class="weekday-row">
+  <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+</div>
+<div class="calendar-grid" id="calendar"></div>
+</div><!-- #app -->
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+let scheduleData = []
+let tasks = []
+let currentYear = new Date().getFullYear()
+let currentMonth = new Date().getMonth()
+
+function hhmm(s) { return s && s.length >= 4 ? s.slice(0,2)+':'+s.slice(2,4) : '--' }
+function padFN(n) { return String(n).padStart(3, '0') }
+
+function minDiff(a, b) {
+  if (!a || !b || a.length < 4 || b.length < 4) return 0
+  let am = +a.slice(0,2)*60 + +a.slice(2,4)
+  let bm = +b.slice(0,2)*60 + +b.slice(2,4)
+  if (bm <= am) bm += 1440
+  return bm - am
+}
+
+function getMRT(fdpMin) {
+  if (fdpMin <= 480) return 540   // 法規 MRT 9h（飛航任務前須休 10h，由 AOR 另定）
+  if (fdpMin <= 720) return 720
+  if (fdpMin <= 960) return 1200
+  return 1440
+}
+
+function getMRTLabel(fdpMin) {
+  if (!fdpMin) return '--'
+  if (fdpMin <= 480) return '9h（飛航任務前須休 10h）'
+  if (fdpMin <= 720) return '12h'
+  if (fdpMin <= 960) return '20h'
+  return '24h'
+}
+
+function crossDayMinDiff(dateA, timeA, dateB, timeB) {
+  if (!timeA || !timeB) return 0
+  const dayDiff = (new Date(dateB) - new Date(dateA)) / 86400000
+  const minA = +timeA.slice(0,2)*60 + +timeA.slice(2,4)
+  const minB = +timeB.slice(0,2)*60 + +timeB.slice(2,4)
+  return Math.round(dayDiff * 1440 + (minB - minA))
+}
+
+const HOME_BASES = ['TPE', 'TSA', 'KHH']
+
+function addMins(hhmm4, mins) {
+  let m = (+hhmm4.slice(0,2)*60 + +hhmm4.slice(2,4) + mins) % 1440
+  return String(Math.floor(m/60)).padStart(2,'0') + String(m%60).padStart(2,'0')
+}
+
+function subMins(hhmm4, mins) {
+  let m = ((+hhmm4.slice(0,2)*60 + +hhmm4.slice(2,4) - mins) % 1440 + 1440) % 1440
+  return String(Math.floor(m/60)).padStart(2,'0') + String(m%60).padStart(2,'0')
+}
+
+function fmtMin(m) { return m > 0 ? Math.floor(m/60)+'h'+(m%60?m%60+'m':'') : null }
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + n)
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
+}
+function md(dateStr) {
+  const p = dateStr.split('-')
+  return `${+p[1]}/${+p[2]}`
+}
+
+function groupTasks(flights) {
+  const HOME = 'TPE'
+  const sorted = [...flights].sort((a,b) => new Date(a.start)-new Date(b.start))
+  const tasks = []
+  for (const f of sorted) {
+    const last = tasks[tasks.length-1]
+    const lastLeg = last ? last.legs[last.legs.length-1] : null
+    // 從 HOME 出發 = 永遠開新任務；從外站出發且上一腿在同地點 = 接續
+    if (f.from !== HOME && lastLeg && lastLeg.to === f.from) {
+      last.legs.push(f)
+      last.endDate = f.date
+    } else {
+      tasks.push({ legs:[f], startDate:f.date, endDate:f.date })
+    }
+  }
+  return tasks
+}
+
+function taskRoute(t) {
+  return [t.legs[0].from, ...t.legs.map(l=>l.to)].join('→')
+}
+
+function tasksOnDate(dateStr) {
+  return tasks.filter(t => dateStr >= t.startDate && dateStr <= t.endDate)
+}
+
+async function loadSchedule() {
+  const res = await fetch('/api/schedule')
+  scheduleData = await res.json()
+  tasks = groupTasks(scheduleData.filter(e => e.type === 'flight'))
+  renderCalendar()
+}
+
+function renderCalendar() {
+  document.getElementById('month-label').textContent = `${currentYear} 年 ${currentMonth+1} 月`
+  const cal = document.getElementById('calendar')
+  cal.innerHTML = ''
+
+  const first = new Date(currentYear, currentMonth, 1)
+  const offset = first.getDay()
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate()
+  const t = new Date()
+  const todayStr = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`
+  const total = Math.ceil((offset+daysInMonth)/7)*7
+  const cols = ['col-sun','','','','','','col-sat']
+
+  for (let i = 0; i < total; i++) {
+    const cellDate = new Date(currentYear, currentMonth, 1+i-offset)
+    const isCur = cellDate.getMonth() === currentMonth
+    const col = i % 7
+    const ds = `${cellDate.getFullYear()}-${String(cellDate.getMonth()+1).padStart(2,'0')}-${String(cellDate.getDate()).padStart(2,'0')}`
+    const isToday = ds === todayStr
+
+    const cell = document.createElement('div')
+    cell.className = ['day-cell', cols[col], isCur?'':'other-month', isToday?'today':''].filter(Boolean).join(' ')
+
+    const wrap = document.createElement('div')
+    wrap.className = 'day-num-wrap'
+    const dn = document.createElement('div')
+    dn.className = 'day-num'
+    dn.textContent = cellDate.getDate()
+    wrap.appendChild(dn)
+    cell.appendChild(wrap)
+
+    // Task bars
+    tasksOnDate(ds).forEach(task => {
+      const isStart = ds === task.startDate
+      const isEnd   = ds === task.endDate
+      const sameDay = task.startDate === task.endDate
+      const weekStart = col === 0
+      const weekEnd   = col === 6
+
+      const vStart = isStart || weekStart
+      const vEnd   = isEnd   || weekEnd
+
+      const pill = document.createElement('div')
+      let cls = 'event-pill flight' + (task.endDate < todayStr ? ' past' : '')
+      if (!sameDay) {
+        if (vStart && !vEnd)       cls += ' bar-start'
+        else if (!vStart && vEnd)  cls += ' bar-end'
+        else if (!vStart && !vEnd) cls += ' bar-mid'
+      }
+      pill.className = cls
+
+      if (isStart || weekStart) {
+        pill.textContent = padFN(task.legs[0].flight_number)
+      } else {
+        pill.textContent = ' '
+      }
+
+      pill.addEventListener('click', e => { e.stopPropagation(); showDetail(task) })
+      cell.appendChild(pill)
+    })
+
+    // RDO / AL / XL / CM
+    scheduleData.filter(e => e.date === ds && ['RDO','AL','XL','CM'].includes(e.code)).forEach(ev => {
+      const pill = document.createElement('div')
+      pill.className = 'event-pill ' + ev.code.toLowerCase()
+      pill.textContent = ev.code
+      if (ev.type === 'training') pill.addEventListener('click', e => { e.stopPropagation(); showTrainingDetail(ev) })
+      cell.appendChild(pill)
+    })
+
+    cal.appendChild(cell)
+  }
+}
+
+function showDetail(task) {
+  const OUTSTATION_INFO = {
+    // ── Checkout 時間已知 ───────────────────────────────────
+    'NGO': { hotel: 'Comfort Hotel Central International Airport', mapUrl: 'https://maps.google.com/?q=Comfort+Hotel+Central+International+Airport+Nagoya', checkoutMins: 70,  wakeupMins: null },
+    'SIN': { hotel: 'Crowne Plaza Changi Airport',                  mapUrl: 'https://maps.google.com/?q=Crowne+Plaza+Changi+Airport+Singapore',              checkoutMins: 90,  wakeupMins: 150 },
+    'CTS': { hotel: 'Queens Hotel Chitose',                         mapUrl: 'https://maps.google.com/?q=Queens+Hotel+Chitose+Hokkaido',                       checkoutMins: 110, wakeupMins: 170 },
+    'HND': { hotel: 'Shinagawa Prince Hotel',                       mapUrl: 'https://maps.google.com/?q=Shinagawa+Prince+Hotel+Tokyo',                        checkoutMins: 120, wakeupMins: 180 },
+    'HIJ': { hotel: 'Hiroshima Airport Hotel',                      mapUrl: 'https://maps.google.com/?q=Hiroshima+Airport+Hotel',                             checkoutMins: 80,  wakeupMins: 140 },
+    'KIX': { hotel: 'Hotel Nikko Kansai Airport',                   mapUrl: 'https://maps.google.com/?q=Hotel+Nikko+Kansai+Airport+Osaka',                    checkoutMins: 80,  wakeupMins: null },
+    'NRT': { hotel: 'International Garden Hotel Narita',            mapUrl: 'https://maps.google.com/?q=International+Garden+Hotel+Narita',                   checkoutMins: 100, wakeupMins: 160 },
+    // ── Checkout 時間待補 ───────────────────────────────────
+    'AMS': { hotel: 'Novotel Amsterdam City',                       mapUrl: 'https://maps.google.com/?q=Novotel+Amsterdam+City',                              checkoutMins: null, wakeupMins: null },
+    'BKK': { hotel: 'Avani Sukhumvit Bangkok Hotel',                mapUrl: 'https://maps.google.com/?q=Avani+Sukhumvit+Bangkok+Hotel',                       checkoutMins: null, wakeupMins: null },
+    'BNE': { hotel: 'Stamford Plaza Brisbane',                      mapUrl: 'https://maps.google.com/?q=Stamford+Plaza+Brisbane',                             checkoutMins: null, wakeupMins: null },
+    'CGK': { hotel: 'Novotel Tangerang',                            mapUrl: 'https://maps.google.com/?q=Novotel+Tangerang+Indonesia',                         checkoutMins: null, wakeupMins: null },
+    'DPS': { hotel: 'Aston Kuta Hotel & Residence',                 mapUrl: 'https://maps.google.com/?q=Aston+Kuta+Hotel+Residence+Bali',                     checkoutMins: null, wakeupMins: null },
+    'FRA': { hotel: 'Sheraton Frankfurt Airport Hotel',             mapUrl: 'https://maps.google.com/?q=Sheraton+Frankfurt+Airport+Hotel',                    checkoutMins: null, wakeupMins: null },
+    'HKG': { hotel: 'Regal Airport Hotel',                          mapUrl: 'https://maps.google.com/?q=Regal+Airport+Hotel+Hong+Kong',                       checkoutMins: null, wakeupMins: null },
+    'HNL': { hotel: 'Ramada Plaza Waikiki',                         mapUrl: 'https://maps.google.com/?q=Ramada+Plaza+Waikiki+Honolulu',                       checkoutMins: null, wakeupMins: null },
+    'JFK': { hotel: 'Sheraton La Guardia East Hotel',               mapUrl: 'https://maps.google.com/?q=Sheraton+La+Guardia+East+Hotel+New+York',             checkoutMins: null, wakeupMins: null },
+    'KHH': { hotel: 'Grand HI-LAI Hotel 漢來大飯店',               mapUrl: 'https://maps.google.com/?q=Grand+HI-LAI+Hotel+Kaohsiung',                        checkoutMins: null, wakeupMins: null },
+    'KUL': { hotel: 'Marriott Putrajaya Hotel',                     mapUrl: 'https://maps.google.com/?q=Marriott+Putrajaya+Hotel+Malaysia',                   checkoutMins: null, wakeupMins: null },
+    'LAX': { hotel: 'Hilton Los Angeles Airport',                   mapUrl: 'https://maps.google.com/?q=Hilton+Los+Angeles+Airport',                          checkoutMins: null, wakeupMins: null },
+    'LHR': { hotel: 'Hilton Garden Inn Hounslow',                   mapUrl: 'https://maps.google.com/?q=Hilton+Garden+Inn+Hounslow+London',                   checkoutMins: null, wakeupMins: null },
+    'MEL': { hotel: 'IBIS Melbourne',                               mapUrl: 'https://maps.google.com/?q=IBIS+Melbourne+Australia',                            checkoutMins: null, wakeupMins: null },
+    'ONT': { hotel: 'DoubleTree by Hilton Ontario Airport',         mapUrl: 'https://maps.google.com/?q=DoubleTree+Hilton+Ontario+Airport+California',        checkoutMins: null, wakeupMins: null },
+    'PEN': { hotel: 'Hotel Jen Penang',                             mapUrl: 'https://maps.google.com/?q=Hotel+Jen+Penang+Malaysia',                           checkoutMins: null, wakeupMins: null },
+    'PHX': { hotel: 'Hyatt Place Phoenix Airport',                  mapUrl: 'https://maps.google.com/?q=Hyatt+Place+Phoenix+Airport',                         checkoutMins: null, wakeupMins: null },
+    'PRG': { hotel: 'NH Prague City',                               mapUrl: 'https://maps.google.com/?q=NH+Prague+City+Hotel',                                checkoutMins: null, wakeupMins: null },
+    'ROM': { hotel: 'Hilton Rome Airport',                          mapUrl: 'https://maps.google.com/?q=Hilton+Rome+Airport+Hotel+Fiumicino',                 checkoutMins: null, wakeupMins: null },
+    'ROR': { hotel: 'Island Paradise Resort Club Hotel Palau',      mapUrl: 'https://maps.google.com/?q=Island+Paradise+Resort+Club+Hotel+Palau',             checkoutMins: null, wakeupMins: null },
+    'SEA': { hotel: 'Doubletree by Hilton Seattle APT',             mapUrl: 'https://maps.google.com/?q=Doubletree+Hilton+Seattle+Airport',                   checkoutMins: null, wakeupMins: null },
+    'SFO': { hotel: 'Crowne Plaza Foster City',                     mapUrl: 'https://maps.google.com/?q=Crowne+Plaza+Foster+City+San+Francisco',              checkoutMins: null, wakeupMins: null },
+    'SYD': { hotel: 'Novotel Sydney International Airport',         mapUrl: 'https://maps.google.com/?q=Novotel+Sydney+International+Airport',                checkoutMins: null, wakeupMins: null },
+    'VIE': { hotel: 'NH Danube City Vienna',                        mapUrl: 'https://maps.google.com/?q=NH+Danube+City+Vienna+Austria',                       checkoutMins: null, wakeupMins: null },
+    'YVR': { hotel: 'Executive Hotel Vancouver Airport',            mapUrl: 'https://maps.google.com/?q=Executive+Hotel+Vancouver+Airport',                   checkoutMins: null, wakeupMins: null },
+  }
+
+  const INTERNAL_REST = {
+    '02':48, '032':48, '063':48, '069':48, '073':48, '075':48,
+    '012':72,
+    '04':'2曆日', '06':'2曆日', '08':'2曆日', '016':'2曆日', '061':'2曆日',
+    '028':24, '051':24, '053':24, '055':24, '057':24,
+    '100':24, '104':24, '108':24, '110':24,
+    '269':24, '278':24, '539':24, '551':24, '561':24, '601':24,
+    '757':24, '781':24, '783':24, '831':24, '833':24, '835':24
+  }
+  const taskFlightNum = task.legs[0].flight_number
+  const internalRest = INTERNAL_REST[taskFlightNum] !== undefined ? INTERNAL_REST[taskFlightNum] : 14
+  const internalRestLabel = typeof internalRest === 'string' ? internalRest : `${internalRest}h`
+
+  const tzDiff = -480 - new Date().getTimezoneOffset()
+
+  function cvt(hhmm4) {
+    if (!hhmm4 || hhmm4.length < 4) return { t: null, shift: 0 }
+    let m = +hhmm4.slice(0,2)*60 + +hhmm4.slice(2,4) + tzDiff
+    let shift = 0
+    if (m < 0) { m += 1440; shift = -1 }
+    else if (m >= 1440) { m -= 1440; shift = 1 }
+    return { t: String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'), shift }
+  }
+
+  function sd(shift) {
+    return shift === 1 ? '<span class="day-shift">+1</span>' : shift === -1 ? '<span class="day-shift">-1</span>' : ''
+  }
+
+  function fmtT(c) {
+    return c && c.t ? `${c.t}L${sd(c.shift)}` : '--'
+  }
+
+  function fmtInline(sched, actual) {
+    const s = sched && sched.t ? `${sched.t}L${sd(sched.shift)}` : ''
+    const a = actual && actual.t ? ` <span class="actual">(A${actual.t}L${sd(actual.shift)})</span>` : ''
+    return (s || a) ? `${s}${a}` : '--'
+  }
+
+  const wd = ['日','一','二','三','四','五','六']
+  const s = task.startDate.split('-'), e = task.endDate.split('-')
+  const sameDay = task.startDate === task.endDate
+  const dateLabel = sameDay
+    ? `${+s[1]} 月 ${+s[2]} 日（${wd[new Date(task.startDate).getDay()]}）`
+    : `${+s[1]}/${+s[2]}（${wd[new Date(task.startDate).getDay()]}）～ ${+e[1]}/${+e[2]}（${wd[new Date(task.endDate).getDay()]}）`
+
+  const tzHours = tzDiff / 60
+  const tzNote = tzDiff !== 0
+    ? `<div class="tz-note">顯示當地時間（台灣${tzHours > 0 ? '+' : ''}${tzHours}h）</div>`
+    : ''
+
+  let html = `<div class="task-date">${dateLabel}</div><div class="task-route">${taskRoute(task)}</div>${tzNote}`
+
+  const segments = []
+  task.legs.forEach(leg => {
+    if (leg.reporting || segments.length === 0) segments.push({ legs: [] })
+    segments[segments.length - 1].legs.push(leg)
+  })
+
+  segments.forEach((seg, si) => {
+    const firstLeg = seg.legs[0]
+    const lastLeg  = seg.legs[seg.legs.length - 1]
+
+    const fdpEndS = lastLeg.arrival_scheduled || lastLeg.arrival
+    const fdpEndA = lastLeg.arrival_actual
+    const segFdpMinS = (firstLeg.reporting && fdpEndS) ? minDiff(firstLeg.reporting, fdpEndS) : 0
+    const segFdpMinA = (firstLeg.reporting && fdpEndA) ? minDiff(firstLeg.reporting, fdpEndA) : 0
+    const segFdpMin  = segFdpMinA || segFdpMinS
+
+    seg.legs.forEach(leg => {
+      const legD = leg.date.split('-')
+      const legLabel = !sameDay ? `${+legD[1]}/${+legD[2]}（${wd[new Date(leg.date).getDay()]}）　` : ''
+
+      const rep  = cvt(leg.reporting)
+      const depS = cvt(leg.departure_scheduled || leg.departure)
+      const depA = cvt(leg.departure_actual)
+      const arrS = cvt(leg.arrival_scheduled   || leg.arrival)
+      const arrA = cvt(leg.arrival_actual)
+
+      const ftDepS = leg.departure_scheduled || leg.departure
+      const ftArrS = leg.arrival_scheduled   || leg.arrival
+      const ftMinS = (ftDepS && ftArrS) ? minDiff(ftDepS, ftArrS) : 0
+      const ftMinA = (leg.departure_actual && leg.arrival_actual) ? minDiff(leg.departure_actual, leg.arrival_actual) : 0
+      const ftLabel = ftMinS && ftMinA && ftMinS !== ftMinA
+        ? `${fmtMin(ftMinS)} <span class="actual">(A${fmtMin(ftMinA)})</span>`
+        : (fmtMin(ftMinS || ftMinA) || '--')
+
+      const repDate = leg.date
+      const depDate = leg.date
+      const depRaw = ftDepS
+      const arrRaw = ftArrS || leg.arrival_actual
+      const arrDate = (depRaw && arrRaw && arrRaw < depRaw) ? addDays(leg.date, 1) : leg.date
+
+      const D = s => `<span class="dt">${md(s)}</span> `
+
+      html += `<div class="leg-block">
+        <div class="leg-title">${legLabel}CI ${padFN(leg.flight_number)}　${leg.from} → ${leg.to}</div>`
+      if (rep.t) html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${D(repDate)}${fmtT(rep)}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
+      if (ftMinS || ftMinA) html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${ftLabel}</span></div>`
+
+      if (leg === lastLeg && segFdpMin) {
+        const fdpLabel = segFdpMinS && segFdpMinA && segFdpMinS !== segFdpMinA
+          ? `${fmtMin(segFdpMinS)} <span class="actual">(A${fmtMin(segFdpMinA)})</span>`
+          : fmtMin(segFdpMin)
+        html += `<div class="leg-row fdp-row"><span class="lbl">FDP</span><span class="val">${fdpLabel}</span></div>`
+      }
+      html += `</div>`
+    })
+
+    if (si < segments.length - 1) {
+      const station = lastLeg.to
+      const info = OUTSTATION_INFO[station]
+      const nextSeg = segments[si + 1]
+      const nextETDraw = nextSeg.legs[0].departure_scheduled || nextSeg.legs[0].departure || nextSeg.legs[0].departure_actual
+      let lb = `<div class="layover-block">
+        <div class="layover-row"><span class="lbl">Layover ${station}</span><span class="val">MRT ${getMRTLabel(segFdpMin)}</span></div>`
+      if (info && nextETDraw) {
+        const nextDate = nextSeg.legs[0].date
+        const LD = (t) => {
+          const d = t > nextETDraw ? addDays(nextDate, -1) : nextDate
+          return `<span class="dt">${md(d)}</span> `
+        }
+        lb += `<div class="layover-row"><span class="lbl">飯店</span><span class="val"><a href="${info.mapUrl}" target="_blank">${info.hotel}</a></span></div>`
+        if (info.checkoutMins) {
+          if (info.wakeupMins) {
+            const wt = subMins(nextETDraw, info.wakeupMins)
+            lb += `<div class="layover-row"><span class="lbl">起床</span><span class="val">${LD(wt)}${hhmm(wt)}L</span></div>`
+          } else {
+            lb += `<div class="layover-row"><span class="lbl">起床</span><span class="val">依 CKIN 組員</span></div>`
+          }
+          const ct = subMins(nextETDraw, info.checkoutMins)
+          lb += `<div class="layover-row"><span class="lbl">Check-out</span><span class="val">${LD(ct)}${hhmm(ct)}L</span></div>`
+        } else {
+          lb += `<div class="layover-row"><span class="lbl">Check-out</span><span class="val" style="color:#8e8e93">待補</span></div>`
+        }
+      }
+      lb += `</div>`
+      html += lb
+    } else {
+      if (HOME_BASES.includes(lastLeg.to)) {
+        html += `<div class="afterduty-block">
+          <div class="afterduty-row"><span class="lbl">MRT</span><span class="val">${getMRTLabel(segFdpMin)}</span></div>
+          <div class="afterduty-row"><span class="lbl">內規</span><span class="val">${internalRestLabel}（CI${taskFlightNum}）</span></div>
+        </div>`
+
+      } else {
+        html += `<div class="layover-block">
+          <div class="layover-row"><span class="lbl">外站 ${lastLeg.to}</span><span class="val">MRT ${getMRTLabel(segFdpMin)}</span></div>
+        </div>`
+      }
+    }
+  })
+
+  html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板</button>`
+  window._swapTask = task
+  document.getElementById('modal-content').innerHTML = html
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function showTrainingDetail(ev) {
+  const d = new Date(ev.date + 'T12:00:00')
+  const wd = ['日','一','二','三','四','五','六']
+  const dateLabel = `${d.getMonth()+1} 月 ${d.getDate()} 日（${wd[d.getDay()]}）`
+  let html = `<div class="task-date">${dateLabel}</div>`
+  html += `<div class="task-route">座艙長培訓</div>`
+  html += `<div class="leg-block">`
+  if (ev.course) html += `<div class="leg-row"><span class="lbl">課程</span><span class="val">${ev.course}</span></div>`
+  if (ev.location) html += `<div class="leg-row"><span class="lbl">地點</span><span class="val">${ev.location}</span></div>`
+  html += `</div>`
+  if (ev.sessions && ev.sessions.length) {
+    html += `<div class="leg-block">`
+    ev.sessions.forEach(s => {
+      html += `<div class="leg-row"><span class="lbl">${s.time}</span><span class="val">${s.name}</span></div>`
+    })
+    html += `</div>`
+  }
+  document.getElementById('modal-content').innerHTML = html
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('active')
+})
+
+document.getElementById('refresh-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('refresh-btn')
+  btn.textContent = '⏳'
+  btn.disabled = true
+  try {
+    const res = await fetch('/api/refresh', { method: 'POST' })
+    if (res.ok) {
+      await loadSchedule()
+      btn.textContent = '✓'
+      setTimeout(() => { btn.textContent = '↻'; btn.disabled = false }, 1500)
+    } else {
+      btn.textContent = '✗'
+      setTimeout(() => { btn.textContent = '↻'; btn.disabled = false }, 2000)
+    }
+  } catch {
+    btn.textContent = '✗'
+    setTimeout(() => { btn.textContent = '↻'; btn.disabled = false }, 2000)
+  }
+})
+// ── Settings ────────────────────────────────────────────────
+function getSettings() {
+  try { return JSON.parse(localStorage.getItem('cCalSettings') || '{}') } catch { return {} }
+}
+function saveSettings(s) { localStorage.setItem('cCalSettings', JSON.stringify(s)) }
+
+function showSettingsModal(fromSwap) {
+  window._settingsFromSwap = fromSwap || false
+  const s = getSettings()
+  const backLink = fromSwap && window._swapTask
+    ? `← <span style="color:#007aff;cursor:pointer;" onclick="showSwapForm()">返回</span>`
+    : ''
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-date" style="margin-bottom:6px;">${backLink}</div>
+    <div class="task-route" style="margin-bottom:14px;">換班板設定</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="sf-group">
+        <div class="sf-label">LINE User ID（在換班 Bot 傳「我的ID」取得）</div>
+        <input class="sf-input" id="sf-userid" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="${s.lineUserId||''}" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="sf-group">
+        <div class="sf-label">顯示名稱（換班板上的署名）</div>
+        <input class="sf-input" id="sf-name" placeholder="例：Lucas" value="${s.displayName||''}">
+      </div>
+      <div class="sf-group">
+        <div class="sf-label">換班 Bot URL（Railway 網址）</div>
+        <input class="sf-input" id="sf-boturl" placeholder="https://xxx.railway.app" value="${s.botUrl||''}" autocomplete="off" inputmode="url" spellcheck="false">
+      </div>
+      <div class="sf-group">
+        <div class="sf-label">API Secret（CCAL_API_SECRET 環境變數）</div>
+        <input class="sf-input" id="sf-secret" type="password" placeholder="在 Railway 設定的密碼" value="${s.apiSecret||''}" autocomplete="new-password">
+      </div>
+      <button class="sf-save-btn" onclick="saveSettingsForm()">儲存</button>
+    </div>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function saveSettingsForm() {
+  saveSettings({
+    lineUserId:  document.getElementById('sf-userid').value.trim(),
+    displayName: document.getElementById('sf-name').value.trim(),
+    botUrl:      document.getElementById('sf-boturl').value.trim().replace(/\/$/, ''),
+    apiSecret:   document.getElementById('sf-secret').value.trim()
+  })
+  if (window._settingsFromSwap && window._swapTask) showSwapForm()
+  else document.getElementById('modal-overlay').classList.remove('active')
+}
+
+// ── Swap form ────────────────────────────────────────────────
+function showSwapForm() {
+  const task = window._swapTask
+  if (!task) return
+  const s = getSettings()
+  if (!s.lineUserId || !s.botUrl || !s.apiSecret) {
+    showSettingsModal(true)
+    return
+  }
+  const sp = task.startDate.split('-')
+  const dayNum = parseInt(sp[2])
+  const d = new Date(task.startDate + 'T12:00:00')
+  const wd = ['日','一','二','三','四','五','六']
+  const dateLabel = `${+sp[1]} 月 ${dayNum} 日（${wd[d.getDay()]}）`
+  const commOptions = [
+    { label:'可議', val:0 }, { label:'無料', val:-1 }
+  ]
+  // 只取第一腿代表整個任務（換班都是整任務換，看板只顯示出程班號）
+  const firstLeg = task.legs[0]
+  const firstLegDay = String(parseInt(firstLeg.date.split('-')[2]))
+  window._swapType = 'throw'
+  window._swapComm = 0
+  window._swapDate = dayNum
+  window._swapFlights = [{ date: firstLegDay, flight: String(firstLeg.flight_number) }]
+
+  let commBtns = commOptions.map((o, i) =>
+    `<button class="comm-btn${i===0?' active':''}" onclick="setComm(${o.val},this)">${o.label}</button>`
+  ).join('')
+
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-date" style="margin-bottom:6px;">
+      ← <span style="color:#007aff;cursor:pointer;" onclick="showDetail(window._swapTask)">返回</span>
+    </div>
+    <div class="task-route" style="margin-bottom:4px;">發布到換班板</div>
+    <div class="swap-flight-info">${dateLabel}　${taskRoute(task)}</div>
+    <div class="swap-type-row">
+      <button class="swap-type-btn active" id="btn-throw" onclick="setSwapType('throw')">✈️ 丟班</button>
+      <button class="swap-type-btn" id="btn-accept" onclick="setSwapType('accept')">🙋 接班</button>
+    </div>
+    <div class="comm-label">出價</div>
+    <div class="comm-grid" id="comm-grid">
+      ${commBtns}
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" id="comm-custom" min="0.5" max="10" step="0.5"
+          placeholder="　" style="width:56px;border:1.5px solid #e5e5ea;border-radius:8px;padding:7px 6px;font-size:13px;font-weight:600;text-align:center;outline:none;"
+          oninput="setCommCustom(this)">
+        <span style="font-size:13px;font-weight:600;">圈</span>
+      </div>
+    </div>
+    <input class="swap-note-input" id="swap-note" placeholder="備注（選填，如：換321的班）" maxlength="50">
+    <button class="swap-post-btn" id="swap-post-btn" onclick="submitSwap()">送出</button>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function setSwapType(type) {
+  window._swapType = type
+  document.getElementById('btn-throw').classList.toggle('active', type === 'throw')
+  document.getElementById('btn-accept').classList.toggle('active', type === 'accept')
+  const legArea = document.getElementById('leg-label')
+  const legGrid = document.getElementById('leg-grid')
+  if (legArea) legArea.style.display = type === 'throw' ? '' : 'none'
+  if (legGrid) legGrid.style.display = type === 'throw' ? '' : 'none'
+}
+
+function toggleSwapLeg(i, btn) {
+  window._swapLegs[i].on = !window._swapLegs[i].on
+  btn.classList.toggle('active', window._swapLegs[i].on)
+  window._swapFlights = window._swapLegs.filter(l => l.on).map(l => ({ date: l.date, flight: l.flight }))
+}
+
+function setComm(val, btn) {
+  window._swapComm = val
+  document.querySelectorAll('#comm-grid .comm-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  const ci = document.getElementById('comm-custom')
+  if (ci) { ci.value = ''; ci.style.borderColor = '#e5e5ea' }
+}
+
+function setCommCustom(input) {
+  const v = parseFloat(input.value)
+  document.querySelectorAll('#comm-grid .comm-btn').forEach(b => b.classList.remove('active'))
+  if (!isNaN(v) && v > 0) {
+    window._swapComm = v
+    input.style.borderColor = '#007aff'
+  } else {
+    window._swapComm = 0
+    input.style.borderColor = '#e5e5ea'
+  }
+}
+
+async function submitSwap() {
+  const s = getSettings()
+  const btn = document.getElementById('swap-post-btn')
+  btn.disabled = true
+  btn.textContent = '發布中…'
+  const body = {
+    type: window._swapType,
+    userId: s.lineUserId,
+    displayName: s.displayName || '組員',
+    commission: window._swapComm,
+    note: (document.getElementById('swap-note').value || '').trim()
+  }
+  if (window._swapType === 'throw') body.flights = window._swapFlights
+  else body.date = window._swapDate
+
+  try {
+    const res = await fetch(s.botUrl + '/api/post-shift', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CCal-Secret': s.apiSecret },
+      body: JSON.stringify(body)
+    })
+    const data = await res.json()
+    if (data.ok) {
+      const noteConfirm = data.note ? `<div style="font-size:13px;color:#34c759;margin-top:4px;">備注：${data.note}</div>` : ''
+      document.getElementById('modal-content').innerHTML = `
+        <div style="text-align:center;padding:24px 0;">
+          <div style="font-size:44px;margin-bottom:12px;">✅</div>
+          <div style="font-size:17px;font-weight:700;margin-bottom:6px;">已發布到換班板！</div>
+          <div style="font-size:13px;color:#8e8e93;">${data.action==='updated'?'（更新原有需求，重新計算30小時）':''}</div>
+          ${noteConfirm}
+        </div>
+      `
+    } else {
+      btn.disabled = false; btn.textContent = '送出'
+      alert('發布失敗：' + (data.error || '未知錯誤'))
+    }
+  } catch {
+    btn.disabled = false; btn.textContent = '送出'
+    alert('連線失敗，請確認 Bot URL 是否正確')
+  }
+}
+
+document.getElementById('settings-btn').addEventListener('click', () => showSettingsModal(false))
+
+// 手機/電腦版切換（僅電腦顯示按鈕）
+;(() => {
+  const btn = document.getElementById('view-toggle-btn')
+  const isDesktop = localStorage.getItem('cCalDesktopMode') === '1'
+  if (isDesktop) { document.body.classList.add('desktop-mode'); btn.textContent = '📱' }
+  btn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('desktop-mode')
+    btn.textContent = on ? '📱' : '🖥'
+    localStorage.setItem('cCalDesktopMode', on ? '1' : '0')
+  })
+})()
+
+document.getElementById('prev').addEventListener('click', () => {
+  if (--currentMonth < 0) { currentMonth=11; currentYear-- }
+  renderCalendar()
+})
+document.getElementById('next').addEventListener('click', () => {
+  if (++currentMonth > 11) { currentMonth=0; currentYear++ }
+  renderCalendar()
+})
+
+// 左右滑動切換月份
+let _tx = 0, _ty = 0
+document.addEventListener('touchstart', e => {
+  _tx = e.touches[0].clientX
+  _ty = e.touches[0].clientY
+}, { passive: true })
+document.addEventListener('touchend', e => {
+  if (document.getElementById('modal-overlay').classList.contains('active')) return
+  const dx = e.changedTouches[0].clientX - _tx
+  const dy = e.changedTouches[0].clientY - _ty
+  if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    if (dx < 0) { if (++currentMonth > 11) { currentMonth=0; currentYear++ } }
+    else        { if (--currentMonth < 0)  { currentMonth=11; currentYear-- } }
+    renderCalendar()
+  }
+}, { passive: true })
+
+// 一鍵設定：?setup&lineUserId=...&botUrl=...&apiSecret=...&displayName=...
+;(() => {
+  const p = new URLSearchParams(location.search)
+  if (p.has('setup')) {
+    const s = getSettings()
+    if (p.get('lineUserId'))  s.lineUserId  = p.get('lineUserId')
+    if (p.get('botUrl'))      s.botUrl      = p.get('botUrl')
+    if (p.get('apiSecret'))   s.apiSecret   = p.get('apiSecret')
+    if (p.get('displayName')) s.displayName = p.get('displayName')
+    saveSettings(s)
+    history.replaceState({}, '', '/')
+  }
+})()
+
+loadSchedule()
+</script>
+</body>
+</html>

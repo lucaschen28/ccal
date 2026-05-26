@@ -1,0 +1,1006 @@
+[
+  {
+    "type": "flight",
+    "title": "771  TPE-DPS",
+    "date": "2026-03-01",
+    "start": "2026-02-28T22:50:00.000Z",
+    "end": "2026-03-01T06:25:00.000Z",
+    "flight_number": "771",
+    "from": "TPE",
+    "to": "DPS",
+    "reporting": "0650",
+    "departure_actual": "0912",
+    "arrival_actual": "1425"
+  },
+  {
+    "type": "flight",
+    "title": "772  DPS-TPE",
+    "date": "2026-03-02",
+    "start": "2026-03-02T06:45:00.000Z",
+    "end": "2026-03-02T13:44:00.000Z",
+    "flight_number": "772",
+    "from": "DPS",
+    "to": "TPE",
+    "reporting": "1445",
+    "debrief": "2144",
+    "departure_actual": "1536",
+    "arrival_actual": "2044"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-03-03",
+    "start": "2026-03-02T16:00:00.000Z",
+    "end": "2026-03-03T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-04",
+    "start": "2026-03-03T16:00:00.000Z",
+    "end": "2026-03-04T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-05",
+    "start": "2026-03-05T00:00:00.000Z",
+    "end": "2026-03-05T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM00 課前課-1" },
+      { "time": "1300-1700", "name": "CM00 課前課-2" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-06",
+    "start": "2026-03-06T00:00:00.000Z",
+    "end": "2026-03-06T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM00 課前課-3" },
+      { "time": "1300-1700", "name": "CM00 課前課-4" }
+    ]
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-07",
+    "start": "2026-03-06T16:00:00.000Z",
+    "end": "2026-03-07T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-08",
+    "start": "2026-03-07T16:00:00.000Z",
+    "end": "2026-03-08T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-09",
+    "start": "2026-03-09T00:00:00.000Z",
+    "end": "2026-03-09T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-0900", "name": "CM01 Pre-Assessment" },
+      { "time": "0900-1200", "name": "CM05 EF Administrative Tasks" },
+      { "time": "1300-1400", "name": "CM10 IH MedLink" },
+      { "time": "1400-1700", "name": "CM04 EE Procedure and Legal" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-10",
+    "start": "2026-03-10T00:00:00.000Z",
+    "end": "2026-03-10T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM11 ETS SEP Training-1" },
+      { "time": "1300-1700", "name": "CM11 ETS SEP Training-2" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-11",
+    "start": "2026-03-11T00:00:00.000Z",
+    "end": "2026-03-11T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM11 ETS SEP Training-2" },
+      { "time": "1300-1700", "name": "CM11 ETS SEP Training-3" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-12",
+    "start": "2026-03-12T00:00:00.000Z",
+    "end": "2026-03-12T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM11 ETS SEP Training-3" },
+      { "time": "1300-1700", "name": "CM11 ETS SEP Training-4" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-13",
+    "start": "2026-03-13T00:00:00.000Z",
+    "end": "2026-03-13T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM11 ETS SEP Training-4" },
+      { "time": "1300-1700", "name": "CM02 EF Briefings" }
+    ]
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-14",
+    "start": "2026-03-13T16:00:00.000Z",
+    "end": "2026-03-14T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-15",
+    "start": "2026-03-14T16:00:00.000Z",
+    "end": "2026-03-15T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-16",
+    "start": "2026-03-16T00:00:00.000Z",
+    "end": "2026-03-16T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM08 EE Fatigue Management" },
+      { "time": "1300-1700", "name": "CM09 EG Leadership Skill" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-17",
+    "start": "2026-03-17T00:00:00.000Z",
+    "end": "2026-03-17T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM03 EG Communication" },
+      { "time": "1300-1500", "name": "CM03 EG Communication" },
+      { "time": "1500-1700", "name": "CM06 EG Human Performance" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-18",
+    "start": "2026-03-18T00:00:00.000Z",
+    "end": "2026-03-18T09:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T401, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "CM06 EG Human Performance" },
+      { "time": "1300-1400", "name": "CM06 EG Human Performance" },
+      { "time": "1400-1700", "name": "CM07 EF Reporting System" }
+    ]
+  },
+  {
+    "type": "training",
+    "title": "CM  座艙長培訓",
+    "date": "2026-03-19",
+    "start": "2026-03-19T00:00:00.000Z",
+    "end": "2026-03-19T04:00:00.000Z",
+    "code": "CM",
+    "course": "ICC (2025) EGCM-3",
+    "location": "T406, TPE",
+    "sessions": [
+      { "time": "0800-1200", "name": "職能口試" }
+    ]
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-20",
+    "start": "2026-03-19T16:00:00.000Z",
+    "end": "2026-03-20T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "flight",
+    "title": "721  TPE-KUL",
+    "date": "2026-03-21",
+    "start": "2026-03-20T22:05:00.000Z",
+    "end": "2026-03-21T05:36:00.000Z",
+    "flight_number": "721",
+    "from": "TPE",
+    "to": "KUL",
+    "reporting": "0605",
+    "departure_actual": "0836",
+    "arrival_actual": "1336"
+  },
+  {
+    "type": "flight",
+    "title": "722  KUL-TPE",
+    "date": "2026-03-22",
+    "start": "2026-03-22T05:35:00.000Z",
+    "end": "2026-03-22T12:08:00.000Z",
+    "flight_number": "722",
+    "from": "KUL",
+    "to": "TPE",
+    "reporting": "1335",
+    "debrief": "2008",
+    "departure_actual": "1437",
+    "arrival_actual": "1908"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-23",
+    "start": "2026-03-22T16:00:00.000Z",
+    "end": "2026-03-23T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "flight",
+    "title": "851  TPE-CNX",
+    "date": "2026-03-24",
+    "start": "2026-03-23T21:00:00.000Z",
+    "end": "2026-03-24T03:44:00.000Z",
+    "flight_number": "851",
+    "from": "TPE",
+    "to": "CNX",
+    "reporting": "0500",
+    "departure_actual": "0731",
+    "arrival_actual": "1044"
+  },
+  {
+    "type": "flight",
+    "title": "852  CNX-TPE",
+    "date": "2026-03-24",
+    "start": "2026-03-24T04:48:00.000Z",
+    "end": "2026-03-24T09:09:00.000Z",
+    "flight_number": "852",
+    "from": "CNX",
+    "to": "TPE",
+    "debrief": "1709",
+    "departure_actual": "1148",
+    "arrival_actual": "1609"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-03-25",
+    "start": "2026-03-24T16:00:00.000Z",
+    "end": "2026-03-25T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "104  TPE-NRT",
+    "date": "2026-03-26",
+    "start": "2026-03-26T02:15:00.000Z",
+    "end": "2026-03-26T07:41:00.000Z",
+    "flight_number": "104",
+    "from": "TPE",
+    "to": "NRT",
+    "reporting": "1015",
+    "departure_actual": "1240",
+    "arrival_actual": "1641"
+  },
+  {
+    "type": "flight",
+    "title": "105  NRT-TPE",
+    "date": "2026-03-26",
+    "start": "2026-03-26T09:03:00.000Z",
+    "end": "2026-03-26T14:08:00.000Z",
+    "flight_number": "105",
+    "from": "NRT",
+    "to": "TPE",
+    "debrief": "2208",
+    "departure_actual": "1803",
+    "arrival_actual": "2108"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-03-27",
+    "start": "2026-03-26T16:00:00.000Z",
+    "end": "2026-03-27T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "flight",
+    "title": "501  TPE-PVG",
+    "date": "2026-03-28",
+    "start": "2026-03-27T22:25:00.000Z",
+    "end": "2026-03-28T03:06:00.000Z",
+    "flight_number": "501",
+    "from": "TPE",
+    "to": "PVG",
+    "reporting": "0625",
+    "departure_actual": "0850",
+    "arrival_actual": "1106"
+  },
+  {
+    "type": "flight",
+    "title": "502  PVG-TPE",
+    "date": "2026-03-28",
+    "start": "2026-03-28T04:40:00.000Z",
+    "end": "2026-03-28T07:39:00.000Z",
+    "flight_number": "502",
+    "from": "PVG",
+    "to": "TPE",
+    "debrief": "1539",
+    "departure_actual": "1240",
+    "arrival_actual": "1439"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-03-29",
+    "start": "2026-03-28T16:00:00.000Z",
+    "end": "2026-03-29T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "81  TPE-LHR",
+    "date": "2026-03-30",
+    "start": "2026-03-29T22:00:00.000Z",
+    "end": "2026-03-30T16:49:00.000Z",
+    "flight_number": "81",
+    "from": "TPE",
+    "to": "LHR",
+    "reporting": "0600",
+    "debrief": "1749",
+    "departure_actual": "0827",
+    "arrival_actual": "1649"
+  },
+  {
+    "type": "flight",
+    "title": "82  LHR-TPE",
+    "date": "2026-04-02",
+    "start": "2026-04-01T19:10:00.000Z",
+    "end": "2026-04-02T10:15:00.000Z",
+    "flight_number": "82",
+    "from": "LHR",
+    "to": "TPE",
+    "reporting": "2010",
+    "debrief": "1815",
+    "departure_actual": "2116",
+    "arrival_actual": "1715"
+  },
+  {
+    "type": "day_off",
+    "title": ">OFF Post-flight rest/day off",
+    "date": "2026-04-02",
+    "start": "2026-04-01T16:00:00.000Z",
+    "end": "2026-04-02T15:59:59.000Z",
+    "code": ">OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-04-03",
+    "start": "2026-04-02T16:00:00.000Z",
+    "end": "2026-04-03T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-04-04",
+    "start": "2026-04-03T16:00:00.000Z",
+    "end": "2026-04-04T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-04-05",
+    "start": "2026-04-04T16:00:00.000Z",
+    "end": "2026-04-05T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "AL  Annual leave",
+    "date": "2026-04-06",
+    "start": "2026-04-05T16:00:00.000Z",
+    "end": "2026-04-06T15:59:59.000Z",
+    "code": "AL"
+  },
+  {
+    "type": "day_off",
+    "title": "RDO  Request day off",
+    "date": "2026-04-07",
+    "start": "2026-04-06T16:00:00.000Z",
+    "end": "2026-04-07T15:59:59.000Z",
+    "code": "RDO"
+  },
+  {
+    "type": "day_off",
+    "title": "RDO  Request day off",
+    "date": "2026-04-08",
+    "start": "2026-04-07T16:00:00.000Z",
+    "end": "2026-04-08T15:59:59.000Z",
+    "code": "RDO"
+  },
+  {
+    "type": "day_off",
+    "title": "XL  Extra leave",
+    "date": "2026-04-09",
+    "start": "2026-04-08T16:00:00.000Z",
+    "end": "2026-04-09T15:59:59.000Z",
+    "code": "XL"
+  },
+  {
+    "type": "day_off",
+    "title": "RDO  Request day off",
+    "date": "2026-04-10",
+    "start": "2026-04-09T16:00:00.000Z",
+    "end": "2026-04-10T15:59:59.000Z",
+    "code": "RDO"
+  },
+  {
+    "type": "day_off",
+    "title": "RDO  Request day off",
+    "date": "2026-04-11",
+    "start": "2026-04-10T16:00:00.000Z",
+    "end": "2026-04-11T15:59:59.000Z",
+    "code": "RDO"
+  },
+  {
+    "type": "day_off",
+    "title": "XL  Extra leave",
+    "date": "2026-04-12",
+    "start": "2026-04-11T16:00:00.000Z",
+    "end": "2026-04-12T15:59:59.000Z",
+    "code": "XL"
+  },
+  {
+    "type": "flight",
+    "title": "791  TPE-HAN",
+    "date": "2026-04-13",
+    "start": "2026-04-12T22:00:00.000Z",
+    "end": "2026-04-13T04:01:00.000Z",
+    "flight_number": "791",
+    "from": "TPE",
+    "to": "HAN",
+    "reporting": "0600",
+    "departure_actual": "0840",
+    "arrival_actual": "1101"
+  },
+  {
+    "type": "flight",
+    "title": "792  HAN-TPE",
+    "date": "2026-04-13",
+    "start": "2026-04-13T05:06:00.000Z",
+    "end": "2026-04-13T08:47:00.000Z",
+    "flight_number": "792",
+    "from": "HAN",
+    "to": "TPE",
+    "debrief": "1647",
+    "departure_actual": "1206",
+    "arrival_actual": "1547"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-04-14",
+    "start": "2026-04-13T16:00:00.000Z",
+    "end": "2026-04-14T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "220  TSA-HND",
+    "date": "2026-04-15",
+    "start": "2026-04-14T23:30:00.000Z",
+    "end": "2026-04-15T03:42:00.000Z",
+    "flight_number": "220",
+    "from": "TSA",
+    "to": "HND",
+    "reporting": "0730",
+    "departure_actual": "0848",
+    "arrival_actual": "1242"
+  },
+  {
+    "type": "flight",
+    "title": "223  HND-TSA",
+    "date": "2026-04-16",
+    "start": "2026-04-15T21:55:00.000Z",
+    "end": "2026-04-16T03:28:00.000Z",
+    "flight_number": "223",
+    "from": "HND",
+    "to": "TSA",
+    "reporting": "0655",
+    "debrief": "1128",
+    "departure_actual": "0750",
+    "arrival_actual": "1028"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-04-17",
+    "start": "2026-04-16T16:00:00.000Z",
+    "end": "2026-04-17T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "flight",
+    "title": "4  TPE-SFO",
+    "date": "2026-04-18",
+    "start": "2026-04-18T13:10:00.000Z",
+    "end": "2026-04-20T04:29:00.000Z",
+    "flight_number": "4",
+    "from": "TPE",
+    "to": "SFO",
+    "reporting": "2110",
+    "debrief": "2129",
+    "departure_actual": "2357",
+    "arrival_scheduled": "2002",
+    "arrival_actual": "2029"
+  },
+  {
+    "type": "flight",
+    "title": "3  SFO-TPE",
+    "date": "2026-04-21",
+    "start": "2026-04-20T07:05:00.000Z",
+    "end": "2026-04-20T22:38:00.000Z",
+    "flight_number": "3",
+    "from": "SFO",
+    "to": "TPE",
+    "reporting": "0005",
+    "debrief": "0638",
+    "departure_scheduled": "0105",
+    "arrival_actual": "0538"
+  },
+  {
+    "type": "day_off",
+    "title": ">  Rest day",
+    "date": "2026-04-21",
+    "start": "2026-04-20T16:00:00.000Z",
+    "end": "2026-04-21T15:59:59.000Z",
+    "code": ">"
+  },
+  {
+    "type": "day_off",
+    "title": ">OFF Post-flight rest/day off",
+    "date": "2026-04-22",
+    "start": "2026-04-21T16:00:00.000Z",
+    "end": "2026-04-22T15:59:59.000Z",
+    "code": ">OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-04-23",
+    "start": "2026-04-22T16:00:00.000Z",
+    "end": "2026-04-23T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "flight",
+    "title": "278  TPE-TAK",
+    "date": "2026-04-24",
+    "start": "2026-04-23T20:35:00.000Z",
+    "end": "2026-04-24T01:10:00.000Z",
+    "flight_number": "278",
+    "from": "TPE",
+    "to": "TAK",
+    "reporting": "0435",
+    "departure_actual": "0648",
+    "arrival_actual": "1010"
+  },
+  {
+    "type": "flight",
+    "title": "279  TAK-TPE",
+    "date": "2026-04-24",
+    "start": "2026-04-24T02:27:00.000Z",
+    "end": "2026-04-24T06:38:00.000Z",
+    "flight_number": "279",
+    "from": "TAK",
+    "to": "TPE",
+    "debrief": "1438",
+    "departure_actual": "1127",
+    "arrival_actual": "1338"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-04-25",
+    "start": "2026-04-24T16:00:00.000Z",
+    "end": "2026-04-25T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-04-26",
+    "start": "2026-04-25T16:00:00.000Z",
+    "end": "2026-04-26T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "130  TPE-CTS",
+    "date": "2026-04-27",
+    "start": "2026-04-26T22:15:00.000Z",
+    "end": "2026-04-27T04:33:00.000Z",
+    "flight_number": "130",
+    "from": "TPE",
+    "to": "CTS",
+    "reporting": "0615",
+    "departure_actual": "0833",
+    "arrival_actual": "1333"
+  },
+  {
+    "type": "flight",
+    "title": "131  CTS-TPE",
+    "date": "2026-04-28",
+    "start": "2026-04-28T05:05:00.000Z",
+    "end": "2026-04-28T11:34:00.000Z",
+    "flight_number": "131",
+    "from": "CTS",
+    "to": "TPE",
+    "reporting": "1405",
+    "debrief": "1934",
+    "departure_actual": "1504",
+    "arrival_actual": "1834"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-04-29",
+    "start": "2026-04-28T16:00:00.000Z",
+    "end": "2026-04-29T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "501  TPE-PVG",
+    "date": "2026-04-30",
+    "start": "2026-04-29T22:20:00.000Z",
+    "end": "2026-04-30T02:58:00.000Z",
+    "flight_number": "501",
+    "from": "TPE",
+    "to": "PVG",
+    "reporting": "0620",
+    "departure_actual": "0841",
+    "arrival_actual": "1058"
+  },
+  {
+    "type": "flight",
+    "title": "502  PVG-TPE",
+    "date": "2026-04-30",
+    "start": "2026-04-30T04:14:00.000Z",
+    "end": "2026-04-30T07:31:00.000Z",
+    "flight_number": "502",
+    "from": "PVG",
+    "to": "TPE",
+    "debrief": "1531",
+    "departure_actual": "1214",
+    "arrival_actual": "1431"
+  },
+  {
+    "type": "day_off",
+    "title": ">OFF Post-flight rest/day off",
+    "date": "2026-05-08",
+    "start": "2026-05-07T16:00:00.000Z",
+    "end": "2026-05-08T15:59:59.000Z",
+    "code": ">OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "RDO  Request day off",
+    "date": "2026-05-09",
+    "start": "2026-05-08T16:00:00.000Z",
+    "end": "2026-05-09T15:59:59.000Z",
+    "code": "RDO"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-05-11",
+    "start": "2026-05-10T16:00:00.000Z",
+    "end": "2026-05-11T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-05-12",
+    "start": "2026-05-11T16:00:00.000Z",
+    "end": "2026-05-12T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "150  TPE-NGO",
+    "date": "2026-05-13",
+    "start": "2026-05-13T06:55:00.000Z",
+    "end": "2026-05-13T13:04:00.000Z",
+    "flight_number": "150",
+    "from": "TPE",
+    "to": "NGO",
+    "reporting": "1455",
+    "debrief": "2204",
+    "departure_actual": "1713",
+    "arrival_actual": "2104",
+    "departure_scheduled": "1715",
+    "arrival_scheduled": "2105"
+  },
+  {
+    "type": "flight",
+    "title": "151  NGO-TPE",
+    "date": "2026-05-14",
+    "start": "2026-05-13T23:55:00.000Z",
+    "end": "2026-05-14T04:56:00.000Z",
+    "flight_number": "151",
+    "from": "NGO",
+    "to": "TPE",
+    "reporting": "0855",
+    "debrief": "1256",
+    "departure_actual": "0953",
+    "arrival_actual": "1156",
+    "departure_scheduled": "0955",
+    "arrival_scheduled": "1155"
+  },
+  {
+    "type": "day_off",
+    "title": "ADO  Assigned day off",
+    "date": "2026-05-15",
+    "start": "2026-05-14T16:00:00.000Z",
+    "end": "2026-05-15T15:59:59.000Z",
+    "code": "ADO"
+  },
+  {
+    "type": "flight",
+    "title": "793  TPE-HAN",
+    "date": "2026-05-16",
+    "start": "2026-05-16T04:15:00.000Z",
+    "end": "2026-05-16T09:50:00.000Z",
+    "flight_number": "793",
+    "from": "TPE",
+    "to": "HAN",
+    "reporting": "1215",
+    "departure_scheduled": "1435",
+    "arrival_scheduled": "1650"
+  },
+  {
+    "type": "flight",
+    "title": "794  HAN-TPE",
+    "date": "2026-05-16",
+    "start": "2026-05-16T10:50:00.000Z",
+    "end": "2026-05-16T14:45:00.000Z",
+    "flight_number": "794",
+    "from": "HAN",
+    "to": "TPE",
+    "debrief": "2245",
+    "departure_scheduled": "1750",
+    "arrival_scheduled": "2145"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-05-17",
+    "start": "2026-05-16T16:00:00.000Z",
+    "end": "2026-05-17T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "705  TPE-CEB",
+    "date": "2026-05-18",
+    "start": "2026-05-17T21:50:00.000Z",
+    "end": "2026-05-18T03:05:00.000Z",
+    "flight_number": "705",
+    "from": "TPE",
+    "to": "CEB",
+    "reporting": "0550",
+    "departure_scheduled": "0810",
+    "arrival_scheduled": "1105"
+  },
+  {
+    "type": "flight",
+    "title": "706  CEB-TPE",
+    "date": "2026-05-18",
+    "start": "2026-05-18T04:05:00.000Z",
+    "end": "2026-05-18T07:55:00.000Z",
+    "flight_number": "706",
+    "from": "CEB",
+    "to": "TPE",
+    "debrief": "1555",
+    "departure_scheduled": "1205",
+    "arrival_scheduled": "1455"
+  },
+  {
+    "type": "flight",
+    "title": "517  TPE-PEK",
+    "date": "2026-05-19",
+    "start": "2026-05-19T05:05:00.000Z",
+    "end": "2026-05-19T10:50:00.000Z",
+    "flight_number": "517",
+    "from": "TPE",
+    "to": "PEK",
+    "reporting": "1305",
+    "departure_scheduled": "1525",
+    "arrival_scheduled": "1850"
+  },
+  {
+    "type": "flight",
+    "title": "518  PEK-TPE",
+    "date": "2026-05-19",
+    "start": "2026-05-19T12:20:00.000Z",
+    "end": "2026-05-19T16:40:00.000Z",
+    "flight_number": "518",
+    "from": "PEK",
+    "to": "TPE",
+    "debrief": "0040",
+    "departure_scheduled": "2020",
+    "arrival_scheduled": "2340"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-05-21",
+    "start": "2026-05-20T16:00:00.000Z",
+    "end": "2026-05-21T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "909  TPE-HKG",
+    "date": "2026-05-22",
+    "start": "2026-05-22T00:40:00.000Z",
+    "end": "2026-05-22T05:05:00.000Z",
+    "flight_number": "909",
+    "from": "TPE",
+    "to": "HKG",
+    "reporting": "0840",
+    "departure_scheduled": "1100",
+    "arrival_scheduled": "1305"
+  },
+  {
+    "type": "flight",
+    "title": "910  HKG-TPE",
+    "date": "2026-05-22",
+    "start": "2026-05-22T06:05:00.000Z",
+    "end": "2026-05-22T08:55:00.000Z",
+    "flight_number": "910",
+    "from": "HKG",
+    "to": "TPE",
+    "debrief": "1655",
+    "departure_scheduled": "1405",
+    "arrival_scheduled": "1555"
+  },
+  {
+    "type": "day_off",
+    "title": "RDO  Request day off",
+    "date": "2026-05-23",
+    "start": "2026-05-22T16:00:00.000Z",
+    "end": "2026-05-23T15:59:59.000Z",
+    "code": "RDO"
+  },
+  {
+    "type": "flight",
+    "title": "755  TPE-SIN",
+    "date": "2026-05-24",
+    "start": "2026-05-24T09:40:00.000Z",
+    "end": "2026-05-24T17:35:00.000Z",
+    "flight_number": "755",
+    "from": "TPE",
+    "to": "SIN",
+    "reporting": "1740",
+    "debrief": "0135",
+    "departure_scheduled": "2000",
+    "arrival_scheduled": "0035"
+  },
+  {
+    "type": "flight",
+    "title": "756  SIN-TPE",
+    "date": "2026-05-26",
+    "start": "2026-05-25T17:00:00.000Z",
+    "end": "2026-05-25T23:55:00.000Z",
+    "flight_number": "756",
+    "from": "SIN",
+    "to": "TPE",
+    "reporting": "0100",
+    "debrief": "0755",
+    "departure_scheduled": "0200",
+    "arrival_scheduled": "0655"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-05-27",
+    "start": "2026-05-26T16:00:00.000Z",
+    "end": "2026-05-27T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-05-28",
+    "start": "2026-05-27T16:00:00.000Z",
+    "end": "2026-05-28T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-05-29",
+    "start": "2026-05-28T16:00:00.000Z",
+    "end": "2026-05-29T15:59:59.000Z",
+    "code": "OFF"
+  },
+  {
+    "type": "flight",
+    "title": "190  TPE-PUS",
+    "date": "2026-05-30",
+    "start": "2026-05-29T19:55:00.000Z",
+    "end": "2026-05-30T00:30:00.000Z",
+    "flight_number": "190",
+    "from": "TPE",
+    "to": "PUS",
+    "reporting": "0355",
+    "departure_scheduled": "0615",
+    "arrival_scheduled": "0930"
+  },
+  {
+    "type": "flight",
+    "title": "191  PUS-TPE",
+    "date": "2026-05-30",
+    "start": "2026-05-30T01:30:00.000Z",
+    "end": "2026-05-30T04:55:00.000Z",
+    "flight_number": "191",
+    "from": "PUS",
+    "to": "TPE",
+    "debrief": "1255",
+    "departure_scheduled": "1030",
+    "arrival_scheduled": "1155"
+  },
+  {
+    "type": "day_off",
+    "title": "OFF  Day off",
+    "date": "2026-05-31",
+    "start": "2026-05-30T16:00:00.000Z",
+    "end": "2026-05-31T15:59:59.000Z",
+    "code": "OFF"
+  }
+]
