@@ -1089,6 +1089,11 @@ document.getElementById('next').addEventListener('click', () => {
 
 // 左右滑動切換月份
 let _tx = 0, _ty = 0
+// 禁止 iOS Safari 縮放（viewport meta 對 iOS 無效，需 JS 攔截）
+document.addEventListener('gesturestart', e => e.preventDefault(), false)
+document.addEventListener('gesturechange', e => e.preventDefault(), false)
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault() }, { passive: false })
+
 document.addEventListener('touchstart', e => {
   _tx = e.touches[0].clientX
   _ty = e.touches[0].clientY
