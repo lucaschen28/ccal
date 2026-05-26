@@ -592,7 +592,9 @@ function showDetail(task) {
     html += `<button class="open-edit-btn" onclick="showAddForm('${task.startDate}', window._swapTask)">✏️ 修改</button>`
     html += `<button class="add-del-btn" onclick="deleteEntry()">刪除此勤務</button>`
   }
-  html += `<button class="open-add-day-btn" onclick="showAddForm('${task.startDate}')">＋ 新增航班</button>`
+  if (task.startDate >= todayStr2) {
+    html += `<button class="open-add-day-btn" onclick="showAddForm('${task.startDate}')">＋ 新增航班</button>`
+  }
   window._swapTask = task
   document.getElementById('modal-content').innerHTML = html
   document.getElementById('modal-overlay').classList.add('active')
