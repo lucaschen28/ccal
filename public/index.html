@@ -55,10 +55,13 @@
     .event-pill { font-size:10px; border-radius:4px; padding:0 5px; margin:1px 4px; height:18px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
     .event-pill.flight { background:#007aff; color:#fff; }
     .event-pill.flight.past { background:#a8d4ff; color:#4a80c4; }
-    .event-pill.rdo { background:#fff3cd; color:#856404; }
-    .event-pill.al  { background:#d4f5e0; color:#1a7a42; }
-    .event-pill.xl  { background:#fde8d8; color:#8b3a00; }
-    .event-pill.cm  { background:#ede8fc; color:#5c35c9; }
+    .event-pill.rdo     { background:#fff3cd; color:#856404; }
+    .event-pill.al      { background:#d4f5e0; color:#1a7a42; }
+    .event-pill.xl      { background:#fde8d8; color:#8b3a00; }
+    .event-pill.cm      { background:#ede8fc; color:#5c35c9; }
+    .event-pill.mt      { background:#fde8f5; color:#8b0062; }
+    .event-pill.dayoff  { background:#d4f5e0; color:#1a7a42; }
+    .event-pill.meeting { background:#fde8f5; color:#8b0062; }
 
     /* Multi-day bar */
     .event-pill.bar-start { border-radius:4px 0 0 4px; margin-right:-1px; }
@@ -350,12 +353,13 @@ function renderCalendar() {
       cell.appendChild(pill)
     })
 
-    // RDO / AL / XL / CM / SBY
-    scheduleData.filter(e => e.date === ds && ['RDO','AL','XL','CM','SBY'].includes(e.code)).forEach(ev => {
+    // 非飛航事件（休假/受訓/會議/SBY 等）
+    scheduleData.filter(e => e.date === ds && e.type && e.type !== 'flight').forEach(ev => {
       const pill = document.createElement('div')
-      pill.className = 'event-pill ' + (ev.code === 'SBY' ? 'sby-pill' : ev.code.toLowerCase())
-      pill.textContent = ev.code
-      if (ev.type === 'training') pill.addEventListener('click', e => { e.stopPropagation(); showTrainingDetail(ev) })
+      const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
+      pill.className = 'event-pill ' + (ev.code === 'SBY' ? 'sby-pill' : typeClass)
+      pill.textContent = ev.code || ev.type
+      pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
       cell.appendChild(pill)
     })
 
@@ -588,25 +592,50 @@ function showDetail(task) {
   document.getElementById('modal-overlay').classList.add('active')
 }
 
-function showTrainingDetail(ev) {
+function showNonFlightDetail(ev) {
   const d = new Date(ev.date + 'T12:00:00')
   const wd = ['日','一','二','三','四','五','六']
   const dateLabel = `${d.getMonth()+1} 月 ${d.getDate()} 日（${wd[d.getDay()]}）`
+  const typeLabel = { day_off:'休假', training:'受訓', meeting:'會議' }[ev.type] || ev.type
   let html = `<div class="task-date">${dateLabel}</div>`
-  html += `<div class="task-route">座艙長培訓</div>`
-  html += `<div class="leg-block">`
-  if (ev.course) html += `<div class="leg-row"><span class="lbl">課程</span><span class="val">${ev.course}</span></div>`
-  if (ev.location) html += `<div class="leg-row"><span class="lbl">地點</span><span class="val">${ev.location}</span></div>`
-  html += `</div>`
-  if (ev.sessions && ev.sessions.length) {
+  html += `<div class="task-route">${typeLabel}　<span style="font-weight:400;font-size:14px;color:#8e8e93">${ev.code||''}</span></div>`
+  const extras = []
+  if (ev.course)   extras.push(['課程', ev.course])
+  if (ev.location) extras.push(['地點', ev.location])
+  if (ev.note && ev.note !== ev.code) extras.push(['說明', ev.note])
+  if (extras.length) {
     html += `<div class="leg-block">`
-    ev.sessions.forEach(s => {
-      html += `<div class="leg-row"><span class="lbl">${s.time}</span><span class="val">${s.name}</span></div>`
-    })
+    extras.forEach(([k,v]) => { html += `<div class="leg-row"><span class="lbl">${k}</span><span class="val">${v}</span></div>` })
     html += `</div>`
+    if (ev.sessions && ev.sessions.length) {
+      html += `<div class="leg-block">`
+      ev.sessions.forEach(s => { html += `<div class="leg-row"><span class="lbl">${s.time}</span><span class="val">${s.name}</span></div>` })
+      html += `</div>`
+    }
   }
+  if (ev.manually_added) {
+    html += `<button class="open-edit-btn" onclick="showNonFlightForm('${ev.date}', window._nfEntry)">✏️ 修改</button>`
+    html += `<button class="add-del-btn" onclick="deleteNonFlight('${ev.id}')">刪除</button>`
+  }
+  window._nfEntry = ev
   document.getElementById('modal-content').innerHTML = html
   document.getElementById('modal-overlay').classList.add('active')
+}
+
+async function deleteNonFlight(id) {
+  if (!confirm('確定刪除？')) return
+  await fetch(`/api/schedule/${id}`, { method:'DELETE' }).catch(()=>{})
+  document.getElementById('modal-overlay').classList.remove('active')
+  await loadSchedule()
+}
+
+function showNonFlightForm(dateStr, ev) {
+  const typeMap = { training:'training', day_off:'dayoff', meeting:'meeting' }
+  _taskType = typeMap[ev.type] || 'dayoff'
+  _taskNote = ev.code || ''
+  _editTask = null
+  _editNonFlight = ev
+  _renderAddForm(dateStr, true)
 }
 
 document.getElementById('modal-overlay').addEventListener('click', e => {
@@ -821,10 +850,12 @@ let _taskDays = 1
 let _taskRep = ''
 let _taskSegs = []
 let _editTask = null
+let _editNonFlight = null
 const _AC_TYPES = ['A321','A330','A350','B777','B738']
 
 function showAddForm(dateStr, task) {
   _editTask = task || null
+  _editNonFlight = null
   if (task) {
     _taskType = 'flight'
     _taskNote = ''
@@ -970,13 +1001,18 @@ async function submitFlight(baseDate) {
   if (_taskType !== 'flight') {
     const typeMap = { training:'training', dayoff:'day_off', meeting:'meeting' }
     const codeMap = { training:'CM', dayoff:'AL', meeting:'MT' }
+    const userCode = _taskNote.trim().toUpperCase() || codeMap[_taskType]
     const entry = {
       type: typeMap[_taskType] || _taskType,
-      code: codeMap[_taskType] || _taskType,
-      date: baseDate
+      code: userCode,
+      date: baseDate,
+      manually_added: true
     }
-    if (_taskNote) entry.note = _taskNote
     try {
+      if (_editNonFlight && _editNonFlight.id) {
+        await fetch(`/api/schedule/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
+        _editNonFlight = null
+      }
       await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
       document.getElementById('modal-overlay').classList.remove('active')
       await loadSchedule()
