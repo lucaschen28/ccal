@@ -804,7 +804,10 @@ function showAddForm(dateStr, task) {
       rep: i === 0 && leg.reporting ? leg.reporting.slice(0,2)+':'+leg.reporting.slice(2,4) : ''
     }))
   } else {
-    _addLegs = [{ date: dateStr, fn: '', acType: '', from: '', to: '', dep: '', arr: '', rep: '' }]
+    _addLegs = [
+      { date: dateStr, fn: '', acType: '', from: '', to: '', dep: '', arr: '', rep: '' },
+      { date: dateStr, fn: '', acType: '', from: '', to: '', dep: '', arr: '', rep: '' }
+    ]
   }
   _renderAddForm(dateStr, !!task)
 }
@@ -847,12 +850,11 @@ function _renderLegs() {
     return `
       ${i > 0 ? '<hr class="leg-divider">' : ''}
       <div class="leg-section">
-        <div class="leg-section-header">
-          第 ${i+1} 腿
-          ${i > 0 ? `<button class="leg-remove-btn" onclick="removeLeg(${i})">✕ 移除</button>` : ''}
-        </div>
         ${showDate ? `
-          <div class="add-section-label">日期</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
+            <div class="add-section-label" style="margin:0">日期</div>
+            ${i >= 2 ? `<button class="leg-remove-btn" onclick="removeLeg(${i})">✕ 移除</button>` : ''}
+          </div>
           <input id="leg-date-${i}" class="add-field-input" type="date" value="${leg.date}">
         ` : `
           <div class="add-section-label">報到時間</div>
