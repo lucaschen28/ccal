@@ -484,16 +484,18 @@ function showDetail(task) {
 
     seg.legs.forEach(leg => {
       const legD = leg.date.split('-')
-      const legLabel = !sameDay ? `${+legD[1]}/${+legD[2]}（${wd[new Date(leg.date).getDay()]}）　` : ''
+      const ftDepS = leg.departure_scheduled || leg.departure
+      const ftArrS = leg.arrival_scheduled   || leg.arrival
+      const hasTimeData = leg.reporting || ftDepS || ftArrS || leg.departure_actual || leg.arrival_actual
+      // 日期只在有時間資料、或是該段第一腿時顯示
+      const showLegDate = !sameDay && (hasTimeData || leg === seg.legs[0])
+      const legLabel = showLegDate ? `${+legD[1]}/${+legD[2]}（${wd[new Date(leg.date).getDay()]}）　` : ''
 
       const rep  = cvt(leg.reporting)
       const depS = cvt(leg.departure_scheduled || leg.departure)
       const depA = cvt(leg.departure_actual)
       const arrS = cvt(leg.arrival_scheduled   || leg.arrival)
       const arrA = cvt(leg.arrival_actual)
-
-      const ftDepS = leg.departure_scheduled || leg.departure
-      const ftArrS = leg.arrival_scheduled   || leg.arrival
       const ftMinS = (ftDepS && ftArrS) ? minDiff(ftDepS, ftArrS) : 0
       const ftMinA = (leg.departure_actual && leg.arrival_actual) ? minDiff(leg.departure_actual, leg.arrival_actual) : 0
       const ftLabel = ftMinS && ftMinA && ftMinS !== ftMinA
@@ -509,17 +511,20 @@ function showDetail(task) {
       const D = s => `<span class="dt">${md(s)}</span> `
 
       const routePart = (leg.from || leg.to) ? `　${leg.from||'?'} → ${leg.to||'?'}` : ''
+      const fnPart = leg.flight_number ? `CI ${padFN(leg.flight_number)}` : ''
       html += `<div class="leg-block">
-        <div class="leg-title">${legLabel}CI ${padFN(leg.flight_number)}${routePart}</div>`
+        <div class="leg-title">${legLabel}${fnPart}${routePart}</div>`
       if (rep.t) html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${D(repDate)}${fmtT(rep)}</span></div>`
       html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
       html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
       if (ftMinS || ftMinA) html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${ftLabel}</span></div>`
 
-      if (leg === lastLeg && segFdpMin) {
-        const fdpLabel = segFdpMinS && segFdpMinA && segFdpMinS !== segFdpMinA
-          ? `${fmtMin(segFdpMinS)} <span class="actual">(A${fmtMin(segFdpMinA)})</span>`
-          : fmtMin(segFdpMin)
+      if (leg === lastLeg) {
+        const fdpLabel = segFdpMin
+          ? (segFdpMinS && segFdpMinA && segFdpMinS !== segFdpMinA
+              ? `${fmtMin(segFdpMinS)} <span class="actual">(A${fmtMin(segFdpMinA)})</span>`
+              : fmtMin(segFdpMin))
+          : '--'
         html += `<div class="leg-row fdp-row"><span class="lbl">FDP</span><span class="val">${fdpLabel}</span></div>`
       }
       html += `</div>`
@@ -555,20 +560,17 @@ function showDetail(task) {
       lb += `</div>`
       html += lb
     } else {
-      if (HOME_BASES.includes(lastLeg.to)) {
-        html += `<div class="afterduty-block">
-          <div class="afterduty-row"><span class="lbl">MRT</span><span class="val">${getMRTLabel(segFdpMin)}</span></div>
-          <div class="afterduty-row"><span class="lbl">內規</span><span class="val">${internalRestLabel}（CI${taskFlightNum}）</span></div>
-        </div>`
-
-      } else if (lastLeg.to) {
+      if (lastLeg.to && !HOME_BASES.includes(lastLeg.to)) {
         html += `<div class="layover-block">
           <div class="layover-row"><span class="lbl">外站 ${lastLeg.to}</span><span class="val">MRT ${getMRTLabel(segFdpMin)}</span></div>
         </div>`
-      } else if (task.startDate !== task.endDate) {
-        const endD = task.endDate.split('-')
-        html += `<div class="layover-block">
-          <div class="layover-row"><span class="lbl">過夜班</span><span class="val">至 ${+endD[1]}/${+endD[2]}</span></div>
+      } else {
+        // 回 HOME 或 to 不明 → afterduty，無資料顯示 --
+        const mrtVal = segFdpMin ? getMRTLabel(segFdpMin) : '--'
+        const internalVal = taskFlightNum ? `${internalRestLabel}（CI${taskFlightNum}）` : '--'
+        html += `<div class="afterduty-block">
+          <div class="afterduty-row"><span class="lbl">MRT</span><span class="val">${mrtVal}</span></div>
+          <div class="afterduty-row"><span class="lbl">內規</span><span class="val">${internalVal}</span></div>
         </div>`
       }
     }
@@ -1031,7 +1033,7 @@ async function submitFlight(baseDate) {
   const n = _taskSegs.length
   for (let i = 0; i < n; i++) {
     const seg = _taskSegs[i]
-    const segFn = seg.fn || primaryFn
+    const segFn = i === 0 ? primaryFn : (seg.fn || '')
     const legDate = i === 0 ? baseDate : i === n-1 ? addDays(baseDate, _taskDays-1) : baseDate
     const entry = { id:`manual_${ts}_${i}`, duty_id:dutyId, type:'flight', date:legDate, flight_number:segFn }
     if (seg.from)   entry.from = seg.from
