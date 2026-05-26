@@ -873,6 +873,9 @@ function _renderAddForm(baseDate, isEdit) {
     </div>
     <div id="flight-fields" style="display:${showFlight?'block':'none'}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <input id="seg-fn-0" class="add-field-input" type="text" inputmode="numeric" maxlength="4"
+          placeholder="班號" value="${_taskSegs[0]?.fn||''}"
+          style="width:80px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center;letter-spacing:2px">
         <input id="task-days" class="add-field-input" type="number" min="1" max="14"
           placeholder="1" value="${_taskDays > 1 ? _taskDays : ''}"
           style="width:52px;margin-bottom:0;text-align:center">
@@ -902,11 +905,11 @@ function _renderSegs() {
       <hr class="leg-divider">
       <div class="leg-section">
         ${i >= 2 ? `<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="leg-remove-btn" onclick="removeSeg(${i})">✕ 移除</button></div>` : ''}
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        ${i >= 1 ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <input id="seg-fn-${i}" class="add-field-input" type="text" inputmode="numeric" maxlength="4"
             placeholder="班號" value="${seg.fn||''}"
             style="width:80px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center;letter-spacing:2px">
-        </div>
+        </div>` : ''}
         <div class="add-section-label">機型</div>
         <div class="ac-type-row">${acBtns}</div>
         <div class="add-row2">
