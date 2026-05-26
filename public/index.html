@@ -534,7 +534,10 @@ function showDetail(task) {
     }
   })
 
-  html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板</button>`
+  const todayStr2 = new Date().toISOString().slice(0,10)
+  if (task.startDate >= todayStr2) {
+    html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板</button>`
+  }
   const isManual = task.legs[0].manually_added
   if (isManual) {
     html += `<button class="open-edit-btn" onclick="showAddForm('${task.startDate}', window._swapTask.legs[0])">✏️ 修改</button>`
