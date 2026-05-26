@@ -1,3 +1,4 @@
 node_modules/
 parse.log
 .env
+data/

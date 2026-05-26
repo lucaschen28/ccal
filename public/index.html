@@ -159,6 +159,7 @@
   <span class="month-label" id="month-label"></span>
   <div style="display:flex;align-items:center;gap:4px">
     <button class="view-toggle-btn" id="view-toggle-btn" title="切換手機/電腦版">📱</button>
+    <button class="settings-btn" id="user-code-btn" title="我的代碼 / 看別人班表">👥</button>
     <button class="settings-btn" id="settings-btn" title="換班板設定">⚙</button>
     <button class="refresh-btn" id="refresh-btn" title="從行事曆更新資料">↻</button>
     <button class="nav-btn" id="next">›</button>
@@ -182,6 +183,21 @@ let scheduleData = []
 let tasks = []
 let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
+
+// ── 使用者 ID（房間代碼）──────────────────────────────────────
+function getOrCreateUserId() {
+  let id = localStorage.getItem('cCalUserId')
+  if (!id || !/^[A-Z0-9]{6}$/.test(id)) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    id = Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
+    localStorage.setItem('cCalUserId', id)
+  }
+  return id
+}
+const MY_USER_ID = getOrCreateUserId()
+// ?view=XXXXXX → 查看他人班表
+let viewUserId = (new URLSearchParams(location.search).get('view') || MY_USER_ID).toUpperCase()
+const IS_VIEWING_OTHER = viewUserId !== MY_USER_ID
 
 function hhmm(s) { return s && s.length >= 4 ? s.slice(0,2)+':'+s.slice(2,4) : '--' }
 function padFN(n) { return String(n).padStart(3, '0') }
@@ -287,10 +303,27 @@ function tasksOnDate(dateStr) {
 }
 
 async function loadSchedule() {
-  const res = await fetch('/api/schedule')
+  const res = await fetch(`/api/schedule/${viewUserId}`)
   scheduleData = await res.json()
   tasks = groupTasks(scheduleData.filter(e => e.type === 'flight'))
   renderCalendar()
+  _updateViewBanner()
+}
+
+function _updateViewBanner() {
+  let banner = document.getElementById('view-banner')
+  if (IS_VIEWING_OTHER || viewUserId !== MY_USER_ID) {
+    if (!banner) {
+      banner = document.createElement('div')
+      banner.id = 'view-banner'
+      banner.style.cssText = 'background:#fff3cd;color:#856404;font-size:12px;font-weight:600;text-align:center;padding:6px 12px;cursor:pointer'
+      document.getElementById('app').insertBefore(banner, document.querySelector('.weekday-row'))
+    }
+    banner.innerHTML = `👀 查看中：${viewUserId}　<span style="color:#007aff">← 回我的班表</span>`
+    banner.onclick = () => { viewUserId = MY_USER_ID; history.replaceState({}, '', '/'); loadSchedule() }
+  } else if (banner) {
+    banner.remove()
+  }
 }
 
 function renderCalendar() {
@@ -367,8 +400,8 @@ function renderCalendar() {
       cell.appendChild(pill)
     })
 
-    // 點空白格子 → 新增
-    if (isCur) {
+    // 點空白格子 → 新增（查看他人時停用）
+    if (isCur && viewUserId === MY_USER_ID) {
       cell.style.cursor = 'pointer'
       cell.addEventListener('click', () => showAddForm(ds))
     }
@@ -637,7 +670,7 @@ function showNonFlightDetail(ev) {
 
 async function deleteNonFlight(id) {
   if (!confirm('確定刪除？')) return
-  await fetch(`/api/schedule/${id}`, { method:'DELETE' }).catch(()=>{})
+  await fetch(`/api/schedule/${MY_USER_ID}/${id}`, { method:'DELETE' }).catch(()=>{})
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
 }
@@ -1024,10 +1057,10 @@ async function submitFlight(baseDate) {
     }
     try {
       if (_editNonFlight && _editNonFlight.id) {
-        await fetch(`/api/schedule/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
+        await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
         _editNonFlight = null
       }
-      await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+      await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
       document.getElementById('modal-overlay').classList.remove('active')
       await loadSchedule()
     } catch { alert('連線失敗') }
@@ -1039,7 +1072,7 @@ async function submitFlight(baseDate) {
 
   if (_editTask) {
     for (const leg of _editTask.legs) {
-      if (leg.id) await fetch(`/api/schedule/${leg.id}`, { method:'DELETE' }).catch(()=>{})
+      if (leg.id) await fetch(`/api/schedule/${MY_USER_ID}/${leg.id}`, { method:'DELETE' }).catch(()=>{})
     }
   }
 
@@ -1057,7 +1090,7 @@ async function submitFlight(baseDate) {
     if (seg.arr)    entry.arrival_scheduled   = seg.arr.replace(':','')
     if (seg.acType) entry.aircraft_type = seg.acType
     if (i === 0 && _taskRep) entry.reporting = _taskRep.replace(':','')
-    const res = await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+    const res = await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
     const data = await res.json()
     if (!data.ok) { alert('儲存失敗'); return }
   }
@@ -1069,13 +1102,63 @@ async function deleteEntry() {
   const task = _editTask || window._swapTask
   if (!task || !confirm('確定刪除此勤務所有航段？')) return
   for (const leg of task.legs) {
-    if (leg.id) await fetch(`/api/schedule/${leg.id}`, { method:'DELETE' }).catch(()=>{})
+    if (leg.id) await fetch(`/api/schedule/${MY_USER_ID}/${leg.id}`, { method:'DELETE' }).catch(()=>{})
   }
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
 }
 
 document.getElementById('settings-btn').addEventListener('click', () => showSettingsModal(false))
+
+// ── 我的代碼 / 看別人班表 ────────────────────────────────────
+function showUserCodeModal() {
+  const shareUrl = location.origin + location.pathname + '?view=' + MY_USER_ID
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-route" style="margin-bottom:14px">我的代碼</div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#007aff;background:#e8f0fe;border-radius:12px;padding:14px 0;margin-bottom:8px">${MY_USER_ID}</div>
+      <button onclick="navigator.clipboard.writeText('${MY_USER_ID}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製代碼',1500)})"
+        style="background:none;border:1.5px solid #007aff;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;color:#007aff;cursor:pointer">複製代碼</button>
+      &nbsp;
+      <button onclick="navigator.clipboard.writeText('${shareUrl}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製分享連結',1500)})"
+        style="background:none;border:1.5px solid #8e8e93;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;color:#8e8e93;cursor:pointer">複製分享連結</button>
+    </div>
+    <div class="add-section-label" style="margin-bottom:8px">看別人的班表</div>
+    <div style="display:flex;gap:8px">
+      <input id="view-code-input" class="add-field-input" maxlength="6" placeholder="輸入 6 位代碼"
+        style="flex:1;margin-bottom:0;text-transform:uppercase;letter-spacing:4px;font-weight:700;font-size:16px;text-align:center">
+      <button onclick="goViewOther()" style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:14px;font-weight:700;cursor:pointer">查看</button>
+    </div>
+    <div id="view-code-err" style="color:#ff3b30;font-size:12px;margin-top:6px;min-height:16px"></div>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+  setTimeout(() => {
+    const inp = document.getElementById('view-code-input')
+    if (inp) inp.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase() })
+  }, 50)
+}
+
+async function goViewOther() {
+  const code = (document.getElementById('view-code-input').value || '').toUpperCase().trim()
+  if (!/^[A-Z0-9]{6}$/.test(code)) {
+    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'
+    return
+  }
+  document.getElementById('view-code-err').textContent = '載入中…'
+  const res = await fetch(`/api/schedule/${code}`).catch(() => null)
+  if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
+  const data = await res.json()
+  if (!Array.isArray(data) || data.length === 0) {
+    document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'
+    return
+  }
+  viewUserId = code
+  history.replaceState({}, '', '?view=' + code)
+  document.getElementById('modal-overlay').classList.remove('active')
+  await loadSchedule()
+}
+
+document.getElementById('user-code-btn').addEventListener('click', showUserCodeModal)
 
 // 手機/電腦版切換（僅電腦顯示按鈕）
 ;(() => {
