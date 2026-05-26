@@ -35,7 +35,7 @@ app.post('/api/refresh', (req, res) => {
 app.post('/api/schedule', (req, res) => {
   const entry = req.body
   if (!entry.date) return res.status(400).json({ error: '缺少 date' })
-  entry.id = 'manual_' + Date.now()
+  if (!entry.id) entry.id = 'manual_' + Date.now() + '_' + Math.floor(Math.random()*9999)
   entry.manually_added = true
   const data = JSON.parse(fs.readFileSync(cachePath, 'utf8'))
   data.push(entry)

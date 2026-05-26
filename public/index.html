@@ -130,6 +130,14 @@
     .open-edit-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#1c1c1e; cursor:pointer; margin-top:8px; }
     .open-add-day-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#007aff; cursor:pointer; margin-top:8px; }
     .sby-pill { background:#fff3cd; color:#856404; }
+    .leg-section-header { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700; color:#007aff; margin-bottom:8px; padding-bottom:6px; border-bottom:1.5px solid #e8f0fe; }
+    .leg-remove-btn { background:none; border:none; color:#ff3b30; font-size:13px; font-weight:600; cursor:pointer; padding:0; }
+    .leg-divider { border:none; border-top:1px solid #e5e5ea; margin:4px 0 12px; }
+    .add-leg-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:10px; font-size:14px; font-weight:600; color:#007aff; cursor:pointer; margin:4px 0 12px; }
+    /* Modal 跟著手機版寬度 */
+    @media (min-width:600px) {
+      body:not(.desktop-mode) .modal { max-width:390px; margin:0 auto; }
+    }
 
     /* Settings */
     .settings-btn { font-size:18px; cursor:pointer; padding:4px 8px; background:none; border:none; color:#8e8e93; }
@@ -538,10 +546,10 @@ function showDetail(task) {
   if (task.startDate >= todayStr2) {
     html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板</button>`
   }
-  const isManual = task.legs[0].manually_added
+  const isManual = task.legs.every(l => l.manually_added)
   if (isManual) {
-    html += `<button class="open-edit-btn" onclick="showAddForm('${task.startDate}', window._swapTask.legs[0])">✏️ 修改</button>`
-    html += `<button class="add-del-btn" onclick="deleteEntry('${task.legs[0].id}')">刪除此航班</button>`
+    html += `<button class="open-edit-btn" onclick="showAddForm('${task.startDate}', window._swapTask)">✏️ 修改</button>`
+    html += `<button class="add-del-btn" onclick="deleteEntry()">刪除此勤務</button>`
   }
   html += `<button class="open-add-day-btn" onclick="showAddForm('${task.startDate}')">＋ 新增航班</button>`
   window._swapTask = task
@@ -777,80 +785,94 @@ async function submitSwap() {
 
 // ── 新增 / 修改表單 ──────────────────────────────────────────
 let _addDutyType = 'flight'
-let _addAcType = ''
-let _editEntry = null
+let _addLegs = []
+let _editTask = null
+const _AC_TYPES = ['A321','A330','A350','B777','B738']
 
-function showAddForm(dateStr, entry) {
-  _editEntry = entry || null
-  _addDutyType = entry ? (entry.type === 'flight' ? 'flight' : entry.code === 'SBY' ? 'standby' : entry.code === 'CM' ? 'training' : 'dayoff') : 'flight'
-  _addAcType = entry ? (entry.aircraft_type || '') : ''
+function showAddForm(dateStr, task) {
+  _editTask = task || null
+  _addDutyType = 'flight'
+  if (task) {
+    _addLegs = task.legs.map((leg, i) => ({
+      date: leg.date,
+      fn: leg.flight_number || '',
+      acType: leg.aircraft_type || '',
+      from: leg.from || '',
+      to: leg.to || '',
+      dep: leg.departure_scheduled ? leg.departure_scheduled.slice(0,2)+':'+leg.departure_scheduled.slice(2,4) : '',
+      arr: leg.arrival_scheduled  ? leg.arrival_scheduled.slice(0,2)+':'+leg.arrival_scheduled.slice(2,4)  : '',
+      rep: i === 0 && leg.reporting ? leg.reporting.slice(0,2)+':'+leg.reporting.slice(2,4) : ''
+    }))
+  } else {
+    _addLegs = [{ date: dateStr, fn: '', acType: '', from: '', to: '', dep: '', arr: '', rep: '' }]
+  }
+  _renderAddForm(dateStr, !!task)
+}
 
-  const d = new Date(dateStr + 'T12:00:00')
+function _renderAddForm(baseDate, isEdit) {
+  const d = new Date(baseDate + 'T12:00:00')
   const wd = ['日','一','二','三','四','五','六']
   const dateLabel = `${d.getMonth()+1} 月 ${d.getDate()} 日（${wd[d.getDay()]}）`
-  const isEdit = !!entry
-  const title = isEdit ? '修改航班' : '新增航班'
-
-  const dutyTypes = [
-    { key:'flight', label:'飛行' },
-    { key:'standby', label:'備勤' },
-    { key:'training', label:'訓練' },
-    { key:'dayoff', label:'休假' }
-  ]
-  const acTypes = ['A321','A330','A350','B777','B738']
-
-  const dutyBtns = dutyTypes.map(dt =>
+  const dutyBtns = [
+    { key:'flight', label:'飛行' }, { key:'standby', label:'備勤' },
+    { key:'training', label:'訓練' }, { key:'dayoff', label:'休假' }
+  ].map(dt =>
     `<button class="duty-type-btn${_addDutyType===dt.key?' active':''}" onclick="setAddDutyType('${dt.key}',this)">${dt.label}</button>`
   ).join('')
 
-  const acBtns = acTypes.map(ac =>
-    `<button class="ac-btn${_addAcType===ac?' active':''}" onclick="setAddAcType('${ac}')">${ac}</button>`
-  ).join('')
-
-  const fn = entry ? entry.flight_number || '' : ''
-  const from = entry ? entry.from || '' : ''
-  const to = entry ? entry.to || '' : ''
-  const dep = entry && entry.departure_scheduled ? entry.departure_scheduled.slice(0,2)+':'+entry.departure_scheduled.slice(2,4) : ''
-  const arr = entry && entry.arrival_scheduled  ? entry.arrival_scheduled.slice(0,2)+':'+entry.arrival_scheduled.slice(2,4)  : ''
-  const rep = entry && entry.reporting          ? entry.reporting.slice(0,2)+':'+entry.reporting.slice(2,4)                   : ''
-
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date">← <span style="color:#007aff;cursor:pointer" onclick="document.getElementById('modal-overlay').classList.remove('active')">取消</span></div>
-    <div class="task-route" style="margin-bottom:10px">${title}　<span style="font-size:13px;color:#8e8e93;font-weight:400">${dateLabel}</span></div>
+    <div class="task-route" style="margin-bottom:10px">${isEdit?'修改航班':'新增航班'}　<span style="font-size:13px;color:#8e8e93;font-weight:400">${dateLabel}</span></div>
     <div class="add-section-label">勤務類型</div>
     <div class="duty-type-row">${dutyBtns}</div>
     <div id="flight-fields" style="display:${_addDutyType==='flight'?'block':'none'}">
-      <div class="add-section-label">航班號 <span style="color:#ff3b30">*</span></div>
-      <input id="add-fn" class="add-field-input" type="number" placeholder="例：755" inputmode="numeric" value="${fn}">
-      <div class="add-section-label">機型</div>
-      <div class="ac-type-row" id="ac-type-row">${acBtns}</div>
-      <div class="add-row2">
-        <div>
-          <div class="add-section-label">出發地</div>
-          <input id="add-from" class="add-field-input upper" maxlength="3" placeholder="TPE" value="${from}">
-        </div>
-        <div>
-          <div class="add-section-label">目的地</div>
-          <input id="add-to" class="add-field-input upper" maxlength="3" placeholder="NRT" value="${to}">
-        </div>
-      </div>
-      <div class="add-row2">
-        <div>
-          <div class="add-section-label">預定起飛</div>
-          <input id="add-dep" class="add-field-input" type="time" value="${dep}">
-        </div>
-        <div>
-          <div class="add-section-label">預定降落</div>
-          <input id="add-arr" class="add-field-input" type="time" value="${arr}">
-        </div>
-      </div>
-      <div class="add-section-label">報到時間</div>
-      <input id="add-rep" class="add-field-input" type="time" value="${rep}">
+      <div id="legs-container"></div>
+      <button class="add-leg-btn" onclick="addLeg()">＋ 新增航段</button>
     </div>
-    <button class="add-save-btn" onclick="submitFlight('${dateStr}')">儲存</button>
-    ${isEdit ? `<button class="add-del-btn" onclick="deleteEntry('${entry.id}')">刪除此航班</button>` : ''}
+    <button class="add-save-btn" onclick="submitFlight('${baseDate}')">儲存</button>
+    ${isEdit ? `<button class="add-del-btn" onclick="deleteEntry()">刪除此勤務</button>` : ''}
   `
   document.getElementById('modal-overlay').classList.add('active')
+  _renderLegs()
+}
+
+function _renderLegs() {
+  const container = document.getElementById('legs-container')
+  if (!container) return
+  container.innerHTML = _addLegs.map((leg, i) => {
+    const acBtns = _AC_TYPES.map(ac =>
+      `<button class="ac-btn${leg.acType===ac?' active':''}" onclick="setLegAc(${i},'${ac}')">${ac}</button>`
+    ).join('')
+    const showDate = i > 0
+    return `
+      ${i > 0 ? '<hr class="leg-divider">' : ''}
+      <div class="leg-section">
+        <div class="leg-section-header">
+          第 ${i+1} 腿
+          ${i > 0 ? `<button class="leg-remove-btn" onclick="removeLeg(${i})">✕ 移除</button>` : ''}
+        </div>
+        ${showDate ? `
+          <div class="add-section-label">日期</div>
+          <input id="leg-date-${i}" class="add-field-input" type="date" value="${leg.date}">
+        ` : `
+          <div class="add-section-label">報到時間</div>
+          <input id="leg-rep-0" class="add-field-input" type="time" value="${leg.rep}">
+        `}
+        <div class="add-section-label">航班號 <span style="color:#ff3b30">*</span></div>
+        <input id="leg-fn-${i}" class="add-field-input" type="number" inputmode="numeric" placeholder="例：755" value="${leg.fn}">
+        <div class="add-section-label">機型</div>
+        <div class="ac-type-row">${acBtns}</div>
+        <div class="add-row2">
+          <div><div class="add-section-label">出發地</div><input id="leg-from-${i}" class="add-field-input upper" maxlength="3" placeholder="TPE" value="${leg.from}"></div>
+          <div><div class="add-section-label">目的地</div><input id="leg-to-${i}" class="add-field-input upper" maxlength="3" placeholder="NRT" value="${leg.to}"></div>
+        </div>
+        <div class="add-row2">
+          <div><div class="add-section-label">預定起飛</div><input id="leg-dep-${i}" class="add-field-input" type="time" value="${leg.dep}"></div>
+          <div><div class="add-section-label">預定降落</div><input id="leg-arr-${i}" class="add-field-input" type="time" value="${leg.arr}"></div>
+        </div>
+      </div>
+    `
+  }).join('')
 }
 
 function setAddDutyType(type, btn) {
@@ -860,63 +882,91 @@ function setAddDutyType(type, btn) {
   document.getElementById('flight-fields').style.display = type === 'flight' ? 'block' : 'none'
 }
 
-function setAddAcType(ac) {
-  _addAcType = _addAcType === ac ? '' : ac
-  document.querySelectorAll('.ac-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent === _addAcType)
+function setLegAc(idx, ac) {
+  _syncLegsFromDom()
+  _addLegs[idx].acType = _addLegs[idx].acType === ac ? '' : ac
+  _renderLegs()
+}
+
+function addLeg() {
+  _syncLegsFromDom()
+  const prev = _addLegs[_addLegs.length - 1]
+  _addLegs.push({ date: prev.date, fn: '', acType: prev.acType || '', from: prev.to || '', to: '', dep: '', arr: '', rep: '' })
+  _renderLegs()
+}
+
+function removeLeg(idx) {
+  _syncLegsFromDom()
+  _addLegs.splice(idx, 1)
+  _renderLegs()
+}
+
+function _syncLegsFromDom() {
+  _addLegs.forEach((leg, i) => {
+    const g = id => { const el = document.getElementById(id); return el ? el.value : leg[id] }
+    leg.fn   = g(`leg-fn-${i}`)
+    leg.from = (g(`leg-from-${i}`) || '').toUpperCase()
+    leg.to   = (g(`leg-to-${i}`)   || '').toUpperCase()
+    leg.dep  = g(`leg-dep-${i}`)
+    leg.arr  = g(`leg-arr-${i}`)
+    if (i === 0) { const r = document.getElementById('leg-rep-0'); if (r) leg.rep = r.value }
+    else { const d = document.getElementById(`leg-date-${i}`); if (d) leg.date = d.value }
   })
 }
 
-async function submitFlight(dateStr) {
-  let entry = {}
-
-  if (_addDutyType === 'flight') {
-    const fn = document.getElementById('add-fn').value.trim()
-    if (!fn) { alert('請填寫航班號'); return }
-    const depVal = document.getElementById('add-dep').value
-    const arrVal = document.getElementById('add-arr').value
-    const repVal = document.getElementById('add-rep').value
-    entry = {
-      type: 'flight',
-      date: dateStr,
-      flight_number: fn,
-      from: document.getElementById('add-from').value.trim().toUpperCase() || undefined,
-      to:   document.getElementById('add-to').value.trim().toUpperCase()   || undefined,
-      departure_scheduled: depVal ? depVal.replace(':','') : undefined,
-      arrival_scheduled:   arrVal ? arrVal.replace(':','') : undefined,
-      reporting:           repVal ? repVal.replace(':','') : undefined,
-      aircraft_type:       _addAcType || undefined
-    }
-    // 清掉 undefined
-    Object.keys(entry).forEach(k => entry[k] === undefined && delete entry[k])
-  } else {
+async function submitFlight(baseDate) {
+  if (_addDutyType !== 'flight') {
     const codeMap = { standby:'SBY', training:'CM', dayoff:'AL' }
-    entry = { type: _addDutyType === 'standby' ? 'day_off' : _addDutyType, code: codeMap[_addDutyType], date: dateStr }
+    const typeMap = { standby:'day_off', training:'training', dayoff:'day_off' }
+    const entry = { type: typeMap[_addDutyType], code: codeMap[_addDutyType], date: baseDate }
+    try {
+      await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+      document.getElementById('modal-overlay').classList.remove('active')
+      await loadSchedule()
+    } catch { alert('連線失敗') }
+    return
   }
 
-  try {
-    let res
-    if (_editEntry) {
-      res = await fetch(`/api/schedule/${_editEntry.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
-    } else {
-      res = await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+  _syncLegsFromDom()
+  for (let i = 0; i < _addLegs.length; i++) {
+    if (!_addLegs[i].fn) { alert(`第 ${i+1} 腿請填寫航班號`); return }
+  }
+
+  // 編輯模式：先刪舊腿
+  if (_editTask) {
+    for (const leg of _editTask.legs) {
+      if (leg.id) await fetch(`/api/schedule/${leg.id}`, { method:'DELETE' }).catch(()=>{})
     }
+  }
+
+  const dutyId = 'duty_' + Date.now()
+  const ts = Date.now()
+  for (let i = 0; i < _addLegs.length; i++) {
+    const leg = _addLegs[i]
+    const legDate = i === 0 ? baseDate : (leg.date || baseDate)
+    const entry = { id: `manual_${ts}_${i}`, duty_id: dutyId, type: 'flight', date: legDate, flight_number: leg.fn }
+    if (leg.from) entry.from = leg.from
+    if (leg.to)   entry.to   = leg.to
+    if (leg.dep)  entry.departure_scheduled = leg.dep.replace(':','')
+    if (leg.arr)  entry.arrival_scheduled   = leg.arr.replace(':','')
+    if (leg.acType) entry.aircraft_type = leg.acType
+    if (i === 0 && leg.rep) entry.reporting = leg.rep.replace(':','')
+    const res = await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
     const data = await res.json()
-    if (!data.ok) { alert('儲存失敗'); return }
-    document.getElementById('modal-overlay').classList.remove('active')
-    await loadSchedule()
-  } catch { alert('連線失敗') }
+    if (!data.ok) { alert(`第 ${i+1} 腿儲存失敗`); return }
+  }
+  document.getElementById('modal-overlay').classList.remove('active')
+  await loadSchedule()
 }
 
-async function deleteEntry(id) {
-  if (!confirm('確定刪除這筆航班？')) return
-  try {
-    const res = await fetch(`/api/schedule/${id}`, { method:'DELETE' })
-    const data = await res.json()
-    if (!data.ok) { alert('刪除失敗'); return }
-    document.getElementById('modal-overlay').classList.remove('active')
-    await loadSchedule()
-  } catch { alert('連線失敗') }
+async function deleteEntry() {
+  const task = _editTask || window._swapTask
+  if (!task || !confirm('確定刪除此勤務所有航段？')) return
+  for (const leg of task.legs) {
+    if (leg.id) await fetch(`/api/schedule/${leg.id}`, { method:'DELETE' }).catch(()=>{})
+  }
+  document.getElementById('modal-overlay').classList.remove('active')
+  await loadSchedule()
 }
 
 document.getElementById('settings-btn').addEventListener('click', () => showSettingsModal(false))
