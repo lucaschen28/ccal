@@ -60,6 +60,7 @@
     .event-pill.xl      { background:#fde8d8; color:#8b3a00; }
     .event-pill.cm      { background:#ede8fc; color:#5c35c9; }
     .event-pill.mt      { background:#d4f5e0; color:#1a7a42; }
+    .ac-badge { font-size:11px; font-weight:700; background:#e8f0fe; color:#1a6ef7; border-radius:6px; padding:2px 8px; white-space:nowrap; flex-shrink:0; }
     .event-pill.dayoff  { background:#fde8e8; color:#c0392b; }
     .event-pill.meeting { background:#d4f5e0; color:#1a7a42; }
 
@@ -515,8 +516,12 @@ function showDetail(task) {
 
       const routePart = (leg.from || leg.to) ? `　${leg.from||'?'} → ${leg.to||'?'}` : ''
       const fnPart = leg.flight_number ? `CI ${padFN(leg.flight_number)}` : ''
+      const acBadge = leg.aircraft_type ? `<span class="ac-badge">${leg.aircraft_type}</span>` : ''
       html += `<div class="leg-block">
-        <div class="leg-title">${legLabel}${fnPart}${routePart}</div>`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+          <div class="leg-title" style="margin-bottom:0">${legLabel}${fnPart}${routePart}</div>
+          ${acBadge}
+        </div>`
       html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${rep.t ? D(repDate)+fmtT(rep) : '--'}</span></div>`
       html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${(depS.t||depA.t) ? D(depDate)+fmtInline(depS,depA) : '--'}</span></div>`
       html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${(arrS.t||arrA.t) ? D(arrDate)+fmtInline(arrS,arrA) : '--'}</span></div>`
@@ -909,6 +914,7 @@ function _renderAddForm(baseDate, isEdit) {
     <div id="nonflight-fields" style="display:${showFlight?'none':'block'}">
       <div class="add-section-label">說明（選填）</div>
       <input id="task-note" class="add-field-input" type="text" placeholder="例：A320 複訓、年假" value="${_taskNote}">
+      <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="margin-top:4px">儲存</button>
     </div>
     <div id="flight-fields" style="display:${showFlight?'block':'none'}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -919,6 +925,7 @@ function _renderAddForm(baseDate, isEdit) {
           placeholder="1" value="${_taskDays > 1 ? _taskDays : ''}"
           style="width:52px;margin-bottom:0;text-align:center">
         <span style="font-size:14px;color:#8e8e93;white-space:nowrap">天</span>
+        <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="flex:1;margin:0;padding:9px 0;font-size:14px">儲存</button>
       </div>
       <hr style="border:none;border-top:1px solid #e5e5ea;margin:0 0 12px">
       <div class="add-section-label">報到時間</div>
@@ -926,7 +933,6 @@ function _renderAddForm(baseDate, isEdit) {
       <div id="segs-container"></div>
       <button class="add-leg-btn" onclick="addSeg()">＋ 新增航段</button>
     </div>
-    <button class="add-save-btn" onclick="submitFlight('${baseDate}')">儲存</button>
     ${isEdit ? `<button class="add-del-btn" onclick="deleteEntry()">刪除此勤務</button>` : ''}
   `
   document.getElementById('modal-overlay').classList.add('active')
