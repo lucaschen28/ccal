@@ -112,6 +112,25 @@
     .swap-post-btn:disabled { background:#a8d4ff; cursor:not-allowed; }
     .open-swap-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#007aff; cursor:pointer; margin-top:12px; }
 
+    /* Add/Edit form */
+    .add-section-label { font-size:12px; color:#8e8e93; margin:10px 0 6px; }
+    .duty-type-row { display:flex; background:#f2f2f7; border-radius:10px; padding:2px; margin-bottom:12px; }
+    .duty-type-btn { flex:1; border:none; background:none; border-radius:8px; padding:7px 0; font-size:13px; font-weight:600; color:#8e8e93; cursor:pointer; }
+    .duty-type-btn.active { background:#fff; color:#1c1c1e; box-shadow:0 1px 4px rgba(0,0,0,0.12); }
+    .ac-type-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    .ac-btn { border:1.5px solid #e5e5ea; background:#fff; border-radius:8px; padding:6px 10px; font-size:13px; font-weight:600; color:#1c1c1e; cursor:pointer; }
+    .ac-btn.active { border-color:#007aff; background:#e8f0fe; color:#007aff; }
+    .add-row2 { display:flex; gap:8px; margin-bottom:0; }
+    .add-row2 > div { flex:1; }
+    .add-field-input { width:100%; border:1px solid #e5e5ea; border-radius:8px; padding:9px 10px; font-size:14px; outline:none; font-family:inherit; background:#fff; margin-bottom:10px; }
+    .add-field-input:focus { border-color:#007aff; }
+    .add-field-input.upper { text-transform:uppercase; }
+    .add-save-btn { width:100%; background:#007aff; color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; margin-top:4px; }
+    .add-del-btn { width:100%; background:#fff; color:#ff3b30; border:1.5px solid #ff3b30; border-radius:12px; padding:11px; font-size:14px; font-weight:600; cursor:pointer; margin-top:8px; }
+    .open-edit-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#1c1c1e; cursor:pointer; margin-top:8px; }
+    .open-add-day-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#007aff; cursor:pointer; margin-top:8px; }
+    .sby-pill { background:#fff3cd; color:#856404; }
+
     /* Settings */
     .settings-btn { font-size:18px; cursor:pointer; padding:4px 8px; background:none; border:none; color:#8e8e93; }
     .sf-group { display:flex; flex-direction:column; gap:4px; }
@@ -304,14 +323,20 @@ function renderCalendar() {
       cell.appendChild(pill)
     })
 
-    // RDO / AL / XL / CM
-    scheduleData.filter(e => e.date === ds && ['RDO','AL','XL','CM'].includes(e.code)).forEach(ev => {
+    // RDO / AL / XL / CM / SBY
+    scheduleData.filter(e => e.date === ds && ['RDO','AL','XL','CM','SBY'].includes(e.code)).forEach(ev => {
       const pill = document.createElement('div')
-      pill.className = 'event-pill ' + ev.code.toLowerCase()
+      pill.className = 'event-pill ' + (ev.code === 'SBY' ? 'sby-pill' : ev.code.toLowerCase())
       pill.textContent = ev.code
       if (ev.type === 'training') pill.addEventListener('click', e => { e.stopPropagation(); showTrainingDetail(ev) })
       cell.appendChild(pill)
     })
+
+    // 點空白格子 → 新增
+    if (isCur) {
+      cell.style.cursor = 'pointer'
+      cell.addEventListener('click', () => showAddForm(ds))
+    }
 
     cal.appendChild(cell)
   }
@@ -510,6 +535,12 @@ function showDetail(task) {
   })
 
   html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板</button>`
+  const isManual = task.legs[0].manually_added
+  if (isManual) {
+    html += `<button class="open-edit-btn" onclick="showAddForm('${task.startDate}', window._swapTask.legs[0])">✏️ 修改</button>`
+    html += `<button class="add-del-btn" onclick="deleteEntry('${task.legs[0].id}')">刪除此航班</button>`
+  }
+  html += `<button class="open-add-day-btn" onclick="showAddForm('${task.startDate}')">＋ 新增航班</button>`
   window._swapTask = task
   document.getElementById('modal-content').innerHTML = html
   document.getElementById('modal-overlay').classList.add('active')
@@ -739,6 +770,150 @@ async function submitSwap() {
     btn.disabled = false; btn.textContent = '送出'
     alert('連線失敗，請確認 Bot URL 是否正確')
   }
+}
+
+// ── 新增 / 修改表單 ──────────────────────────────────────────
+let _addDutyType = 'flight'
+let _addAcType = ''
+let _editEntry = null
+
+function showAddForm(dateStr, entry) {
+  _editEntry = entry || null
+  _addDutyType = entry ? (entry.type === 'flight' ? 'flight' : entry.code === 'SBY' ? 'standby' : entry.code === 'CM' ? 'training' : 'dayoff') : 'flight'
+  _addAcType = entry ? (entry.aircraft_type || '') : ''
+
+  const d = new Date(dateStr + 'T12:00:00')
+  const wd = ['日','一','二','三','四','五','六']
+  const dateLabel = `${d.getMonth()+1} 月 ${d.getDate()} 日（${wd[d.getDay()]}）`
+  const isEdit = !!entry
+  const title = isEdit ? '修改航班' : '新增航班'
+
+  const dutyTypes = [
+    { key:'flight', label:'飛行' },
+    { key:'standby', label:'備勤' },
+    { key:'training', label:'訓練' },
+    { key:'dayoff', label:'休假' }
+  ]
+  const acTypes = ['A321','A330','A350','B777','B738']
+
+  const dutyBtns = dutyTypes.map(dt =>
+    `<button class="duty-type-btn${_addDutyType===dt.key?' active':''}" onclick="setAddDutyType('${dt.key}',this)">${dt.label}</button>`
+  ).join('')
+
+  const acBtns = acTypes.map(ac =>
+    `<button class="ac-btn${_addAcType===ac?' active':''}" onclick="setAddAcType('${ac}')">${ac}</button>`
+  ).join('')
+
+  const fn = entry ? entry.flight_number || '' : ''
+  const from = entry ? entry.from || '' : ''
+  const to = entry ? entry.to || '' : ''
+  const dep = entry && entry.departure_scheduled ? entry.departure_scheduled.slice(0,2)+':'+entry.departure_scheduled.slice(2,4) : ''
+  const arr = entry && entry.arrival_scheduled  ? entry.arrival_scheduled.slice(0,2)+':'+entry.arrival_scheduled.slice(2,4)  : ''
+  const rep = entry && entry.reporting          ? entry.reporting.slice(0,2)+':'+entry.reporting.slice(2,4)                   : ''
+
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-date">← <span style="color:#007aff;cursor:pointer" onclick="document.getElementById('modal-overlay').classList.remove('active')">取消</span></div>
+    <div class="task-route" style="margin-bottom:10px">${title}　<span style="font-size:13px;color:#8e8e93;font-weight:400">${dateLabel}</span></div>
+    <div class="add-section-label">勤務類型</div>
+    <div class="duty-type-row">${dutyBtns}</div>
+    <div id="flight-fields" style="display:${_addDutyType==='flight'?'block':'none'}">
+      <div class="add-section-label">航班號 <span style="color:#ff3b30">*</span></div>
+      <input id="add-fn" class="add-field-input" type="number" placeholder="例：755" inputmode="numeric" value="${fn}">
+      <div class="add-section-label">機型</div>
+      <div class="ac-type-row" id="ac-type-row">${acBtns}</div>
+      <div class="add-row2">
+        <div>
+          <div class="add-section-label">出發地</div>
+          <input id="add-from" class="add-field-input upper" maxlength="3" placeholder="TPE" value="${from}">
+        </div>
+        <div>
+          <div class="add-section-label">目的地</div>
+          <input id="add-to" class="add-field-input upper" maxlength="3" placeholder="NRT" value="${to}">
+        </div>
+      </div>
+      <div class="add-row2">
+        <div>
+          <div class="add-section-label">預定起飛</div>
+          <input id="add-dep" class="add-field-input" type="time" value="${dep}">
+        </div>
+        <div>
+          <div class="add-section-label">預定降落</div>
+          <input id="add-arr" class="add-field-input" type="time" value="${arr}">
+        </div>
+      </div>
+      <div class="add-section-label">報到時間</div>
+      <input id="add-rep" class="add-field-input" type="time" value="${rep}">
+    </div>
+    <button class="add-save-btn" onclick="submitFlight('${dateStr}')">儲存</button>
+    ${isEdit ? `<button class="add-del-btn" onclick="deleteEntry('${entry.id}')">刪除此航班</button>` : ''}
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function setAddDutyType(type, btn) {
+  _addDutyType = type
+  document.querySelectorAll('.duty-type-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  document.getElementById('flight-fields').style.display = type === 'flight' ? 'block' : 'none'
+}
+
+function setAddAcType(ac) {
+  _addAcType = _addAcType === ac ? '' : ac
+  document.querySelectorAll('.ac-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === _addAcType)
+  })
+}
+
+async function submitFlight(dateStr) {
+  let entry = {}
+
+  if (_addDutyType === 'flight') {
+    const fn = document.getElementById('add-fn').value.trim()
+    if (!fn) { alert('請填寫航班號'); return }
+    const depVal = document.getElementById('add-dep').value
+    const arrVal = document.getElementById('add-arr').value
+    const repVal = document.getElementById('add-rep').value
+    entry = {
+      type: 'flight',
+      date: dateStr,
+      flight_number: fn,
+      from: document.getElementById('add-from').value.trim().toUpperCase() || undefined,
+      to:   document.getElementById('add-to').value.trim().toUpperCase()   || undefined,
+      departure_scheduled: depVal ? depVal.replace(':','') : undefined,
+      arrival_scheduled:   arrVal ? arrVal.replace(':','') : undefined,
+      reporting:           repVal ? repVal.replace(':','') : undefined,
+      aircraft_type:       _addAcType || undefined
+    }
+    // 清掉 undefined
+    Object.keys(entry).forEach(k => entry[k] === undefined && delete entry[k])
+  } else {
+    const codeMap = { standby:'SBY', training:'CM', dayoff:'AL' }
+    entry = { type: _addDutyType === 'standby' ? 'day_off' : _addDutyType, code: codeMap[_addDutyType], date: dateStr }
+  }
+
+  try {
+    let res
+    if (_editEntry) {
+      res = await fetch(`/api/schedule/${_editEntry.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+    } else {
+      res = await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+    }
+    const data = await res.json()
+    if (!data.ok) { alert('儲存失敗'); return }
+    document.getElementById('modal-overlay').classList.remove('active')
+    await loadSchedule()
+  } catch { alert('連線失敗') }
+}
+
+async function deleteEntry(id) {
+  if (!confirm('確定刪除這筆航班？')) return
+  try {
+    const res = await fetch(`/api/schedule/${id}`, { method:'DELETE' })
+    const data = await res.json()
+    if (!data.ok) { alert('刪除失敗'); return }
+    document.getElementById('modal-overlay').classList.remove('active')
+    await loadSchedule()
+  } catch { alert('連線失敗') }
 }
 
 document.getElementById('settings-btn').addEventListener('click', () => showSettingsModal(false))
