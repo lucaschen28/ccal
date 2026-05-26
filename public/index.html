@@ -354,7 +354,10 @@ function renderCalendar() {
     })
 
     // 非飛航事件（休假/受訓/會議/SBY 等）
-    scheduleData.filter(e => e.date === ds && e.type && e.type !== 'flight').forEach(ev => {
+    scheduleData.filter(e =>
+      e.date === ds && e.type && e.type !== 'flight' &&
+      (e.manually_added || ['RDO','AL','XL','CM','SBY'].includes(e.code))
+    ).forEach(ev => {
       const pill = document.createElement('div')
       const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
       pill.className = 'event-pill ' + (ev.code === 'SBY' ? 'sby-pill' : typeClass)
