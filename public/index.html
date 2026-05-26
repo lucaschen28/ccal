@@ -274,7 +274,8 @@ function groupTasks(flights) {
 }
 
 function taskRoute(t) {
-  return [t.legs[0].from, ...t.legs.map(l=>l.to)].join('→')
+  const pts = [t.legs[0].from, ...t.legs.map(l=>l.to)].filter(p => p && p !== 'undefined')
+  return pts.length ? pts.join('→') : ''
 }
 
 function tasksOnDate(dateStr) {
@@ -458,8 +459,14 @@ function showDetail(task) {
 
   let html = `<div class="task-date">${dateLabel}</div><div class="task-route">${taskRoute(task)}</div>${tzNote}`
 
+  // 過濾完全空白的非首腿（只有 date/id 沒有任何有用資料）
+  const displayLegs = task.legs.filter((leg, idx) =>
+    idx === 0 || leg.from || leg.to ||
+    leg.departure_scheduled || leg.departure ||
+    leg.arrival_scheduled   || leg.arrival   || leg.reporting
+  )
   const segments = []
-  task.legs.forEach(leg => {
+  displayLegs.forEach(leg => {
     if (leg.reporting || segments.length === 0) segments.push({ legs: [] })
     segments[segments.length - 1].legs.push(leg)
   })
@@ -500,11 +507,12 @@ function showDetail(task) {
 
       const D = s => `<span class="dt">${md(s)}</span> `
 
+      const routePart = (leg.from || leg.to) ? `　${leg.from||'?'} → ${leg.to||'?'}` : ''
       html += `<div class="leg-block">
-        <div class="leg-title">${legLabel}CI ${padFN(leg.flight_number)}　${leg.from} → ${leg.to}</div>`
+        <div class="leg-title">${legLabel}CI ${padFN(leg.flight_number)}${routePart}</div>`
       if (rep.t) html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${D(repDate)}${fmtT(rep)}</span></div>`
-      html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
-      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
+      if (depS.t || depA.t) html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${D(depDate)}${fmtInline(depS, depA)}</span></div>`
+      if (arrS.t || arrA.t) html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${D(arrDate)}${fmtInline(arrS, arrA)}</span></div>`
       if (ftMinS || ftMinA) html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${ftLabel}</span></div>`
 
       if (leg === lastLeg && segFdpMin) {
@@ -552,9 +560,14 @@ function showDetail(task) {
           <div class="afterduty-row"><span class="lbl">內規</span><span class="val">${internalRestLabel}（CI${taskFlightNum}）</span></div>
         </div>`
 
-      } else {
+      } else if (lastLeg.to) {
         html += `<div class="layover-block">
           <div class="layover-row"><span class="lbl">外站 ${lastLeg.to}</span><span class="val">MRT ${getMRTLabel(segFdpMin)}</span></div>
+        </div>`
+      } else if (task.startDate !== task.endDate) {
+        const endD = task.endDate.split('-')
+        html += `<div class="layover-block">
+          <div class="layover-row"><span class="lbl">過夜班</span><span class="val">至 ${+endD[1]}/${+endD[2]}</span></div>
         </div>`
       }
     }
@@ -803,7 +816,7 @@ async function submitSwap() {
 
 // ── 新增 / 修改表單 ──────────────────────────────────────────
 let _taskType = 'flight'
-let _taskFn = ''
+let _taskNote = ''
 let _taskDays = 1
 let _taskRep = ''
 let _taskSegs = []
@@ -814,21 +827,22 @@ function showAddForm(dateStr, task) {
   _editTask = task || null
   if (task) {
     _taskType = 'flight'
-    _taskFn = String(task.legs[0].flight_number || '')
+    _taskNote = ''
     const d0 = task.legs[0].date, dN = task.legs[task.legs.length-1].date
     _taskDays = Math.round((new Date(dN)-new Date(d0))/86400000) + 1
     _taskRep = task.legs[0].reporting ? task.legs[0].reporting.slice(0,2)+':'+task.legs[0].reporting.slice(2,4) : ''
     _taskSegs = task.legs.map(leg => ({
+      fn: String(leg.flight_number || ''),
       acType: leg.aircraft_type || '',
       from: leg.from || '', to: leg.to || '',
       dep: leg.departure_scheduled ? leg.departure_scheduled.slice(0,2)+':'+leg.departure_scheduled.slice(2,4) : '',
       arr: leg.arrival_scheduled  ? leg.arrival_scheduled.slice(0,2)+':'+leg.arrival_scheduled.slice(2,4)  : ''
     }))
   } else {
-    _taskType = 'flight'; _taskFn = ''; _taskDays = 1; _taskRep = ''
+    _taskType = 'flight'; _taskNote = ''; _taskDays = 1; _taskRep = ''
     _taskSegs = [
-      { acType:'', from:'', to:'', dep:'', arr:'' },
-      { acType:'', from:'', to:'', dep:'', arr:'' }
+      { fn:'', acType:'', from:'', to:'', dep:'', arr:'' },
+      { fn:'', acType:'', from:'', to:'', dep:'', arr:'' }
     ]
   }
   _renderAddForm(dateStr, !!task)
@@ -841,22 +855,26 @@ function _renderAddForm(baseDate, isEdit) {
   const typeBtns = [
     { key:'flight', label:'飛航' },
     { key:'training', label:'受訓' },
-    { key:'dayoff', label:'休假' }
+    { key:'dayoff', label:'休假' },
+    { key:'meeting', label:'會議' }
   ].map(t =>
     `<button class="duty-type-btn${_taskType===t.key?' active':''}" onclick="setTaskType('${t.key}',this)">${t.label}</button>`
   ).join('')
 
+  const showFlight = _taskType === 'flight'
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date">← <span style="color:#007aff;cursor:pointer" onclick="document.getElementById('modal-overlay').classList.remove('active')">取消</span></div>
     <div class="task-route" style="margin-bottom:10px">${isEdit?'修改':'新增'}　<span style="font-size:13px;color:#8e8e93;font-weight:400">${dateLabel}</span></div>
     <div class="add-section-label">任務類型</div>
     <div class="duty-type-row" style="margin-bottom:14px">${typeBtns}</div>
-    <div id="flight-fields" style="display:${_taskType==='flight'?'block':'none'}">
+    <div id="nonflight-fields" style="display:${showFlight?'none':'block'}">
+      <div class="add-section-label">說明（選填）</div>
+      <input id="task-note" class="add-field-input" type="text" placeholder="例：A320 複訓、年假" value="${_taskNote}">
+    </div>
+    <div id="flight-fields" style="display:${showFlight?'block':'none'}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <input id="task-fn" class="add-field-input" type="text" inputmode="numeric" maxlength="4"
-          placeholder="班號" value="${_taskFn}"
-          style="width:80px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center;letter-spacing:2px">
-        <input id="task-days" class="add-field-input" type="number" min="1" max="14" value="${_taskDays}"
+        <input id="task-days" class="add-field-input" type="number" min="1" max="14"
+          placeholder="1" value="${_taskDays > 1 ? _taskDays : ''}"
           style="width:52px;margin-bottom:0;text-align:center">
         <span style="font-size:14px;color:#8e8e93;white-space:nowrap">天</span>
       </div>
@@ -884,6 +902,11 @@ function _renderSegs() {
       <hr class="leg-divider">
       <div class="leg-section">
         ${i >= 2 ? `<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="leg-remove-btn" onclick="removeSeg(${i})">✕ 移除</button></div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <input id="seg-fn-${i}" class="add-field-input" type="text" inputmode="numeric" maxlength="4"
+            placeholder="班號" value="${seg.fn||''}"
+            style="width:80px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center;letter-spacing:2px">
+        </div>
         <div class="add-section-label">機型</div>
         <div class="ac-type-row">${acBtns}</div>
         <div class="add-row2">
@@ -904,6 +927,7 @@ function setTaskType(type, btn) {
   document.querySelectorAll('.duty-type-btn').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
   document.getElementById('flight-fields').style.display = type === 'flight' ? 'block' : 'none'
+  document.getElementById('nonflight-fields').style.display = type !== 'flight' ? 'block' : 'none'
 }
 
 function setSegAc(idx, ac) {
@@ -915,7 +939,7 @@ function setSegAc(idx, ac) {
 function addSeg() {
   _syncFromDom()
   const prev = _taskSegs[_taskSegs.length - 1]
-  _taskSegs.push({ acType: prev.acType || '', from: prev.to || '', to: '', dep: '', arr: '' })
+  _taskSegs.push({ fn: '', acType: prev.acType || '', from: prev.to || '', to: '', dep: '', arr: '' })
   _renderSegs()
 }
 
@@ -926,10 +950,11 @@ function removeSeg(idx) {
 }
 
 function _syncFromDom() {
-  const fn = document.getElementById('task-fn'); if (fn) _taskFn = fn.value.trim()
+  const note = document.getElementById('task-note'); if (note) _taskNote = note.value.trim()
   const days = document.getElementById('task-days'); if (days) _taskDays = parseInt(days.value) || 1
   const rep = document.getElementById('task-rep'); if (rep) _taskRep = rep.value
   _taskSegs.forEach((seg, i) => {
+    const fn   = document.getElementById(`seg-fn-${i}`);   if (fn)   seg.fn   = fn.value.trim()
     const from = document.getElementById(`seg-from-${i}`); if (from) seg.from = from.value.toUpperCase()
     const to   = document.getElementById(`seg-to-${i}`);   if (to)   seg.to   = to.value.toUpperCase()
     const dep  = document.getElementById(`seg-dep-${i}`);  if (dep)  seg.dep  = dep.value
@@ -938,12 +963,16 @@ function _syncFromDom() {
 }
 
 async function submitFlight(baseDate) {
+  _syncFromDom()
   if (_taskType !== 'flight') {
+    const typeMap = { training:'training', dayoff:'day_off', meeting:'meeting' }
+    const codeMap = { training:'CM', dayoff:'AL', meeting:'MT' }
     const entry = {
-      type: _taskType === 'training' ? 'training' : 'day_off',
-      code: _taskType === 'training' ? 'CM' : 'AL',
+      type: typeMap[_taskType] || _taskType,
+      code: codeMap[_taskType] || _taskType,
       date: baseDate
     }
+    if (_taskNote) entry.note = _taskNote
     try {
       await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
       document.getElementById('modal-overlay').classList.remove('active')
@@ -952,8 +981,8 @@ async function submitFlight(baseDate) {
     return
   }
 
-  _syncFromDom()
-  if (!_taskFn) { alert('請填寫班號'); return }
+  const primaryFn = _taskSegs[0]?.fn || ''
+  if (!primaryFn) { alert('請填寫第一段班號'); return }
 
   if (_editTask) {
     for (const leg of _editTask.legs) {
@@ -966,8 +995,9 @@ async function submitFlight(baseDate) {
   const n = _taskSegs.length
   for (let i = 0; i < n; i++) {
     const seg = _taskSegs[i]
+    const segFn = seg.fn || primaryFn
     const legDate = i === 0 ? baseDate : i === n-1 ? addDays(baseDate, _taskDays-1) : baseDate
-    const entry = { id:`manual_${ts}_${i}`, duty_id:dutyId, type:'flight', date:legDate, flight_number:_taskFn }
+    const entry = { id:`manual_${ts}_${i}`, duty_id:dutyId, type:'flight', date:legDate, flight_number:segFn }
     if (seg.from)   entry.from = seg.from
     if (seg.to)     entry.to   = seg.to
     if (seg.dep)    entry.departure_scheduled = seg.dep.replace(':','')
