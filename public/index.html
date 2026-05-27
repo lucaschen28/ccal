@@ -160,7 +160,8 @@
     .ac-btn { border:1.5px solid #e5e5ea; background:#fff; border-radius:8px; padding:6px 10px; font-size:13px; font-weight:600; color:#1c1c1e; cursor:pointer; }
     .ac-btn.active { border-color:#007aff; background:#e8f0fe; color:#007aff; }
     .add-row2 { display:flex; gap:8px; margin-bottom:0; }
-    .add-row2 > div { flex:1; }
+    .add-row2 > div { flex:1; min-width:0; }
+    .add-row2 input[type="time"] { width:100%; min-width:0; }
     .add-field-input { width:100%; border:1px solid #e5e5ea; border-radius:8px; padding:9px 10px; font-size:14px; outline:none; font-family:inherit; background:#fff; margin-bottom:10px; }
     .add-field-input:focus { border-color:#007aff; }
     .add-field-input.upper { text-transform:uppercase; }
@@ -1398,7 +1399,7 @@ function _renderAddForm(baseDate, isEdit) {
       </div>
       <hr style="border:none;border-top:1px solid #e5e5ea;margin:0 0 12px">
       <div class="add-section-label">報到時間</div>
-      <input id="task-rep" class="add-field-input" type="time" value="${_taskRep}">
+      <input id="task-rep" class="add-field-input" type="time" value="${_taskRep}" style="max-width:160px">
       <div id="segs-container"></div>
       <button class="add-leg-btn" onclick="addSeg()">＋ 新增航段</button>
     </div>
