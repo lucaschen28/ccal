@@ -125,10 +125,10 @@ function parsePDFText(text) {
     const acTypes    = []
     for (const line of body) {
       // 有機型：123 [32Q] 或 123 [32Q] 路線...
-      const withAC = line.match(/^(\d{2,4})\s*\[(\w+)\]/)
+      const withAC = line.match(/^(\d{1,4})\s*\[(\w+)\]/)
       if (withAC) { flightNums.push(withAC[1]); acTypes.push(AC_MAP[withAC[2]] || withAC[2]); continue }
       // 只有班號（無機型，如 ACM 航班 190）
-      const bare = line.match(/^\*?(\d{2,4})$/)
+      const bare = line.match(/^\*?(\d{1,4})$/)
       if (bare) { flightNums.push(bare[1]); acTypes.push(null) }
     }
     if (flightNums.length === 0) continue
@@ -223,7 +223,12 @@ function parsePDFText(text) {
     }
   }
 
-  // ── 後處理：連結過夜班去程 & 回程（同一個 duty_id）──────────
+  linkLayovers(entries)
+  return entries
+}
+
+// 可單獨呼叫：合併多個 PDF 解析結果後再跑一次
+function linkLayovers(entries) {
   const HOME = new Set(['TPE', 'TSA'])
   const flights = entries
     .filter(e => e.type === 'flight')
@@ -231,28 +236,24 @@ function parsePDFText(text) {
 
   for (let i = 0; i < flights.length; i++) {
     const out = flights[i]
-    if (!out.from || !HOME.has(out.from)) continue   // 必須從本站出發
-    if (!out.to   ||  HOME.has(out.to))   continue   // 目的地必須是外站
+    if (!out.from || !HOME.has(out.from)) continue
+    if (!out.to   ||  HOME.has(out.to))   continue
 
-    // 如果同一 duty 已有回程腿（同日往返），跳過
     const alreadyLinked = flights.some(g =>
       g.duty_id === out.duty_id && HOME.has(g.to)
     )
     if (alreadyLinked) continue
 
-    // 尋找下一個「從同一外站飛回本站」的航班
     for (let j = i + 1; j < flights.length; j++) {
       const ret = flights[j]
-      // 遇到另一個從本站出發的去程 → 超出範圍，停止
       if (HOME.has(ret.from) && !HOME.has(ret.to)) break
       if (ret.from === out.to && HOME.has(ret.to)) {
-        ret.duty_id = out.duty_id   // 把回程接到去程的 duty
+        ret.duty_id = out.duty_id
         break
       }
     }
   }
-
-  return entries
 }
 
 module.exports.parsePDFText = parsePDFText
+module.exports.linkLayovers = linkLayovers
