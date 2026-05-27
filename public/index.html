@@ -885,7 +885,7 @@ function showDetail(task) {
     html += `<button class="add-del-btn" onclick="deleteEntry()">刪除此勤務</button>`
   }
   if (task.startDate >= todayStr2) {
-    html += `<button class="open-add-day-btn" onclick="showAddForm('${task.startDate}')">＋ 新增航班</button>`
+    html += `<button class="open-add-day-btn" onclick="showAddForm('${task.startDate}')">＋ 新增</button>`
   }
   window._swapTask = task
   document.getElementById('modal-content').innerHTML = html
@@ -935,7 +935,7 @@ function showNonFlightDetail(ev) {
     html += `<button class="add-del-btn" onclick="deleteNonFlight('${ev.id}')">刪除</button>`
   }
   if (ev.type === 'standby' && !isPast(ev.date)) {
-    html += `<button class="open-add-day-btn" onclick="showAddForm('${ev.date}')">＋ 新增航班</button>`
+    html += `<button class="open-add-day-btn" onclick="showAddForm('${ev.date}')">＋ 新增</button>`
   }
   window._nfEntry = ev
   document.getElementById('modal-content').innerHTML = html
