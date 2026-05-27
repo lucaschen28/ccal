@@ -673,7 +673,8 @@ function showDetail(task) {
       const _arrAt = _arrA ? `<span class="actual"> (A${dualT(_arrA, arrDate, leg.to)})</span>` : ''
       html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${leg.reporting ? D(repDate)+dualT(leg.reporting, repDate, leg.from) : '--'}</span></div>`
       html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${(ftDepS||_depA) ? D(depDate)+(_depSt==='--'?'':_depSt)+_depAt : '--'}</span></div>`
-      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${(ftArrS||_arrA) ? D(arrDate)+(_arrSt==='--'?'':_arrSt)+_arrAt : '--'}</span></div>`
+      const arrDatePrefix = arrDate !== depDate ? D(arrDate) : ''
+      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${(ftArrS||_arrA) ? arrDatePrefix+(_arrSt==='--'?'':_arrSt)+_arrAt : '--'}</span></div>`
       html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${(ftMinS || ftMinA) ? ftLabel : '--'}</span></div>`
 
       if (leg === lastLeg) {
