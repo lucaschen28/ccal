@@ -342,8 +342,8 @@ function toTaipei(dateStr, hhmm4, stationCode) {
 function dualT(hhmm4, dateStr, stationCode) {
   if (!hhmm4 || hhmm4.length < 4) return '--'
   const local = `${hhmm4.slice(0,2)}:${hhmm4.slice(2,4)}`
-  // 台灣本島機場：只顯示台北時間，不加 L/T 說明
-  if (['TPE','TSA'].includes(stationCode)) return `${local}T`
+  // 台灣機場：只顯示台北時間，不加 L/T 說明
+  if (['TPE','TSA','KHH','RMQ','TNN','CYI','HUN','TTT','MZG','KNH','LZN','MFK'].includes(stationCode)) return `${local}T`
   const tp = toTaipei(dateStr, hhmm4, stationCode)
   if (!tp) return `${local}T`  // 未知時區，當台北時間顯示
   const ds = tp.dayShift === 1  ? '<span class="day-shift">+1</span>'
