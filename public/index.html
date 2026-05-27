@@ -31,9 +31,11 @@
       .view-toggle-btn { display: block; font-size: 16px; cursor: pointer; padding: 4px 8px; background: none; border: none; color: #8e8e93; }
     }
 
-    header { background:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
+    header { background:#fff; padding:8px 16px; display:flex; flex-direction:column; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
+    .header-nav { display:flex; align-items:center; justify-content:space-between; }
     .nav-btn { background:none; border:none; font-size:22px; cursor:pointer; padding:4px 12px; color:#007aff; }
     .month-label { font-size:17px; font-weight:600; }
+    .user-label { font-size:11px; color:#8e8e93; text-align:center; padding-bottom:2px; letter-spacing:0.5px; }
     .refresh-btn { background:none; border:none; font-size:16px; cursor:pointer; padding:4px 8px; color:#8e8e93; }
 
     .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); background:#fff; border-bottom:1px solid #e5e5ea; }
@@ -180,16 +182,19 @@
 <body>
 <div id="app">
 <header>
-  <button class="nav-btn" id="prev">‹</button>
-  <span class="month-label" id="month-label"></span>
-  <div style="display:flex;align-items:center;gap:4px">
-    <button class="view-toggle-btn" id="view-toggle-btn" title="切換手機/電腦版">📱</button>
-    <button class="settings-btn" id="import-pdf-btn" title="匯入 eCrew PDF 班表">📥</button>
-    <button class="settings-btn" id="user-code-btn" title="我的代碼 / 看別人班表">👥</button>
-    <button class="settings-btn" id="settings-btn" title="換班板設定">⚙</button>
-    <button class="refresh-btn" id="refresh-btn" title="從行事曆更新資料">↻</button>
-    <button class="nav-btn" id="next">›</button>
+  <div class="header-nav">
+    <button class="nav-btn" id="prev">‹</button>
+    <span class="month-label" id="month-label"></span>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button class="view-toggle-btn" id="view-toggle-btn" title="切換手機/電腦版">📱</button>
+      <button class="settings-btn" id="import-pdf-btn" title="匯入 eCrew PDF 班表">📥</button>
+      <button class="settings-btn" id="user-code-btn" title="我的代碼 / 看別人班表">👥</button>
+      <button class="settings-btn" id="settings-btn" title="換班板設定">⚙</button>
+      <button class="refresh-btn" id="refresh-btn" title="從行事曆更新資料">↻</button>
+      <button class="nav-btn" id="next">›</button>
+    </div>
   </div>
+  <div class="user-label" id="user-label"></div>
 </header>
 <div class="weekday-row">
   <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
@@ -200,11 +205,22 @@
 <div class="gate-overlay" id="gate-overlay">
   <div class="gate-card">
     <div class="gate-title">CCal 班表</div>
-    <div class="gate-sub">請輸入存取密碼</div>
-    <input class="gate-input" id="gate-input" type="password" placeholder="密碼" autocomplete="off"
-      onkeydown="if(event.key==='Enter')submitGate()">
-    <button class="gate-btn" id="gate-btn" onclick="submitGate()">進入</button>
-    <div class="gate-err" id="gate-err"></div>
+    <!-- 第一步：密碼 -->
+    <div id="gate-step1">
+      <div class="gate-sub">請輸入存取密碼</div>
+      <input class="gate-input" id="gate-input" type="password" placeholder="密碼" autocomplete="off"
+        onkeydown="if(event.key==='Enter')submitGate()">
+      <button class="gate-btn" id="gate-btn" onclick="submitGate()">進入</button>
+      <div class="gate-err" id="gate-err"></div>
+    </div>
+    <!-- 第二步：員編 -->
+    <div id="gate-step2" style="display:none">
+      <div class="gate-sub">請輸入你的員編</div>
+      <input class="gate-input" id="gate-empid" type="text" inputmode="numeric" placeholder="例：644392" autocomplete="off"
+        onkeydown="if(event.key==='Enter')submitEmpId()">
+      <button class="gate-btn" id="gate-empid-btn" onclick="submitEmpId()">開始使用</button>
+      <div class="gate-err" id="gate-empid-err"></div>
+    </div>
   </div>
 </div>
 
@@ -1425,7 +1441,19 @@ async function showUserCodeModal() {
   document.getElementById('modal-content').innerHTML = `
     <div class="task-route" style="margin-bottom:14px">我的代碼</div>
     <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#007aff;background:#e8f0fe;border-radius:12px;padding:14px 0;margin-bottom:8px">${MY_USER_ID}</div>
+      <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#007aff;background:#e8f0fe;border-radius:12px;padding:14px 0;margin-bottom:4px">${MY_USER_ID}</div>
+      <div style="font-size:12px;color:#8e8e93;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:6px">
+        員編：<span id="modal-empid-display" style="font-weight:600;color:#1c1c1e">${localStorage.getItem('cCalEmpId')||'（未設定）'}</span>
+        <button onclick="toggleEmpIdEdit()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0">修改</button>
+      </div>
+      <div id="modal-empid-edit" style="display:none;margin-bottom:10px;display:none">
+        <div style="display:flex;gap:6px;align-items:center;justify-content:center">
+          <input id="modal-empid-inp" class="add-field-input" type="text" inputmode="numeric" placeholder="輸入員編"
+            style="width:120px;margin-bottom:0;text-align:center;font-size:14px" value="${localStorage.getItem('cCalEmpId')||''}">
+          <button onclick="saveEmpIdFromModal()"
+            style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">儲存</button>
+        </div>
+      </div>
       <button onclick="navigator.clipboard.writeText('${MY_USER_ID}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製代碼',1500)})"
         style="background:none;border:1.5px solid #007aff;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;color:#007aff;cursor:pointer">複製代碼</button>
       &nbsp;
@@ -1539,6 +1567,25 @@ async function _saveContactFromHint(code) {
   if (bar) { bar.innerHTML = `✓ 已儲存「${name}」`; setTimeout(() => bar.remove(), 2000) }
 }
 
+function toggleEmpIdEdit() {
+  const el = document.getElementById('modal-empid-edit')
+  if (!el) return
+  el.style.display = el.style.display === 'none' ? 'block' : 'none'
+  if (el.style.display === 'block') document.getElementById('modal-empid-inp')?.focus()
+}
+
+function saveEmpIdFromModal() {
+  const val = (document.getElementById('modal-empid-inp')?.value || '').trim()
+  if (!val) return
+  localStorage.setItem('cCalEmpId', val)
+  updateUserLabel()
+  // 更新 modal 顯示
+  const disp = document.getElementById('modal-empid-display')
+  if (disp) disp.textContent = val
+  const edit = document.getElementById('modal-empid-edit')
+  if (edit) edit.style.display = 'none'
+}
+
 document.getElementById('user-code-btn').addEventListener('click', showUserCodeModal)
 
 // 手機/電腦版切換（僅電腦顯示按鈕）
@@ -1598,6 +1645,16 @@ document.addEventListener('touchend', e => {
   }
 })()
 
+// ── 員編 ─────────────────────────────────────────────────────
+const MY_EMP_ID = localStorage.getItem('cCalEmpId') || ''
+
+function updateUserLabel() {
+  const el = document.getElementById('user-label')
+  if (!el) return
+  const empId = localStorage.getItem('cCalEmpId') || ''
+  el.textContent = empId ? `${empId} / ${MY_USER_ID}` : MY_USER_ID
+}
+
 // ── 密碼閘門 ─────────────────────────────────────────────────
 async function submitGate() {
   const btn = document.getElementById('gate-btn')
@@ -1612,9 +1669,11 @@ async function submitGate() {
       body: JSON.stringify({ code })
     })
     if (res.ok) {
-      document.getElementById('gate-overlay').classList.remove('active')
       localStorage.setItem('cCalUserId', MY_USER_ID)
-      await loadSchedule()
+      // 進入第二步：員編
+      document.getElementById('gate-step1').style.display = 'none'
+      document.getElementById('gate-step2').style.display = 'block'
+      setTimeout(() => document.getElementById('gate-empid').focus(), 50)
     } else {
       document.getElementById('gate-err').textContent = '密碼錯誤，請再試一次'
       btn.disabled = false
@@ -1627,8 +1686,21 @@ async function submitGate() {
   }
 }
 
+function submitEmpId() {
+  const val = document.getElementById('gate-empid').value.trim()
+  if (!val) {
+    document.getElementById('gate-empid-err').textContent = '請輸入員編'
+    return
+  }
+  localStorage.setItem('cCalEmpId', val)
+  document.getElementById('gate-overlay').classList.remove('active')
+  updateUserLabel()
+  loadSchedule()
+}
+
 // 已有代碼 → 直接載入；沒有 → 顯示密碼閘門
 if (localStorage.getItem('cCalUserId')) {
+  updateUserLabel()
   loadSchedule()
 } else {
   document.getElementById('gate-overlay').classList.add('active')
