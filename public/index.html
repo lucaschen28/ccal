@@ -509,13 +509,13 @@ function _updateCompareBanner() {
 function removeCompare(idx) {
   compareList.splice(idx, 1)
   document.getElementById('save-hint-bar')?.remove()
-  _updateCompareBanner(); renderCalendar()
+  _updateCompareBanner(); renderCalendar(); renderQuickCompareBar()
 }
 
 function endCompare() {
   compareList = []
   document.getElementById('save-hint-bar')?.remove()
-  _updateCompareBanner(); renderCalendar()
+  _updateCompareBanner(); renderCalendar(); renderQuickCompareBar()
 }
 
 
@@ -1676,6 +1676,7 @@ async function quickCompare(code, name) {
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
   _updateCompareBanner()
+  renderQuickCompareBar()
   _maybeShowSaveHint(code)
 }
 
@@ -1684,14 +1685,35 @@ async function renderQuickCompareBar() {
   if (!bar) return
   const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
   if (!contacts.length) { bar.style.display = 'none'; return }
+  const layerColors = [
+    { bg:'#f9c98a', color:'#7a4000' },
+    { bg:'#f5e88a', color:'#6b5500' },
+  ]
   bar.style.display = 'block'
   bar.innerHTML = `
     <div class="qcb-label">常用比對</div>
-    <div>${contacts.map(c => `
-      <button class="contact-chip" onclick="quickCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
-        ${c.name}<span style="font-weight:400;color:#8e8e93;margin-left:3px">/ ${c.code}</span>
-      </button>`).join('')}
+    <div>${contacts.map(c => {
+      const idx = compareList.findIndex(x => x.userId === c.code)
+      const active = idx !== -1
+      const style = active ? `background:${layerColors[idx].bg};color:${layerColors[idx].color};` : ''
+      return `<button class="contact-chip" style="${style}"
+        onclick="toggleCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
+        ${c.name}<span style="font-weight:400;margin-left:3px;${active?'color:'+layerColors[idx].color:'color:#8e8e93'}">/ ${c.code}</span>
+      </button>`
+    }).join('')}
     </div>`
+}
+
+async function toggleCompare(code, name) {
+  const idx = compareList.findIndex(c => c.userId === code)
+  if (idx !== -1) {
+    compareList.splice(idx, 1)
+    document.getElementById('save-hint-bar')?.remove()
+    _updateCompareBanner(); renderCalendar()
+    renderQuickCompareBar()
+  } else {
+    await quickCompare(code, name)
+  }
 }
 
 async function deleteContact(code) {
