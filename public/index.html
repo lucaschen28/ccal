@@ -1385,11 +1385,26 @@ function _syncFromDom() {
   })
 }
 
+function _showFormErr(msg) {
+  let el = document.getElementById('form-err')
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'form-err'
+    el.style.cssText = 'color:#c0392b;font-size:13px;font-weight:600;padding:6px 0 2px;text-align:center'
+    const mc = document.getElementById('modal-content')
+    if (mc) mc.insertBefore(el, mc.firstChild)
+  }
+  el.textContent = msg
+}
+
 async function submitFlight(baseDate) {
+  document.activeElement?.blur()   // 先收鍵盤，確保 iOS 能正確讀到 input 值
   _syncFromDom()
+  const errEl = document.getElementById('form-err'); if (errEl) errEl.textContent = ''
+
   if (_taskType === 'standby') {
     const fn = _taskNote.trim()
-    if (!fn) { alert('請填寫班號'); return }
+    if (!fn) { _showFormErr('請填寫班號'); return }
     const entry = { type:'standby', code: fn, date: baseDate, manually_added: true }
     if (_taskSbyStart) entry.start_time = _taskSbyStart.replace(':','')
     if (_taskSbyEnd)   entry.end_time   = _taskSbyEnd.replace(':','')
@@ -1401,12 +1416,12 @@ async function submitFlight(baseDate) {
       await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
       document.getElementById('modal-overlay').classList.remove('active')
       await loadSchedule()
-    } catch { alert('連線失敗') }
+    } catch { _showFormErr('連線失敗，請稍後再試') }
     return
   }
 
   if (_taskType === 'private') {
-    if (!_taskPrivateTitle) { alert('請填寫標題'); return }
+    if (!_taskPrivateTitle) { _showFormErr('請填寫標題'); return }
     const entry = {
       type: 'private',
       code: 'PV',
@@ -1423,7 +1438,7 @@ async function submitFlight(baseDate) {
       await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
       document.getElementById('modal-overlay').classList.remove('active')
       await loadSchedule()
-    } catch { alert('連線失敗') }
+    } catch { _showFormErr('連線失敗，請稍後再試') }
     return
   }
 
@@ -1453,7 +1468,7 @@ async function submitFlight(baseDate) {
   }
 
   const primaryFn = _taskSegs[0]?.fn || ''
-  if (!primaryFn) { alert('請填寫第一段班號'); return }
+  if (!primaryFn) { _showFormErr('請填寫第一段班號'); return }
 
   if (_editTask) {
     for (const leg of _editTask.legs) {
@@ -1477,7 +1492,7 @@ async function submitFlight(baseDate) {
     if (i === 0 && _taskRep) entry.reporting = _taskRep.replace(':','')
     const res = await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
     const data = await res.json()
-    if (!data.ok) { alert('儲存失敗'); return }
+    if (!data.ok) { _showFormErr('儲存失敗'); return }
   }
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
