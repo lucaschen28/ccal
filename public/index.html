@@ -117,6 +117,8 @@
     .contact-chip { display:inline-flex; align-items:center; gap:6px; background:#f2f2f7; border-radius:20px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; margin:4px 4px 0 0; border:none; }
     .contact-chip:active { background:#e5e5ea; }
     .contact-chip .chip-del { color:#c7c7cc; font-size:15px; line-height:1; margin-left:2px; }
+    #quick-compare-bar { padding:8px 12px 12px; background:#fff; border-top:1px solid #e5e5ea; }
+    #quick-compare-bar .qcb-label { font-size:11px; font-weight:600; color:#8e8e93; margin-bottom:6px; letter-spacing:0.3px; }
     .cell-layer-own  { height:20px; overflow:visible; }
     .cell-layer-work { height:20px; overflow:visible; }
     .cell-layer-priv { overflow:visible; }
@@ -218,6 +220,7 @@
   <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
 </div>
 <div class="calendar-grid" id="calendar"></div>
+<div id="quick-compare-bar" style="display:none"></div>
 </div><!-- #app -->
 
 <div class="gate-overlay" id="gate-overlay">
@@ -1662,11 +1665,12 @@ async function showUserCodeModal() {
 }
 
 async function quickCompare(code, name) {
-  document.getElementById('view-code-err').textContent = '載入中…'
+  const errEl = document.getElementById('view-code-err')
+  if (errEl) errEl.textContent = '載入中…'
   const res = await fetch(`/api/schedule/${code}`).catch(() => null)
-  if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
+  if (!res || !res.ok) { if (errEl) errEl.textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
-  if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
+  if (!Array.isArray(data) || data.length === 0) { if (errEl) errEl.textContent = '此代碼尚無班表資料'; return }
   _addToCompareList(code, data, name)
   document.getElementById('modal-overlay').classList.remove('active')
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
@@ -1675,8 +1679,24 @@ async function quickCompare(code, name) {
   _maybeShowSaveHint(code)
 }
 
+async function renderQuickCompareBar() {
+  const bar = document.getElementById('quick-compare-bar')
+  if (!bar) return
+  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
+  if (!contacts.length) { bar.style.display = 'none'; return }
+  bar.style.display = 'block'
+  bar.innerHTML = `
+    <div class="qcb-label">常用比對</div>
+    <div>${contacts.map(c => `
+      <button class="contact-chip" onclick="quickCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
+        ${c.name}<span style="font-weight:400;color:#8e8e93;margin-left:3px">/ ${c.code}</span>
+      </button>`).join('')}
+    </div>`
+}
+
 async function deleteContact(code) {
   await fetch(`/api/contacts/${MY_USER_ID}/${code}`, { method:'DELETE' }).catch(() => {})
+  renderQuickCompareBar()
   showUserCodeModal()
 }
 
@@ -1755,6 +1775,7 @@ async function _saveContactFromHint(code) {
   }).catch(() => {})
   const bar = document.getElementById('save-hint-bar')
   if (bar) { bar.innerHTML = `✓ 已儲存「${name}」`; setTimeout(() => bar.remove(), 2000) }
+  renderQuickCompareBar()
 }
 
 function toggleEmpIdEdit() {
@@ -1892,6 +1913,7 @@ function submitEmpId() {
 if (localStorage.getItem('cCalUserId')) {
   updateUserLabel()
   loadSchedule()
+  renderQuickCompareBar()
 } else {
   document.getElementById('gate-overlay').classList.add('active')
   setTimeout(() => document.getElementById('gate-input').focus(), 100)
