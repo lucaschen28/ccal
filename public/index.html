@@ -91,6 +91,12 @@
     .day-shift { color:#ff9500; font-size:8px; vertical-align:super; }
     .tz-div { color:#c7c7cc; font-size:11px; margin:0 3px; }
     .tz-tp  { color:#007aff; font-size:12px; }
+    .event-pill.cmp        { background:#d6d6d6 !important; color:#777 !important; }
+    .event-pill.flight.cmp { background:#c8cdd6 !important; color:#666 !important; }
+    .event-pill.flight.cmp.bar-start { border-radius:6px 0 0 6px; }
+    .event-pill.flight.cmp.bar-end   { border-radius:0 6px 6px 0; }
+    .event-pill.flight.cmp.bar-mid   { border-radius:0; }
+    .cmp-banner { background:#eef0f5; color:#555; font-size:12px; font-weight:600; text-align:center; padding:6px 12px; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
     .layover-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:2px 0; }
     .layover-row .lbl { color:#8e8e93; }
@@ -207,6 +213,9 @@
 <script>
 let scheduleData = []
 let tasks = []
+let compareData = []
+let compareTasks = []
+let compareUserId = null
 let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
 
@@ -407,6 +416,9 @@ function taskRoute(t) {
 function tasksOnDate(dateStr) {
   return tasks.filter(t => dateStr >= t.startDate && dateStr <= t.endDate)
 }
+function compareTasksOnDate(dateStr) {
+  return compareTasks.filter(t => dateStr >= t.startDate && dateStr <= t.endDate)
+}
 
 async function loadSchedule() {
   const res = await fetch(`/api/schedule/${viewUserId}`)
@@ -430,6 +442,26 @@ function _updateViewBanner() {
   } else if (banner) {
     banner.remove()
   }
+}
+
+function _updateCompareBanner() {
+  let banner = document.getElementById('cmp-banner')
+  if (compareUserId) {
+    if (!banner) {
+      banner = document.createElement('div')
+      banner.id = 'cmp-banner'
+      banner.className = 'cmp-banner'
+      document.getElementById('app').insertBefore(banner, document.querySelector('.weekday-row'))
+    }
+    banner.innerHTML = `🔄 比對中：<b>${compareUserId}</b>　<span style="color:#007aff;cursor:pointer" onclick="endCompare()">結束比對</span>`
+  } else if (banner) {
+    banner.remove()
+  }
+}
+
+function endCompare() {
+  compareUserId = null; compareData = []; compareTasks = []
+  _updateCompareBanner(); renderCalendar()
 }
 
 function renderCalendar() {
@@ -506,6 +538,38 @@ function renderCalendar() {
       pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
       cell.appendChild(pill)
     })
+
+    // ── 比對層（灰階）──────────────────────────────────────────
+    if (compareUserId) {
+      compareTasksOnDate(ds).forEach(task => {
+        const isStart = ds === task.startDate
+        const isEnd   = ds === task.endDate
+        const sameDay = task.startDate === task.endDate
+        const vStart  = isStart || col === 0
+        const vEnd    = isEnd   || col === 6
+        const pill = document.createElement('div')
+        let cls = 'event-pill flight cmp' + (task.endDate < todayStr ? ' past' : '')
+        if (!sameDay) {
+          if (vStart && !vEnd)       cls += ' bar-start'
+          else if (!vStart && vEnd)  cls += ' bar-end'
+          else if (!vStart && !vEnd) cls += ' bar-mid'
+        }
+        pill.className = cls
+        pill.textContent = (isStart || col === 0) ? padFN(task.legs[0].flight_number) : ' '
+        pill.addEventListener('click', e => { e.stopPropagation(); showDetail(task) })
+        cell.appendChild(pill)
+      })
+      compareData.filter(e =>
+        e.date === ds && e.type && e.type !== 'flight' &&
+        !['ADO','OFF','>OFF'].includes(e.code) &&
+        (e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code))
+      ).forEach(ev => {
+        const pill = document.createElement('div')
+        pill.className = 'event-pill cmp'
+        pill.textContent = ev.code || ev.type
+        cell.appendChild(pill)
+      })
+    }
 
     // 點空白格子 → 新增（查看他人、過去日期停用）
     if (isCur && viewUserId === MY_USER_ID && !isPast(ds)) {
@@ -1340,7 +1404,8 @@ function showUserCodeModal() {
     <div style="display:flex;gap:8px">
       <input id="view-code-input" class="add-field-input" maxlength="6" placeholder="輸入 6 位代碼"
         style="flex:1;margin-bottom:0;text-transform:uppercase;letter-spacing:4px;font-weight:700;font-size:16px;text-align:center">
-      <button onclick="goViewOther()" style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:14px;font-weight:700;cursor:pointer">查看</button>
+      <button onclick="goViewOther()" style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 14px;font-size:14px;font-weight:700;cursor:pointer">查看</button>
+      <button onclick="goCompare()" style="background:#fff;color:#007aff;border:1.5px solid #007aff;border-radius:10px;padding:0 14px;font-size:14px;font-weight:700;cursor:pointer">比對</button>
     </div>
     <div id="view-code-err" style="color:#ff3b30;font-size:12px;margin-top:6px;min-height:16px"></div>
   `
@@ -1369,6 +1434,30 @@ async function goViewOther() {
   history.replaceState({}, '', '?view=' + code)
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
+}
+
+async function goCompare() {
+  const code = (document.getElementById('view-code-input').value || '').toUpperCase().trim()
+  if (!/^[A-Z0-9]{6}$/.test(code)) {
+    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'
+    return
+  }
+  document.getElementById('view-code-err').textContent = '載入中…'
+  const res = await fetch(`/api/schedule/${code}`).catch(() => null)
+  if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
+  const data = await res.json()
+  if (!Array.isArray(data) || data.length === 0) {
+    document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'
+    return
+  }
+  compareUserId = code
+  compareData = data
+  compareTasks = groupTasks(data.filter(e => e.type === 'flight'))
+  document.getElementById('modal-overlay').classList.remove('active')
+  // 若目前在看別人的班表，切回自己的
+  if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
+  else { renderCalendar() }
+  _updateCompareBanner()
 }
 
 document.getElementById('user-code-btn').addEventListener('click', showUserCodeModal)
