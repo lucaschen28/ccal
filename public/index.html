@@ -584,14 +584,27 @@ function renderCalendar() {
       const evStart = ev.startDate || ev.date
       const evEnd   = ev.endDate   || ev.date
       const isMulti = evStart !== evEnd
+      let showText = true
       if (isMulti) {
         const vS = ds === evStart || col === 0, vE = ds === evEnd || col === 6
         if      (vS && !vE) cls += ' bar-start'
         else if (!vS && vE) cls += ' bar-end'
         else if (!vS && !vE) cls += ' bar-mid'
+        showText = vS
+      } else if (ev.ecrew_imported && ev.code) {
+        // 連續相同假別 → 連成一槓
+        const sameCode = e => e.ecrew_imported && e.code === ev.code && !e.startDate
+        const hasPrev = scheduleData.some(e => sameCode(e) && e.date === addDays(ds, -1))
+        const hasNext = scheduleData.some(e => sameCode(e) && e.date === addDays(ds,  1))
+        if (hasPrev || hasNext) {
+          const vS = !hasPrev || col === 0, vE = !hasNext || col === 6
+          if      (vS && !vE) cls += ' bar-start'
+          else if (!vS && vE) cls += ' bar-end'
+          else if (!vS && !vE) cls += ' bar-mid'
+          showText = vS
+        }
       }
       pill.className = cls
-      const showText = !isMulti || ds === evStart || col === 0
       pill.textContent = showText ? (ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)) : ' '
       pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
       target.appendChild(pill)
