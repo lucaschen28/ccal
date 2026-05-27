@@ -130,6 +130,35 @@ app.get('/api/flight-lookup/:fn/:date', (req, res) => {
   res.json({ found: false })
 })
 
+// 查詢同班次組員（回傳所有有該班號+日期的 userId + empId）
+app.get('/api/flight-crew/:fn/:date', (req, res) => {
+  const fn = req.params.fn.replace(/^0+/, '')
+  const date = req.params.date
+  const results = []
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => /^[a-zA-Z0-9]{4,12}\.json$/.test(f))
+    for (const file of files) {
+      const userId = file.replace('.json', '')
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'))
+        const has = data.some(e =>
+          e.type === 'flight' &&
+          e.flight_number && e.flight_number.replace(/^0+/, '') === fn &&
+          e.date === date
+        )
+        if (!has) continue
+        let empId = null
+        try {
+          const p = JSON.parse(fs.readFileSync(path.join(DATA_DIR, `${userId}_profile.json`), 'utf8'))
+          empId = p.empId || null
+        } catch {}
+        results.push({ userId, empId })
+      } catch {}
+    }
+  } catch {}
+  res.json(results)
+})
+
 // 用員編反查 userId
 app.get('/api/lookup/emp/:empId', (req, res) => {
   const empId = req.params.empId.trim()

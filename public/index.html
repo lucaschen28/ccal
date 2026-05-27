@@ -939,6 +939,42 @@ async function showDetail(task) {
   window._swapTask = task
   document.getElementById('modal-content').innerHTML = html
   document.getElementById('modal-overlay').classList.add('active')
+
+  // 非同步載入同班組員
+  ;(async () => {
+    const fn  = task.legs[0]?.flight_number
+    const date = task.legs[0]?.date
+    if (!fn || !date) return
+    const [crewRes, contactsRes] = await Promise.all([
+      fetch(`/api/flight-crew/${encodeURIComponent(fn)}/${date}`).catch(() => null),
+      fetch(`/api/contacts/${MY_USER_ID}`).catch(() => null)
+    ])
+    if (!crewRes?.ok) return
+    const crew     = await crewRes.json()
+    const contacts = contactsRes?.ok ? await contactsRes.json() : []
+    const others   = crew.filter(c => c.userId !== MY_USER_ID)
+    if (!others.length) return
+    const mc = document.getElementById('modal-content')
+    if (!mc) return
+    const layerColors = [{ bg:'#f9c98a', color:'#7a4000' }, { bg:'#f5e88a', color:'#6b5500' }]
+    const section = document.createElement('div')
+    section.style.cssText = 'margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f5'
+    section.innerHTML = `<div style="font-size:11px;font-weight:600;color:#8e8e93;margin-bottom:6px;letter-spacing:0.3px">同班組員</div>`
+    others.forEach(c => {
+      const contact = contacts.find(x => x.code === c.userId)
+      const displayName = contact?.name || c.empId || c.userId
+      const cmpIdx  = compareList.findIndex(x => x.userId === c.userId)
+      const isActive = cmpIdx !== -1
+      const bgStyle  = isActive ? `background:${layerColors[cmpIdx].bg};color:${layerColors[cmpIdx].color}` : ''
+      const chip = document.createElement('button')
+      chip.className = 'contact-chip'
+      chip.setAttribute('style', bgStyle)
+      chip.innerHTML = `${displayName}<span style="font-weight:400;color:${isActive ? layerColors[cmpIdx].color : '#8e8e93'};margin-left:3px">/ ${c.userId}</span>`
+      chip.onclick = () => toggleCompare(c.userId, displayName)
+      section.appendChild(chip)
+    })
+    mc.appendChild(section)
+  })()
 }
 
 function showPrivateList(events) {
