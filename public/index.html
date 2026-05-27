@@ -171,6 +171,7 @@
   <span class="month-label" id="month-label"></span>
   <div style="display:flex;align-items:center;gap:4px">
     <button class="view-toggle-btn" id="view-toggle-btn" title="切換手機/電腦版">📱</button>
+    <button class="settings-btn" id="import-pdf-btn" title="匯入 eCrew PDF 班表">📥</button>
     <button class="settings-btn" id="user-code-btn" title="我的代碼 / 看別人班表">👥</button>
     <button class="settings-btn" id="settings-btn" title="換班板設定">⚙</button>
     <button class="refresh-btn" id="refresh-btn" title="從行事曆更新資料">↻</button>
@@ -1186,6 +1187,44 @@ async function deleteEntry() {
 }
 
 document.getElementById('settings-btn').addEventListener('click', () => showSettingsModal(false))
+
+// ── eCrew PDF 匯入 ────────────────────────────────────────────
+;(() => {
+  const btn = document.getElementById('import-pdf-btn')
+  // 只有看自己的班表才顯示匯入鈕
+  if (IS_VIEWING_OTHER) { btn.style.display = 'none' }
+
+  btn.addEventListener('click', () => {
+    if (IS_VIEWING_OTHER) return
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.pdf,application/pdf'
+    input.onchange = async () => {
+      const file = input.files[0]
+      if (!file) return
+      btn.textContent = '⏳'
+      btn.disabled = true
+      try {
+        const form = new FormData()
+        form.append('pdf', file)
+        const res = await fetch(`/api/import/${MY_USER_ID}`, { method: 'POST', body: form })
+        const json = await res.json()
+        if (json.ok) {
+          await loadSchedule()
+          alert(`✅ 匯入完成：${json.imported} 筆班表資料`)
+        } else {
+          alert('❌ 匯入失敗：' + (json.error || '未知錯誤'))
+        }
+      } catch (e) {
+        alert('❌ 匯入失敗：' + e.message)
+      } finally {
+        btn.textContent = '📥'
+        btn.disabled = false
+      }
+    }
+    input.click()
+  })
+})()
 
 // ── 我的代碼 / 看別人班表 ────────────────────────────────────
 function showUserCodeModal() {

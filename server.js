@@ -2,6 +2,10 @@ const express = require('express')
 const { exec } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const multer = require('multer')
+const parseECrewPDF = require('./ecrew-pdf-parser')
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -87,6 +91,23 @@ app.post('/api/bulk/:userId', (req, res) => {
   const merged = [...existing, ...entries.filter(e => !e.manually_added)]
   fs.writeFileSync(fp, JSON.stringify(merged, null, 2))
   res.json({ ok: true, count: merged.length })
+})
+
+// eCrew PDF 匯入（完整覆蓋，保留 manually_added）
+app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
+  const fp = userPath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  if (!req.file) return res.status(400).json({ error: '未收到 PDF 檔案' })
+  try {
+    const entries = await parseECrewPDF(req.file.buffer)
+    const existing = readData(fp).filter(e => e.manually_added)
+    const merged = [...existing, ...entries]
+    fs.writeFileSync(fp, JSON.stringify(merged, null, 2))
+    res.json({ ok: true, imported: entries.length, total: merged.length })
+  } catch (err) {
+    console.error('PDF 解析失敗:', err)
+    res.status(500).json({ error: 'PDF 解析失敗：' + err.message })
+  }
 })
 
 app.listen(PORT, () => {
