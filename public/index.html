@@ -93,17 +93,25 @@
     .day-shift { color:#ff9500; font-size:8px; vertical-align:super; }
     .tz-div { color:#c7c7cc; font-size:11px; margin:0 3px; }
     .tz-tp  { color:#007aff; font-size:12px; }
-    .event-pill.cmp        { background:#d6d6d6 !important; color:#777 !important; }
-    .event-pill.flight.cmp { background:#c8cdd6 !important; color:#666 !important; }
+    /* 比對第一人：淡橘 */
+    .event-pill.cmp        { background:#fde8cc !important; color:#8b4500 !important; }
+    .event-pill.flight.cmp { background:#f9c98a !important; color:#7a4000 !important; }
     .event-pill.flight.cmp.bar-start { border-radius:6px 0 0 6px; }
     .event-pill.flight.cmp.bar-end   { border-radius:0 6px 6px 0; }
     .event-pill.flight.cmp.bar-mid   { border-radius:0; }
+    /* 比對第二人：淡黃 */
+    .event-pill.cmp2        { background:#fff9cc !important; color:#7a6200 !important; }
+    .event-pill.flight.cmp2 { background:#f5e88a !important; color:#6b5500 !important; }
+    .event-pill.flight.cmp2.bar-start { border-radius:6px 0 0 6px; }
+    .event-pill.flight.cmp2.bar-end   { border-radius:0 6px 6px 0; }
+    .event-pill.flight.cmp2.bar-mid   { border-radius:0; }
     .cmp-banner { background:#eef0f5; color:#555; font-size:12px; font-weight:600; text-align:center; padding:6px 12px; }
     .contact-chip { display:inline-flex; align-items:center; gap:6px; background:#f2f2f7; border-radius:20px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; margin:4px 4px 0 0; border:none; }
     .contact-chip:active { background:#e5e5ea; }
     .contact-chip .chip-del { color:#c7c7cc; font-size:15px; line-height:1; margin-left:2px; }
     .cell-layer-own { height:20px; overflow:visible; }
-    .cell-layer-cmp { border-top:1px dashed #d8d8dd; padding-top:1px; overflow:visible; }
+    .cell-layer-cmp  { border-top:1px dashed #f9c98a; padding-top:1px; overflow:visible; }
+    .cell-layer-cmp2 { border-top:1px dashed #f5e88a; padding-top:1px; overflow:visible; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
     .layover-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:2px 0; }
     .layover-row .lbl { color:#8e8e93; }
@@ -234,9 +242,7 @@
 <script>
 let scheduleData = []
 let tasks = []
-let compareData = []
-let compareTasks = []
-let compareUserId = null
+let compareList = []   // [{ userId, data, tasks }, ...]  最多 2 人
 let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
 
@@ -437,8 +443,8 @@ function taskRoute(t) {
 function tasksOnDate(dateStr) {
   return tasks.filter(t => dateStr >= t.startDate && dateStr <= t.endDate)
 }
-function compareTasksOnDate(dateStr) {
-  return compareTasks.filter(t => dateStr >= t.startDate && dateStr <= t.endDate)
+function compareTasksOnDate(tasks, dateStr) {
+  return tasks.filter(t => dateStr >= t.startDate && dateStr <= t.endDate)
 }
 
 async function loadSchedule() {
@@ -465,23 +471,36 @@ function _updateViewBanner() {
   }
 }
 
+const CMP_COLORS = ['#f9c98a', '#f5e88a']
+
 function _updateCompareBanner() {
   let banner = document.getElementById('cmp-banner')
-  if (compareUserId) {
+  if (compareList.length) {
     if (!banner) {
       banner = document.createElement('div')
       banner.id = 'cmp-banner'
       banner.className = 'cmp-banner'
       document.getElementById('app').insertBefore(banner, document.querySelector('.weekday-row'))
     }
-    banner.innerHTML = `🔄 比對中：<b>${compareUserId}</b>　<span style="color:#007aff;cursor:pointer" onclick="endCompare()">結束比對</span>`
+    const tags = compareList.map((c, i) =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;background:${CMP_COLORS[i]};border-radius:10px;padding:1px 8px;margin:0 2px">
+        <b>${c.userId}</b><span style="cursor:pointer;color:#555" onclick="removeCompare(${i})">✕</span>
+      </span>`
+    ).join('')
+    banner.innerHTML = `🔄 比對中：${tags}　<span style="color:#007aff;cursor:pointer" onclick="endCompare()">全部結束</span>`
   } else if (banner) {
     banner.remove()
   }
 }
 
+function removeCompare(idx) {
+  compareList.splice(idx, 1)
+  document.getElementById('save-hint-bar')?.remove()
+  _updateCompareBanner(); renderCalendar()
+}
+
 function endCompare() {
-  compareUserId = null; compareData = []; compareTasks = []
+  compareList = []
   document.getElementById('save-hint-bar')?.remove()
   _updateCompareBanner(); renderCalendar()
 }
@@ -518,8 +537,8 @@ function renderCalendar() {
     cell.appendChild(wrap)
 
     // ── 建立分層容器（比對模式時固定層次，無比對時直接用 cell）──
-    const ownLayer = compareUserId ? document.createElement('div') : cell
-    if (compareUserId) { ownLayer.className = 'cell-layer-own'; cell.appendChild(ownLayer) }
+    const ownLayer = compareList.length ? document.createElement('div') : cell
+    if (compareList.length) { ownLayer.className = 'cell-layer-own'; cell.appendChild(ownLayer) }
 
     // Task bars（第一層：自己）
     tasksOnDate(ds).forEach(task => {
@@ -565,18 +584,21 @@ function renderCalendar() {
       ownLayer.appendChild(pill)
     })
 
-    // ── 比對層（灰階，固定在第二層）──────────────────────────
-    if (compareUserId) {
+    // ── 比對層（每人一層，固定位置）────────────────────────────
+    const layerClasses = ['cell-layer-cmp', 'cell-layer-cmp2']
+    const pillClasses  = ['cmp', 'cmp2']
+    compareList.forEach((cmp, ci) => {
       const cmpLayer = document.createElement('div')
-      cmpLayer.className = 'cell-layer-cmp'
-      compareTasksOnDate(ds).forEach(task => {
+      cmpLayer.className = layerClasses[ci]
+      const pc = pillClasses[ci]
+      compareTasksOnDate(cmp.tasks, ds).forEach(task => {
         const isStart = ds === task.startDate
         const isEnd   = ds === task.endDate
         const sameDay = task.startDate === task.endDate
         const vStart  = isStart || col === 0
         const vEnd    = isEnd   || col === 6
         const pill = document.createElement('div')
-        let cls = 'event-pill flight cmp' + (task.endDate < todayStr ? ' past' : '')
+        let cls = `event-pill flight ${pc}` + (task.endDate < todayStr ? ' past' : '')
         if (!sameDay) {
           if (vStart && !vEnd)       cls += ' bar-start'
           else if (!vStart && vEnd)  cls += ' bar-end'
@@ -587,18 +609,18 @@ function renderCalendar() {
         pill.addEventListener('click', e => { e.stopPropagation(); showDetail(task) })
         cmpLayer.appendChild(pill)
       })
-      compareData.filter(e =>
+      cmp.data.filter(e =>
         e.date === ds && e.type && e.type !== 'flight' &&
         !['ADO','OFF','>OFF'].includes(e.code) &&
         (e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code))
       ).forEach(ev => {
         const pill = document.createElement('div')
-        pill.className = 'event-pill cmp'
+        pill.className = `event-pill ${pc}`
         pill.textContent = ev.code || ev.type
         cmpLayer.appendChild(pill)
       })
       cell.appendChild(cmpLayer)
-    }
+    })
 
     // 點空白格子 → 新增（查看他人、過去日期停用）
     if (isCur && viewUserId === MY_USER_ID && !isPast(ds)) {
@@ -1483,13 +1505,12 @@ async function quickCompare(code) {
   if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
   if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
-  compareUserId = code
-  compareData = data
-  compareTasks = groupTasks(data.filter(e => e.type === 'flight'))
+  _addToCompareList(code, data)
   document.getElementById('modal-overlay').classList.remove('active')
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
   _updateCompareBanner()
+  _maybeShowSaveHint(code)
 }
 
 async function deleteContact(code) {
@@ -1515,6 +1536,13 @@ async function goViewOther() {
   _maybeShowSaveHint(code)
 }
 
+function _addToCompareList(code, data) {
+  if (compareList.some(c => c.userId === code)) return
+  const entry = { userId: code, data, tasks: groupTasks(data.filter(e => e.type === 'flight')) }
+  if (compareList.length >= 2) compareList.shift()
+  compareList.push(entry)
+}
+
 async function goCompare() {
   const code = (document.getElementById('view-code-input').value || '').toUpperCase().trim()
   if (!/^[A-Z0-9]{6}$/.test(code)) {
@@ -1525,9 +1553,7 @@ async function goCompare() {
   if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
   if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
-  compareUserId = code
-  compareData = data
-  compareTasks = groupTasks(data.filter(e => e.type === 'flight'))
+  _addToCompareList(code, data)
   document.getElementById('modal-overlay').classList.remove('active')
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
