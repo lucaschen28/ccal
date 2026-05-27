@@ -572,15 +572,29 @@ function renderCalendar() {
     })
 
     // 非飛航事件（休假/受訓/會議/SBY 等）
-    scheduleData.filter(e =>
-      e.date === ds && e.type && e.type !== 'flight' &&
-      !['ADO','OFF','>OFF'].includes(e.code) &&
-      (e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code))
-    ).forEach(ev => {
+    scheduleData.filter(e => {
+      if (!e.type || e.type === 'flight') return false
+      const s = e.startDate || e.date, en = e.endDate || e.date
+      if (ds < s || ds > en) return false
+      if (['ADO','OFF','>OFF'].includes(e.code)) return false
+      return e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code)
+    }).forEach(ev => {
       const pill = document.createElement('div')
       const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill', private:'private' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
-      pill.className = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : typeClass)
-      pill.textContent = ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)
+      let cls = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : typeClass)
+      const evStart = ev.startDate || ev.date
+      const evEnd   = ev.endDate   || ev.date
+      const isMulti = evStart !== evEnd
+      if (isMulti) {
+        const isStart = ds === evStart, isEnd = ds === evEnd
+        const vStart = isStart || col === 0, vEnd = isEnd || col === 6
+        if      (vStart && !vEnd) cls += ' bar-start'
+        else if (!vStart && vEnd) cls += ' bar-end'
+        else if (!vStart && !vEnd) cls += ' bar-mid'
+      }
+      pill.className = cls
+      const showText = !isMulti || ds === evStart || col === 0
+      pill.textContent = showText ? (ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)) : ' '
       pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
       ownLayer.appendChild(pill)
     })
@@ -881,9 +895,10 @@ function showDetail(task) {
 }
 
 function showNonFlightDetail(ev) {
-  const d = new Date(ev.date + 'T12:00:00')
   const wd = ['日','一','二','三','四','五','六']
-  const dateLabel = `${d.getMonth()+1} 月 ${d.getDate()} 日（${wd[d.getDay()]}）`
+  const fmtDate = s => { const d = new Date(s+'T12:00:00'); return `${d.getMonth()+1}/${d.getDate()}（${wd[d.getDay()]}）` }
+  const evStart = ev.startDate || ev.date, evEnd = ev.endDate || ev.date
+  const dateLabel = evStart === evEnd ? fmtDate(evStart) : `${fmtDate(evStart)} ～ ${fmtDate(evEnd)}`
   const typeLabel = { day_off:'休假', training:'受訓', meeting:'會議', standby:'待命', private:'私人行程' }[ev.type] || ev.type
   let html = `<div class="task-date">${dateLabel}</div>`
   html += `<div class="task-route">${typeLabel}　<span style="font-weight:400;font-size:14px;color:#8e8e93">${ev.type==='private'?(ev.title||''):(ev.code||'')}</span></div>`
@@ -942,7 +957,12 @@ function showNonFlightForm(dateStr, ev) {
   _taskNote = ev.code || ''
   _taskPrivateTitle = ev.title || ''
   _taskPrivateDesc  = ev.note  || ''
-  _taskDayoffDays = 1
+  if (ev.startDate && ev.endDate) {
+    const ms = new Date(ev.endDate+'T12:00:00') - new Date(ev.startDate+'T12:00:00')
+    _taskDayoffDays = Math.round(ms/86400000) + 1
+  } else {
+    _taskDayoffDays = 1
+  }
   _taskSbyStart = ev.start_time ? ev.start_time.slice(0,2)+':'+ev.start_time.slice(2,4) : ''
   _taskSbyEnd   = ev.end_time   ? ev.end_time.slice(0,2)+':'+ev.end_time.slice(2,4)     : ''
   _editTask = null
@@ -1408,20 +1428,20 @@ async function submitFlight(baseDate) {
     const codeMap = { training:'CM', dayoff:'AL', meeting:'MT' }
     const userCode = _taskNote.trim().toUpperCase() || codeMap[_taskType]
     const days = _taskType === 'dayoff' ? Math.max(1, _taskDayoffDays) : 1
+    const entry = {
+      type: typeMap[_taskType] || _taskType,
+      code: userCode,
+      date: baseDate,
+      startDate: baseDate,
+      endDate: addDays(baseDate, days - 1),
+      manually_added: true
+    }
     try {
       if (_editNonFlight && _editNonFlight.id) {
         await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
         _editNonFlight = null
       }
-      for (let i = 0; i < days; i++) {
-        const entry = {
-          type: typeMap[_taskType] || _taskType,
-          code: userCode,
-          date: addDays(baseDate, i),
-          manually_added: true
-        }
-        await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
-      }
+      await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
       document.getElementById('modal-overlay').classList.remove('active')
       await loadSchedule()
     } catch { alert('連線失敗') }
