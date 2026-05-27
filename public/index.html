@@ -49,6 +49,7 @@
     .day-num-wrap { padding:0 4px; margin-bottom:3px; }
     .day-num { font-size:14px; font-weight:500; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
     .day-cell.other-month .day-num { color:#c7c7cc; }
+    .day-num.has-private { background:#ede7f6; border-radius:50%; cursor:pointer; }
     .day-cell.today .day-num { background:#007aff; color:#fff !important; border-radius:50%; }
     .col-sun .day-num { color:#ff3b30; }
     .col-sat .day-num { color:#007aff; }
@@ -616,8 +617,11 @@ function renderCalendar() {
     }
 
     if (compareList.length) {
-      // 比對模式：有私人行程就顯示日期底色；私人 pill 一律不渲染
-      if (_privateNF.length > 0) { wrap.style.background = '#ede7f6'; wrap.style.borderRadius = '6px' }
+      // 比對模式：有私人行程就在日期數字加淡紫圓；可點擊開啟私人行程詳細
+      if (_privateNF.length > 0) {
+        dn.classList.add('has-private')
+        dn.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(_privateNF[0]) })
+      }
       _nonPrivateNF.forEach(ev => _renderNFPill(ev, ownLayer))
     } else {
       // 純自己模式：工作事件在第一層，私人事件固定在第二層
