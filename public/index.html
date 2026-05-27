@@ -1250,7 +1250,7 @@ function removeSeg(idx) {
 
 function _syncFromDom() {
   const note = document.getElementById('task-note'); if (note) _taskNote = note.value.trim()
-  const sbyFn = document.getElementById('sby-fn'); if (sbyFn) _taskNote = sbyFn.value.trim()
+  const sbyFn = document.getElementById('sby-fn'); if (sbyFn && _taskType === 'standby') _taskNote = sbyFn.value.trim()
   const sbyS  = document.getElementById('sby-start'); if (sbyS) _taskSbyStart = sbyS.value
   const sbyE  = document.getElementById('sby-end');   if (sbyE) _taskSbyEnd   = sbyE.value
   const days = document.getElementById('task-days'); if (days) _taskDays = parseInt(days.value) || 1
