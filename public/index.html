@@ -654,7 +654,9 @@ function showDetail(task) {
       const depDate = leg.date
       const depRaw = ftDepS
       const arrRaw = ftArrS || leg.arrival_actual
-      const arrDate = (depRaw && arrRaw && arrRaw < depRaw) ? addDays(leg.date, 1) : leg.date
+      const arrDate = leg.arrival_next_day ? addDays(leg.date, 1)
+                    : (depRaw && arrRaw && arrRaw < depRaw) ? addDays(leg.date, 1)
+                    : leg.date
 
       const D = s => `<span class="dt">${md(s)}</span> `
 
