@@ -1791,9 +1791,11 @@ async function _maybeShowSaveHint(code) {
     const banner = document.getElementById('cmp-banner') || document.getElementById('calendar')
     banner.parentNode.insertBefore(hint, banner.nextSibling)
   }
+  const profile = await fetch(`/api/profile/${code}`).then(r => r.json()).catch(() => ({}))
+  const defaultName = profile.empId || code
   hint.innerHTML = `儲存「${code}」為常用？暱稱：
-    <input id="save-hint-name" placeholder="${code}" maxlength="8"
-      style="width:64px;border:1px solid #c9a800;border-radius:6px;padding:2px 6px;font-size:12px">
+    <input id="save-hint-name" placeholder="${defaultName}" value="${defaultName}" maxlength="12"
+      style="width:80px;border:1px solid #c9a800;border-radius:6px;padding:2px 6px;font-size:12px">
     <button onclick="_saveContactFromHint('${code}')"
       style="background:#007aff;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">儲存</button>
     <button onclick="document.getElementById('save-hint-bar').remove()"
