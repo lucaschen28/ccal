@@ -943,19 +943,21 @@ async function showDetail(task) {
   document.getElementById('modal-content').innerHTML = html
   document.getElementById('modal-overlay').classList.add('active')
 
-  // 非同步載入同班組員
+  // 非同步載入同班組員（所有腿合併去重）
   ;(async () => {
-    const fn  = task.legs[0]?.flight_number
-    const date = task.legs[0]?.date
-    if (!fn || !date) return
-    const [crewRes, contactsRes] = await Promise.all([
-      fetch(`/api/flight-crew/${encodeURIComponent(fn)}/${date}`).catch(() => null),
+    const legs = task.legs.filter(l => l.flight_number && l.date)
+    if (!legs.length) return
+    const [crewResults, contactsRes] = await Promise.all([
+      Promise.all(legs.map(l =>
+        fetch(`/api/flight-crew/${encodeURIComponent(l.flight_number)}/${l.date}`).then(r => r.ok ? r.json() : []).catch(() => [])
+      )),
       fetch(`/api/contacts/${MY_USER_ID}`).catch(() => null)
     ])
-    if (!crewRes?.ok) return
-    const crew     = await crewRes.json()
+    // 合併所有腿的組員，依 userId 去重
+    const crewMap = new Map()
+    crewResults.flat().forEach(c => { if (!crewMap.has(c.userId)) crewMap.set(c.userId, c) })
     const contacts = contactsRes?.ok ? await contactsRes.json() : []
-    const others   = crew.filter(c => c.userId !== MY_USER_ID)
+    const others   = [...crewMap.values()].filter(c => c.userId !== MY_USER_ID)
     if (!others.length) return
     const placeholder = document.getElementById('crew-placeholder')
     if (!placeholder) return
