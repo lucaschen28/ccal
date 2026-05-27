@@ -543,7 +543,8 @@ function renderCalendar() {
     if (compareList.length) { ownLayer.className = 'cell-layer-own'; cell.appendChild(ownLayer) }
 
     // ── 自己層：飛航任務 ──────────────────────────────────────
-    tasksOnDate(ds).forEach(task => {
+    const _ownFlights = tasksOnDate(ds)
+    _ownFlights.forEach(task => {
       const isStart = ds === task.startDate
       const isEnd   = ds === task.endDate
       const sameDay = task.startDate === task.endDate
@@ -563,13 +564,20 @@ function renderCalendar() {
     })
 
     // ── 自己層：非飛航事件 ────────────────────────────────────
-    scheduleData.filter(e => {
+    const _ownNF = scheduleData.filter(e => {
       if (!e.type || e.type === 'flight') return false
       const s = e.startDate || e.date, en = e.endDate || e.date
       if (ds < s || ds > en) return false
       if (['ADO','OFF','>OFF'].includes(e.code)) return false
       return e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code)
-    }).forEach(ev => {
+    })
+    // 飛航＋私人同天：日期底色提示，不另渲染 private pill
+    const _hasPrivateOverlap = _ownFlights.length > 0 && _ownNF.some(e => e.type === 'private')
+    if (_hasPrivateOverlap) {
+      wrap.style.background = '#ede7f6'
+      wrap.style.borderRadius = '6px'
+    }
+    _ownNF.filter(e => !(_hasPrivateOverlap && e.type === 'private')).forEach(ev => {
       const pill = document.createElement('div')
       const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill', private:'private' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
       let cls = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : typeClass)
