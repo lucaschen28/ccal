@@ -106,6 +106,10 @@
     .event-pill.flight.cmp2.bar-start { border-radius:6px 0 0 6px; }
     .event-pill.flight.cmp2.bar-end   { border-radius:0 6px 6px 0; }
     .event-pill.flight.cmp2.bar-mid   { border-radius:0; }
+    /* 比對模式：自己層非飛航改藍系 */
+    .event-pill.own-cmp.dayoff  { background:#2563eb !important; color:#dbeafe !important; }
+    .event-pill.own-cmp.cm      { background:#38bdf8 !important; color:#0c4a6e !important; }
+    .event-pill.own-cmp.meeting { background:#bae6fd !important; color:#0c4a6e !important; }
     .cmp-banner { background:#eef0f5; color:#555; font-size:12px; font-weight:600; text-align:center; padding:6px 12px; }
     .contact-chip { display:inline-flex; align-items:center; gap:6px; background:#f2f2f7; border-radius:20px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; margin:4px 4px 0 0; border:none; }
     .contact-chip:active { background:#e5e5ea; }
@@ -604,6 +608,7 @@ function renderCalendar() {
           showText = vS
         }
       }
+      if (compareList.length) cls += ' own-cmp'
       pill.className = cls
       pill.textContent = showText ? (ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)) : ' '
       pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
