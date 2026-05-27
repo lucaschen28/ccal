@@ -3,7 +3,9 @@ const { exec } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const multer = require('multer')
-const parseECrewPDF = require('./ecrew-pdf-parser')
+const ecrewParser = require('./ecrew-pdf-parser')
+const parseECrewPDF = ecrewParser
+const { linkLayovers } = ecrewParser
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
@@ -99,11 +101,18 @@ app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
   if (!fp) return res.status(400).json({ error: '無效的 userId' })
   if (!req.file) return res.status(400).json({ error: '未收到 PDF 檔案' })
   try {
-    const entries = await parseECrewPDF(req.file.buffer)
+    const newEntries = await parseECrewPDF(req.file.buffer)
     const existing = readData(fp).filter(e => e.manually_added)
-    const merged = [...existing, ...entries]
+    const combined = [...existing, ...newEntries]
+    linkLayovers(combined)
+    // 去重：同 id 保留 duty_id 較早的（過夜班連結優先）
+    const seen = new Map()
+    combined.forEach(e => {
+      if (!seen.has(e.id) || e.duty_id < seen.get(e.id).duty_id) seen.set(e.id, e)
+    })
+    const merged = [...seen.values()]
     fs.writeFileSync(fp, JSON.stringify(merged, null, 2))
-    res.json({ ok: true, imported: entries.length, total: merged.length })
+    res.json({ ok: true, imported: newEntries.length, total: merged.length })
   } catch (err) {
     console.error('PDF 解析失敗:', err)
     res.status(500).json({ error: 'PDF 解析失敗：' + err.message })
