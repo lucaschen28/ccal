@@ -629,14 +629,14 @@ function showDetail(task) {
   }
 
   const INTERNAL_REST = {
-    // 48h（歐洲/英國長程）
-    '02':48, '032':48, '063':48, '067':48, '068':48, '069':48, '073':48, '075':48, '081':48, '082':48,
-    // 72h（超長程：紐約 012）
-    '012':72,
+    // 48h（歐洲/英國長程）— key 一律去補零
+    '2':48, '32':48, '63':48, '67':48, '68':48, '69':48, '73':48, '75':48, '81':48, '82':48,
+    // 72h（超長程：紐約 12）
+    '12':72,
     // 2曆日（美洲、歐洲最長程）
-    '04':'2曆日', '06':'2曆日', '08':'2曆日', '016':'2曆日', '022':'2曆日', '024':'2曆日', '061':'2曆日',
+    '4':'2曆日', '6':'2曆日', '8':'2曆日', '16':'2曆日', '22':'2曆日', '24':'2曆日', '61':'2曆日',
     // 24h（澳洲、東南亞、東北亞長程）
-    '028':24, '051':24, '053':24, '055':24, '057':24,
+    '28':24, '51':24, '53':24, '55':24, '57':24,
     '100':24, '104':24, '108':24, '110':24, '112':24,
     '190':24, '192':24,
     '269':24, '278':24, '539':24, '551':24, '561':24, '601':24,
@@ -644,8 +644,10 @@ function showDetail(task) {
     '757':24, '781':24, '783':24, '785':24, '787':24,
     '831':24, '833':24, '835':24, '861':24
   }
+  // 去掉補零再查表（e.g. "081" → "81"，"028" → "28"）
   const taskFlightNum = task.legs[0].flight_number
-  const internalRest = INTERNAL_REST[taskFlightNum] !== undefined ? INTERNAL_REST[taskFlightNum] : 14
+  const fnKey = String(taskFlightNum).replace(/^0+/, '') || '0'
+  const internalRest = INTERNAL_REST[fnKey] !== undefined ? INTERNAL_REST[fnKey] : 14
   const internalRestLabel = typeof internalRest === 'string' ? internalRest : `${internalRest}h`
 
   const tzDiff = -480 - new Date().getTimezoneOffset()
@@ -812,7 +814,7 @@ function showDetail(task) {
         const internalVal = taskFlightNum ? `${internalRestLabel}（CI${taskFlightNum}）` : '--'
         html += `<div class="afterduty-block">
           <div class="afterduty-row"><span class="lbl">MRT</span><span class="val">${mrtVal}</span></div>
-          <div class="afterduty-row"><span class="lbl">內規</span><span class="val">${internalVal}</span></div>
+          <div class="afterduty-row"><span class="lbl">表定休時</span><span class="val">${internalVal}</span></div>
         </div>`
       }
     }
