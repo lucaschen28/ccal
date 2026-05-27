@@ -111,6 +111,7 @@
     .contact-chip:active { background:#e5e5ea; }
     .contact-chip .chip-del { color:#c7c7cc; font-size:15px; line-height:1; margin-left:2px; }
     .cell-layer-own  { height:20px; overflow:visible; }
+    .cell-layer-work { height:20px; overflow:visible; }
     .cell-layer-priv { border-top:1px solid #ede7f6; padding-top:1px; overflow:visible; }
     .cell-layer-cmp  { height:20px; border-top:1px dashed #f9c98a; padding-top:1px; overflow:visible; }
     .cell-layer-cmp2 { height:20px; border-top:1px dashed #f5e88a; padding-top:1px; overflow:visible; }
@@ -541,7 +542,7 @@ function renderCalendar() {
 
     // ── 建立自己層容器 ────────────────────────────────────────
     const ownLayer = document.createElement('div')
-    if (compareList.length) ownLayer.className = 'cell-layer-own'
+    ownLayer.className = compareList.length ? 'cell-layer-own' : 'cell-layer-work'
     cell.appendChild(ownLayer)
 
     // ── 自己層：飛航任務 ──────────────────────────────────────
