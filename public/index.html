@@ -1370,7 +1370,7 @@ function _syncFromDom() {
   const sbyFn = document.getElementById('sby-fn'); if (sbyFn && _taskType === 'standby') _taskNote = sbyFn.value.trim()
   const privTitle = document.getElementById('private-title'); if (privTitle) _taskPrivateTitle = privTitle.value.trim()
   const privDesc  = document.getElementById('private-desc');  if (privDesc)  _taskPrivateDesc  = privDesc.value.trim()
-  const dofCode = document.getElementById('dayoff-code'); if (dofCode) _taskNote = dofCode.value.trim().toUpperCase()
+  const dofCode = document.getElementById('dayoff-code'); if (dofCode && _taskType === 'dayoff') _taskNote = dofCode.value.trim().toUpperCase()
   const dofDays = document.getElementById('dayoff-days'); if (dofDays) _taskDayoffDays = parseInt(dofDays.value) || 1
   const sbyS  = document.getElementById('sby-start'); if (sbyS) _taskSbyStart = sbyS.value
   const sbyE  = document.getElementById('sby-end');   if (sbyE) _taskSbyEnd   = sbyE.value
