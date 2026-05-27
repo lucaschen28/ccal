@@ -157,7 +157,7 @@
     .add-del-btn { width:100%; background:#fff; color:#ff3b30; border:1.5px solid #ff3b30; border-radius:12px; padding:11px; font-size:14px; font-weight:600; cursor:pointer; margin-top:8px; }
     .open-edit-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#1c1c1e; cursor:pointer; margin-top:8px; }
     .open-add-day-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:600; color:#007aff; cursor:pointer; margin-top:8px; }
-    .sby-pill { background:#fff3cd; color:#856404; }
+    .sby-pill { background:#1e3a8a; color:#e0eaff; }
     .leg-section-header { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:700; color:#007aff; margin-bottom:8px; padding-bottom:6px; border-bottom:1.5px solid #e8f0fe; }
     .leg-remove-btn { background:none; border:none; color:#ff3b30; font-size:13px; font-weight:600; cursor:pointer; padding:0; }
     .leg-divider { border:none; border-top:1px solid #e5e5ea; margin:4px 0 12px; }
@@ -942,6 +942,7 @@ function showNonFlightForm(dateStr, ev) {
   _taskNote = ev.code || ''
   _taskPrivateTitle = ev.title || ''
   _taskPrivateDesc  = ev.note  || ''
+  _taskDayoffDays = 1
   _taskSbyStart = ev.start_time ? ev.start_time.slice(0,2)+':'+ev.start_time.slice(2,4) : ''
   _taskSbyEnd   = ev.end_time   ? ev.end_time.slice(0,2)+':'+ev.end_time.slice(2,4)     : ''
   _editTask = null
@@ -1159,6 +1160,7 @@ let _taskType = 'flight'
 let _taskNote = ''
 let _taskPrivateTitle = ''
 let _taskPrivateDesc = ''
+let _taskDayoffDays = 1
 let _taskDays = 1
 let _taskRep = ''
 let _taskSegs = []
@@ -1219,9 +1221,16 @@ function _renderAddForm(baseDate, isEdit) {
     <div class="add-section-label">任務類型</div>
     <div class="duty-type-row" style="margin-bottom:14px">${typeBtns}</div>
     <div id="nonflight-fields" style="display:${showNonflight?'block':'none'}">
+      <div id="dayoff-days-row" style="display:${_taskType==='dayoff'?'flex':'none'};align-items:center;gap:10px;margin-bottom:12px">
+        <input id="dayoff-days" class="add-field-input" type="number" min="1" max="30"
+          value="${_taskDayoffDays}"
+          style="width:60px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center">
+        <span style="font-size:14px;color:#3c3c43;white-space:nowrap">天</span>
+        <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="flex:1;margin:0;padding:9px 0;font-size:14px">儲存</button>
+      </div>
       <div class="add-section-label">說明（選填）</div>
       <input id="task-note" class="add-field-input" type="text" placeholder="例：A320 複訓、年假" value="${_taskNote}">
-      <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="margin-top:4px">儲存</button>
+      <button id="nonflight-save-btn" class="add-save-btn" onclick="submitFlight('${baseDate}')" style="margin-top:4px;display:${_taskType==='dayoff'?'none':'block'}">儲存</button>
     </div>
     <div id="private-fields" style="display:${showPrivate?'block':'none'}">
       <div class="add-section-label">標題（必填，顯示於月曆）</div>
@@ -1302,9 +1311,16 @@ function setTaskType(type, btn) {
   _taskType = type
   document.querySelectorAll('.duty-type-btn').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
-  document.getElementById('flight-fields').style.display   = type === 'flight'  ? 'block' : 'none'
-  document.getElementById('standby-fields').style.display  = type === 'standby' ? 'block' : 'none'
-  document.getElementById('nonflight-fields').style.display = (type !== 'flight' && type !== 'standby') ? 'block' : 'none'
+  document.getElementById('flight-fields').style.display    = type === 'flight'  ? 'block' : 'none'
+  document.getElementById('standby-fields').style.display   = type === 'standby' ? 'block' : 'none'
+  document.getElementById('private-fields').style.display   = type === 'private' ? 'block' : 'none'
+  const showNF = type !== 'flight' && type !== 'standby' && type !== 'private'
+  document.getElementById('nonflight-fields').style.display = showNF ? 'block' : 'none'
+  if (showNF) {
+    const isDayoff = type === 'dayoff'
+    document.getElementById('dayoff-days-row').style.display   = isDayoff ? 'flex' : 'none'
+    document.getElementById('nonflight-save-btn').style.display = isDayoff ? 'none' : 'block'
+  }
 }
 
 function setSegAc(idx, ac) {
@@ -1331,6 +1347,7 @@ function _syncFromDom() {
   const sbyFn = document.getElementById('sby-fn'); if (sbyFn && _taskType === 'standby') _taskNote = sbyFn.value.trim()
   const privTitle = document.getElementById('private-title'); if (privTitle) _taskPrivateTitle = privTitle.value.trim()
   const privDesc  = document.getElementById('private-desc');  if (privDesc)  _taskPrivateDesc  = privDesc.value.trim()
+  const dofDays = document.getElementById('dayoff-days'); if (dofDays) _taskDayoffDays = parseInt(dofDays.value) || 1
   const sbyS  = document.getElementById('sby-start'); if (sbyS) _taskSbyStart = sbyS.value
   const sbyE  = document.getElementById('sby-end');   if (sbyE) _taskSbyEnd   = sbyE.value
   const days = document.getElementById('task-days'); if (days) _taskDays = parseInt(days.value) || 1
@@ -1390,18 +1407,21 @@ async function submitFlight(baseDate) {
     const typeMap = { training:'training', dayoff:'day_off', meeting:'meeting' }
     const codeMap = { training:'CM', dayoff:'AL', meeting:'MT' }
     const userCode = _taskNote.trim().toUpperCase() || codeMap[_taskType]
-    const entry = {
-      type: typeMap[_taskType] || _taskType,
-      code: userCode,
-      date: baseDate,
-      manually_added: true
-    }
+    const days = _taskType === 'dayoff' ? Math.max(1, _taskDayoffDays) : 1
     try {
       if (_editNonFlight && _editNonFlight.id) {
         await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
         _editNonFlight = null
       }
-      await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+      for (let i = 0; i < days; i++) {
+        const entry = {
+          type: typeMap[_taskType] || _taskType,
+          code: userCode,
+          date: addDays(baseDate, i),
+          manually_added: true
+        }
+        await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+      }
       document.getElementById('modal-overlay').classList.remove('active')
       await loadSchedule()
     } catch { alert('連線失敗') }
