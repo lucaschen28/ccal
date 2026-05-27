@@ -676,7 +676,25 @@ function renderCalendar() {
   }
 }
 
-function showDetail(task) {
+async function showDetail(task) {
+  // 自動補齊空白 leg（從其他用戶的共用班表資料）
+  const emptyLegs = task.legs.filter(l => !l.from && !l.to && !l.departure_scheduled && !l.arrival_scheduled)
+  if (emptyLegs.length > 0) {
+    await Promise.all(emptyLegs.map(async leg => {
+      const res = await fetch(`/api/flight-lookup/${encodeURIComponent(leg.flight_number)}/${leg.date}`).catch(() => null)
+      if (!res || !res.ok) return
+      const result = await res.json()
+      if (!result.found) return
+      const s = result.leg
+      if (s.from)                leg.from = s.from
+      if (s.to)                  leg.to   = s.to
+      if (s.departure_scheduled) leg.departure_scheduled = s.departure_scheduled
+      if (s.arrival_scheduled)   leg.arrival_scheduled   = s.arrival_scheduled
+      if (s.reporting)           leg.reporting = s.reporting
+      if (s.aircraft_type)       leg.aircraft_type = s.aircraft_type
+      if (s.arrival_next_day)    leg.arrival_next_day = s.arrival_next_day
+    }))
+  }
   const OUTSTATION_INFO = {
     // ── Checkout 時間已知 ───────────────────────────────────
     'NGO': { hotel: 'Comfort Hotel Central International Airport', mapUrl: 'https://maps.google.com/?q=Comfort+Hotel+Central+International+Airport+Nagoya', checkoutMins: 70,  wakeupMins: null },

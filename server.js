@@ -108,6 +108,28 @@ app.delete('/api/contacts/:userId/:code', (req, res) => {
   res.json({ ok: true })
 })
 
+// 用班號+日期查共用航班資料（掃描所有用戶）
+app.get('/api/flight-lookup/:fn/:date', (req, res) => {
+  const fn = req.params.fn.replace(/^0+/, '')  // 去掉前置零
+  const date = req.params.date
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => /^[a-zA-Z0-9]{4,12}\.json$/.test(f))
+    for (const file of files) {
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'))
+        const leg = data.find(e =>
+          e.type === 'flight' &&
+          e.flight_number && e.flight_number.replace(/^0+/, '') === fn &&
+          e.date === date &&
+          (e.from || e.to || e.departure_scheduled || e.arrival_scheduled)
+        )
+        if (leg) return res.json({ found: true, leg })
+      } catch {}
+    }
+  } catch {}
+  res.json({ found: false })
+})
+
 // 用員編反查 userId
 app.get('/api/lookup/emp/:empId', (req, res) => {
   const empId = req.params.empId.trim()
