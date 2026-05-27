@@ -110,7 +110,8 @@
     .contact-chip { display:inline-flex; align-items:center; gap:6px; background:#f2f2f7; border-radius:20px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; margin:4px 4px 0 0; border:none; }
     .contact-chip:active { background:#e5e5ea; }
     .contact-chip .chip-del { color:#c7c7cc; font-size:15px; line-height:1; margin-left:2px; }
-    .cell-layer-own { height:20px; overflow:visible; }
+    .cell-layer-own  { height:20px; overflow:visible; }
+    .cell-layer-priv { border-top:1px solid #ede7f6; padding-top:1px; overflow:visible; }
     .cell-layer-cmp  { height:20px; border-top:1px dashed #f9c98a; padding-top:1px; overflow:visible; }
     .cell-layer-cmp2 { height:20px; border-top:1px dashed #f5e88a; padding-top:1px; overflow:visible; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
@@ -538,9 +539,10 @@ function renderCalendar() {
     wrap.appendChild(dn)
     cell.appendChild(wrap)
 
-    // ── 建立分層容器（比對模式時固定層次，無比對時直接用 cell）──
-    const ownLayer = compareList.length ? document.createElement('div') : cell
-    if (compareList.length) { ownLayer.className = 'cell-layer-own'; cell.appendChild(ownLayer) }
+    // ── 建立自己層容器 ────────────────────────────────────────
+    const ownLayer = document.createElement('div')
+    if (compareList.length) ownLayer.className = 'cell-layer-own'
+    cell.appendChild(ownLayer)
 
     // ── 自己層：飛航任務 ──────────────────────────────────────
     const _ownFlights = tasksOnDate(ds)
@@ -571,13 +573,10 @@ function renderCalendar() {
       if (['ADO','OFF','>OFF'].includes(e.code)) return false
       return e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code)
     })
-    // 飛航＋私人同天：日期底色提示，不另渲染 private pill
-    const _hasPrivateOverlap = _ownFlights.length > 0 && _ownNF.some(e => e.type === 'private')
-    if (_hasPrivateOverlap) {
-      wrap.style.background = '#ede7f6'
-      wrap.style.borderRadius = '6px'
-    }
-    _ownNF.filter(e => !(_hasPrivateOverlap && e.type === 'private')).forEach(ev => {
+    const _nonPrivateNF = _ownNF.filter(e => e.type !== 'private')
+    const _privateNF    = _ownNF.filter(e => e.type === 'private')
+
+    const _renderNFPill = (ev, target) => {
       const pill = document.createElement('div')
       const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill', private:'private' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
       let cls = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : typeClass)
@@ -594,8 +593,23 @@ function renderCalendar() {
       const showText = !isMulti || ds === evStart || col === 0
       pill.textContent = showText ? (ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)) : ' '
       pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
-      ownLayer.appendChild(pill)
-    })
+      target.appendChild(pill)
+    }
+
+    if (compareList.length) {
+      // 比對模式：有私人行程就顯示日期底色；私人 pill 一律不渲染
+      if (_privateNF.length > 0) { wrap.style.background = '#ede7f6'; wrap.style.borderRadius = '6px' }
+      _nonPrivateNF.forEach(ev => _renderNFPill(ev, ownLayer))
+    } else {
+      // 純自己模式：工作事件在第一層，私人事件固定在第二層
+      _nonPrivateNF.forEach(ev => _renderNFPill(ev, ownLayer))
+      if (_privateNF.length > 0) {
+        const privLayer = document.createElement('div')
+        privLayer.className = 'cell-layer-priv'
+        _privateNF.forEach(ev => _renderNFPill(ev, privLayer))
+        cell.appendChild(privLayer)
+      }
+    }
 
     // ── 比對層（每人一層，固定位置；私人行程不顯示）──────────
     const layerClasses = ['cell-layer-cmp', 'cell-layer-cmp2']
