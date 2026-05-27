@@ -113,9 +113,6 @@
     .cell-layer-own { height:20px; overflow:visible; }
     .cell-layer-cmp  { height:20px; border-top:1px dashed #f9c98a; padding-top:1px; overflow:visible; }
     .cell-layer-cmp2 { height:20px; border-top:1px dashed #f5e88a; padding-top:1px; overflow:visible; }
-    .pill-stack { display:flex; align-items:stretch; width:100%; }
-    .pill-stack > .event-pill { flex:1; min-width:0; position:relative; z-index:1; }
-    .stack-tab { width:8px; min-height:14px; border-radius:0 4px 4px 0; margin-left:-2px; flex-shrink:0; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
     .layover-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:2px 0; }
     .layover-row .lbl { color:#8e8e93; }
@@ -476,8 +473,6 @@ function _updateViewBanner() {
 }
 
 const CMP_COLORS = ['#f9c98a', '#f5e88a']
-const _STACK_TAB_COLORS = { private:'#e0d0ff', meeting:'#a8f0c0', training:'#a8d8ff', day_off:'#ffb0b0', standby:'#3050a0' }
-const _CMP_TAB_COLORS   = ['#fac878', '#f0d850']
 
 function _updateCompareBanner() {
   let banner = document.getElementById('cmp-banner')
@@ -511,114 +506,6 @@ function endCompare() {
   _updateCompareBanner(); renderCalendar()
 }
 
-// ── Stack 疊加詳細 ──────────────────────────────────────────────
-function _showStackDetail(items) {
-  window._sdItems = items
-  const typeLabel = { day_off:'休假', training:'受訓', meeting:'會議', standby:'待命', private:'私人行程' }
-  let html = `<div class="task-route" style="margin-bottom:14px">當日所有行程</div>`
-  items.forEach((item, idx) => {
-    if (item.isFlight) {
-      const leg = item.data.legs[0]
-      const fn = padFN(leg.flight_number)
-      const route = leg.from && leg.to ? ` ${leg.from}→${leg.to}` : ''
-      html += `<div class="leg-block" style="cursor:pointer;margin-bottom:8px" onclick="_sdOpen(${idx})">
-        <div class="leg-row"><span class="lbl">飛航</span><span class="val" style="font-weight:700">CI${fn}${route}</span></div></div>`
-    } else {
-      const ev = item.data
-      const tl = typeLabel[ev.type] || ev.type
-      const disp = ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)
-      html += `<div class="leg-block" style="cursor:pointer;margin-bottom:8px" onclick="_sdOpen(${idx})">
-        <div class="leg-row"><span class="lbl">${tl}</span><span class="val">${disp}</span></div></div>`
-    }
-  })
-  html += `<button class="add-del-btn" style="background:#f2f2f7;color:#007aff;border-color:#f2f2f7" onclick="document.getElementById('modal-overlay').classList.remove('active')">關閉</button>`
-  document.getElementById('modal-content').innerHTML = html
-  document.getElementById('modal-overlay').classList.add('active')
-}
-window._sdOpen = function(idx) {
-  document.getElementById('modal-overlay').classList.remove('active')
-  const item = window._sdItems[idx]
-  setTimeout(() => { item.isFlight ? showDetail(item.data) : showNonFlightDetail(item.data) }, 150)
-}
-
-// ── 單層渲染 helper（自己層 cmpIdx=undefined，比對層 cmpIdx=0/1）──
-function _appendLayerContent(layer, tasks, nonFlights, col, ds, todayStr, cmpIdx) {
-  const pc = cmpIdx === 0 ? 'cmp' : cmpIdx === 1 ? 'cmp2' : ''
-  const items = []
-
-  tasks.forEach(task => {
-    const isStart = ds === task.startDate, isEnd = ds === task.endDate
-    const sameDay = task.startDate === task.endDate
-    const vStart = isStart || col === 0, vEnd = isEnd || col === 6
-    let cls = `event-pill flight${pc?' '+pc:''}${task.endDate < todayStr?' past':''}`
-    if (!sameDay) {
-      if (vStart && !vEnd) cls += ' bar-start'
-      else if (!vStart && vEnd) cls += ' bar-end'
-      else if (!vStart && !vEnd) cls += ' bar-mid'
-    }
-    const showLabel = isStart || col === 0
-    items.push({ isFlight:true, cls, text: showLabel ? padFN(task.legs[0].flight_number) : ' ', showLabel, task, ev:null })
-  })
-
-  nonFlights.forEach(ev => {
-    const evStart = ev.startDate || ev.date, evEnd = ev.endDate || ev.date
-    const isMulti = evStart !== evEnd
-    let cls, showLabel
-    if (pc) {
-      cls = `event-pill ${pc}`; showLabel = true
-    } else {
-      const tc = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill', private:'private' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
-      cls = `event-pill ${ev.type==='standby'||ev.code==='SBY'?'sby-pill':tc}`
-      if (isMulti) {
-        const vS = ds===evStart||col===0, vE = ds===evEnd||col===6
-        if (vS && !vE) cls += ' bar-start'
-        else if (!vS && vE) cls += ' bar-end'
-        else if (!vS && !vE) cls += ' bar-mid'
-      }
-      showLabel = !isMulti || ds===evStart || col===0
-    }
-    const rawText = pc ? (ev.type==='private'?'私人':(ev.code||ev.type)) : (ev.type==='private'?(ev.title||'私人'):(ev.code||ev.type))
-    items.push({ isFlight:false, cls, text: showLabel ? rawText : ' ', showLabel, task:null, ev })
-  })
-
-  const bgItems    = items.filter(it => !it.showLabel)
-  const labelItems = items.filter(it => it.showLabel)
-
-  bgItems.forEach(it => {
-    const el = document.createElement('div')
-    el.className = it.cls; el.textContent = it.text
-    el.addEventListener('click', e => { e.stopPropagation(); it.isFlight ? showDetail(it.task) : showNonFlightDetail(it.ev) })
-    layer.appendChild(el)
-  })
-
-  if (!labelItems.length) return
-
-  if (labelItems.length === 1) {
-    const it = labelItems[0]
-    const el = document.createElement('div')
-    el.className = it.cls; el.textContent = it.text
-    el.addEventListener('click', e => { e.stopPropagation(); it.isFlight ? showDetail(it.task) : showNonFlightDetail(it.ev) })
-    layer.appendChild(el)
-  } else {
-    const [primary, ...extras] = labelItems
-    const stack = document.createElement('div')
-    stack.className = 'pill-stack'
-    const primaryEl = document.createElement('div')
-    primaryEl.className = primary.cls; primaryEl.textContent = primary.text
-    stack.appendChild(primaryEl)
-    extras.forEach(it => {
-      const tab = document.createElement('div')
-      tab.className = 'stack-tab'
-      tab.style.background = cmpIdx !== undefined
-        ? _CMP_TAB_COLORS[cmpIdx]
-        : (it.isFlight ? '#b8d0ff' : (_STACK_TAB_COLORS[it.ev.type] || '#d0d0d0'))
-      stack.appendChild(tab)
-    })
-    const sdItems = labelItems.map(it => ({ isFlight:it.isFlight, data:it.isFlight?it.task:it.ev }))
-    stack.addEventListener('click', e => { e.stopPropagation(); _showStackDetail(sdItems) })
-    layer.appendChild(stack)
-  }
-}
 
 function renderCalendar() {
   document.getElementById('month-label').textContent = `${currentYear} 年 ${currentMonth+1} 月`
@@ -655,26 +542,88 @@ function renderCalendar() {
     const ownLayer = compareList.length ? document.createElement('div') : cell
     if (compareList.length) { ownLayer.className = 'cell-layer-own'; cell.appendChild(ownLayer) }
 
-    // ── 自己層 ────────────────────────────────────────────────
-    const _ownNF = scheduleData.filter(e => {
+    // ── 自己層：飛航任務 ──────────────────────────────────────
+    tasksOnDate(ds).forEach(task => {
+      const isStart = ds === task.startDate
+      const isEnd   = ds === task.endDate
+      const sameDay = task.startDate === task.endDate
+      const vStart  = isStart || col === 0
+      const vEnd    = isEnd   || col === 6
+      const pill = document.createElement('div')
+      let cls = 'event-pill flight' + (task.endDate < todayStr ? ' past' : '')
+      if (!sameDay) {
+        if (vStart && !vEnd)       cls += ' bar-start'
+        else if (!vStart && vEnd)  cls += ' bar-end'
+        else if (!vStart && !vEnd) cls += ' bar-mid'
+      }
+      pill.className = cls
+      pill.textContent = (isStart || col === 0) ? padFN(task.legs[0].flight_number) : ' '
+      pill.addEventListener('click', e => { e.stopPropagation(); showDetail(task) })
+      ownLayer.appendChild(pill)
+    })
+
+    // ── 自己層：非飛航事件 ────────────────────────────────────
+    scheduleData.filter(e => {
       if (!e.type || e.type === 'flight') return false
       const s = e.startDate || e.date, en = e.endDate || e.date
       if (ds < s || ds > en) return false
       if (['ADO','OFF','>OFF'].includes(e.code)) return false
       return e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code)
+    }).forEach(ev => {
+      const pill = document.createElement('div')
+      const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill', private:'private' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
+      let cls = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : typeClass)
+      const evStart = ev.startDate || ev.date
+      const evEnd   = ev.endDate   || ev.date
+      const isMulti = evStart !== evEnd
+      if (isMulti) {
+        const vS = ds === evStart || col === 0, vE = ds === evEnd || col === 6
+        if      (vS && !vE) cls += ' bar-start'
+        else if (!vS && vE) cls += ' bar-end'
+        else if (!vS && !vE) cls += ' bar-mid'
+      }
+      pill.className = cls
+      const showText = !isMulti || ds === evStart || col === 0
+      pill.textContent = showText ? (ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)) : ' '
+      pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
+      ownLayer.appendChild(pill)
     })
-    _appendLayerContent(ownLayer, tasksOnDate(ds), _ownNF, col, ds, todayStr)
 
-    // ── 比對層（每人一層，固定位置）────────────────────────────
+    // ── 比對層（每人一層，固定位置；私人行程不顯示）──────────
+    const layerClasses = ['cell-layer-cmp', 'cell-layer-cmp2']
+    const pillClasses  = ['cmp', 'cmp2']
     compareList.forEach((cmp, ci) => {
       const cmpLayer = document.createElement('div')
-      cmpLayer.className = ['cell-layer-cmp','cell-layer-cmp2'][ci]
-      const cmpNF = cmp.data.filter(e =>
-        e.date === ds && e.type && e.type !== 'flight' &&
+      cmpLayer.className = layerClasses[ci]
+      const pc = pillClasses[ci]
+      compareTasksOnDate(cmp.tasks, ds).forEach(task => {
+        const isStart = ds === task.startDate
+        const isEnd   = ds === task.endDate
+        const sameDay = task.startDate === task.endDate
+        const vStart  = isStart || col === 0
+        const vEnd    = isEnd   || col === 6
+        const pill = document.createElement('div')
+        let cls = `event-pill flight ${pc}` + (task.endDate < todayStr ? ' past' : '')
+        if (!sameDay) {
+          if (vStart && !vEnd)       cls += ' bar-start'
+          else if (!vStart && vEnd)  cls += ' bar-end'
+          else if (!vStart && !vEnd) cls += ' bar-mid'
+        }
+        pill.className = cls
+        pill.textContent = (isStart || col === 0) ? padFN(task.legs[0].flight_number) : ' '
+        pill.addEventListener('click', e => { e.stopPropagation(); showDetail(task) })
+        cmpLayer.appendChild(pill)
+      })
+      cmp.data.filter(e =>
+        e.date === ds && e.type && e.type !== 'flight' && e.type !== 'private' &&
         !['ADO','OFF','>OFF'].includes(e.code) &&
         (e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code))
-      )
-      _appendLayerContent(cmpLayer, compareTasksOnDate(cmp.tasks, ds), cmpNF, col, ds, todayStr, ci)
+      ).forEach(ev => {
+        const pill = document.createElement('div')
+        pill.className = `event-pill ${pc}`
+        pill.textContent = ev.code || ev.type
+        cmpLayer.appendChild(pill)
+      })
       cell.appendChild(cmpLayer)
     })
 
