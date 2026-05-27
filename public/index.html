@@ -485,7 +485,7 @@ function _updateCompareBanner() {
     }
     const tags = compareList.map((c, i) =>
       `<span style="display:inline-flex;align-items:center;gap:4px;background:${CMP_COLORS[i]};border-radius:10px;padding:1px 8px;margin:0 2px">
-        <b>${c.userId}</b><span style="cursor:pointer;color:#555" onclick="removeCompare(${i})">✕</span>
+        <b>${c.name}</b><span style="cursor:pointer;color:#555;margin-left:2px" onclick="removeCompare(${i})">✕</span>
       </span>`
     ).join('')
     banner.innerHTML = `🔄 比對中：${tags}　<span style="color:#007aff;cursor:pointer" onclick="endCompare()">全部結束</span>`
@@ -631,7 +631,7 @@ function renderCalendar() {
       ).forEach(ev => {
         const pill = document.createElement('div')
         pill.className = `event-pill ${pc}`
-        pill.textContent = ev.code || ev.type
+        pill.textContent = ev.type === 'private' ? '私人' : (ev.code || ev.type)
         cmpLayer.appendChild(pill)
       })
       cell.appendChild(cmpLayer)
@@ -1556,7 +1556,7 @@ async function showUserCodeModal() {
   const chipsHtml = contacts.length ? `
     <div class="add-section-label" style="margin:14px 0 6px">常用</div>
     <div id="contact-chips">${contacts.map(c => `
-      <button class="contact-chip" onclick="quickCompare('${c.code}')">
+      <button class="contact-chip" onclick="quickCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
         ${c.name}
         <span class="chip-del" onclick="event.stopPropagation();deleteContact('${c.code}')">✕</span>
       </button>`).join('')}
@@ -1600,13 +1600,13 @@ async function showUserCodeModal() {
   }, 50)
 }
 
-async function quickCompare(code) {
+async function quickCompare(code, name) {
   document.getElementById('view-code-err').textContent = '載入中…'
   const res = await fetch(`/api/schedule/${code}`).catch(() => null)
   if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
   if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
-  _addToCompareList(code, data)
+  _addToCompareList(code, data, name)
   document.getElementById('modal-overlay').classList.remove('active')
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
@@ -1637,9 +1637,9 @@ async function goViewOther() {
   _maybeShowSaveHint(code)
 }
 
-function _addToCompareList(code, data) {
+function _addToCompareList(code, data, name) {
   if (compareList.some(c => c.userId === code)) return
-  const entry = { userId: code, data, tasks: groupTasks(data.filter(e => e.type === 'flight')) }
+  const entry = { userId: code, name: name || code, data, tasks: groupTasks(data.filter(e => e.type === 'flight')) }
   if (compareList.length >= 2) compareList.shift()
   compareList.push(entry)
 }
@@ -1654,7 +1654,9 @@ async function goCompare() {
   if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
   if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
-  _addToCompareList(code, data)
+  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
+  const contact = contacts.find(c => c.code === code)
+  _addToCompareList(code, data, contact?.name)
   document.getElementById('modal-overlay').classList.remove('active')
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
