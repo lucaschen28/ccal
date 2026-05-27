@@ -342,13 +342,10 @@ function toTaipei(dateStr, hhmm4, stationCode) {
 function dualT(hhmm4, dateStr, stationCode) {
   if (!hhmm4 || hhmm4.length < 4) return '--'
   const local = `${hhmm4.slice(0,2)}:${hhmm4.slice(2,4)}`
-  const tz = STATION_TZ[stationCode]
-  if (tz) {
-    const refD = new Date((dateStr || '2026-01-01') + 'T12:00:00Z')
-    if (tzOffsetMin(refD, tz) === 480) return `${local}T`  // UTC+8，與台北相同
-  }
+  // 台灣本島機場：只顯示台北時間，不加 L/T 說明
+  if (['TPE','TSA'].includes(stationCode)) return `${local}T`
   const tp = toTaipei(dateStr, hhmm4, stationCode)
-  if (!tp) return `${local}T`
+  if (!tp) return `${local}T`  // 未知時區，當台北時間顯示
   const ds = tp.dayShift === 1  ? '<span class="day-shift">+1</span>'
            : tp.dayShift === -1 ? '<span class="day-shift">-1</span>' : ''
   return `${local}L <span class="tz-div">/</span> <span class="tz-tp">${tp.t}T${ds}</span>`
