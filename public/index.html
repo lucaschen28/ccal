@@ -345,10 +345,10 @@ function dualT(hhmm4, dateStr, stationCode) {
   const tz = STATION_TZ[stationCode]
   if (tz) {
     const refD = new Date((dateStr || '2026-01-01') + 'T12:00:00Z')
-    if (tzOffsetMin(refD, tz) === 480) return local  // UTC+8，與台北相同
+    if (tzOffsetMin(refD, tz) === 480) return `${local}T`  // UTC+8，與台北相同
   }
   const tp = toTaipei(dateStr, hhmm4, stationCode)
-  if (!tp) return local
+  if (!tp) return `${local}T`
   const ds = tp.dayShift === 1  ? '<span class="day-shift">+1</span>'
            : tp.dayShift === -1 ? '<span class="day-shift">-1</span>' : ''
   return `${local}L <span class="tz-div">/</span> <span class="tz-tp">${tp.t}T${ds}</span>`
