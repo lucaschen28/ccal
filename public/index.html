@@ -89,6 +89,8 @@
     .actual { color:#34c759; }
     .tz-note { font-size:10px; color:#ff9500; text-align:center; background:#fff8ee; border-radius:4px; padding:4px 8px; margin-bottom:10px; }
     .day-shift { color:#ff9500; font-size:8px; vertical-align:super; }
+    .tz-div { color:#c7c7cc; font-size:11px; margin:0 3px; }
+    .tz-tp  { color:#007aff; font-size:12px; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
     .layover-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:2px 0; }
     .layover-row .lbl { color:#8e8e93; }
@@ -272,6 +274,85 @@ function subMins(hhmm4, mins) {
 }
 
 function fmtMin(m) { return m > 0 ? Math.floor(m/60)+'h'+(m%60?m%60+'m':'') : null }
+
+// ── 雙時區工具 ────────────────────────────────────────────────
+const STATION_TZ = {
+  'TPE':'Asia/Taipei','TSA':'Asia/Taipei',
+  'NRT':'Asia/Tokyo','HND':'Asia/Tokyo','KIX':'Asia/Tokyo','NGO':'Asia/Tokyo',
+  'FUK':'Asia/Tokyo','CTS':'Asia/Tokyo','HIJ':'Asia/Tokyo','KMJ':'Asia/Tokyo',
+  'OKA':'Asia/Tokyo','ITM':'Asia/Tokyo','TAK':'Asia/Tokyo',
+  'ICN':'Asia/Seoul','GMP':'Asia/Seoul','PUS':'Asia/Seoul',
+  'PVG':'Asia/Shanghai','PEK':'Asia/Shanghai','SHA':'Asia/Shanghai',
+  'CAN':'Asia/Shanghai','CTU':'Asia/Shanghai','CKG':'Asia/Shanghai','HGH':'Asia/Shanghai',
+  'BKK':'Asia/Bangkok','CNX':'Asia/Bangkok',
+  'HAN':'Asia/Ho_Chi_Minh','SGN':'Asia/Ho_Chi_Minh',
+  'SIN':'Asia/Singapore',
+  'KUL':'Asia/Kuala_Lumpur','PEN':'Asia/Kuala_Lumpur',
+  'CGK':'Asia/Jakarta','DPS':'Asia/Makassar',
+  'MNL':'Asia/Manila','CEB':'Asia/Manila',
+  'HKG':'Asia/Hong_Kong',
+  'RGN':'Asia/Rangoon',
+  'DEL':'Asia/Kolkata',
+  'DXB':'Asia/Dubai','AUH':'Asia/Dubai',
+  'LHR':'Europe/London','LGW':'Europe/London',
+  'CDG':'Europe/Paris','AMS':'Europe/Amsterdam',
+  'FRA':'Europe/Berlin','MUC':'Europe/Berlin',
+  'VIE':'Europe/Vienna','ZRH':'Europe/Zurich',
+  'FCO':'Europe/Rome','MXP':'Europe/Rome',
+  'LAX':'America/Los_Angeles','SFO':'America/Los_Angeles','SEA':'America/Los_Angeles',
+  'YVR':'America/Vancouver',
+  'JFK':'America/New_York','EWR':'America/New_York','BOS':'America/New_York',
+  'ORD':'America/Chicago','IAH':'America/Chicago',
+  'ANC':'America/Anchorage','HNL':'Pacific/Honolulu',
+  'SYD':'Australia/Sydney','MEL':'Australia/Melbourne',
+  'BNE':'Australia/Brisbane','AKL':'Pacific/Auckland',
+  'ROR':'Pacific/Palau',
+}
+
+// 取得某時區在指定 Date 的 UTC offset（分鐘）
+function tzOffsetMin(date, ianaZone) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: ianaZone, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false
+  })
+  const p = Object.fromEntries(fmt.formatToParts(date).map(x => [x.type, x.value]))
+  const hr = p.hour === '24' ? '00' : p.hour
+  const localAsUTC = new Date(`${p.year}-${p.month}-${p.day}T${hr}:${p.minute}:${p.second}Z`)
+  return (localAsUTC - date) / 60000
+}
+
+// 外站當地時間 HHMM → 台北時間，回傳 { t:'HH:MM', dayShift }
+function toTaipei(dateStr, hhmm4, stationCode) {
+  const tz = STATION_TZ[stationCode]
+  if (!tz) return null
+  const approx = new Date(`${dateStr}T${hhmm4.slice(0,2)}:${hhmm4.slice(2,4)}:00Z`)
+  const stOffset = tzOffsetMin(approx, tz)
+  const utcMs = approx.getTime() - stOffset * 60000
+  const taipeiMs = utcMs + 480 * 60000
+  const t = new Date(taipeiMs)
+  const th = String(t.getUTCHours()).padStart(2,'0')
+  const tm = String(t.getUTCMinutes()).padStart(2,'0')
+  const legMidnight = new Date(dateStr + 'T00:00:00Z').getTime()
+  const tpMidnight  = taipeiMs - (t.getUTCHours() * 3600000 + t.getUTCMinutes() * 60000)
+  const dayShift = Math.round((tpMidnight - legMidnight) / 86400000)
+  return { t: `${th}:${tm}`, dayShift }
+}
+
+// 產生雙時區 HTML：當地L / 台北T（UTC+8 站只顯示一個）
+function dualT(hhmm4, dateStr, stationCode) {
+  if (!hhmm4 || hhmm4.length < 4) return '--'
+  const local = `${hhmm4.slice(0,2)}:${hhmm4.slice(2,4)}`
+  const tz = STATION_TZ[stationCode]
+  if (tz) {
+    const refD = new Date((dateStr || '2026-01-01') + 'T12:00:00Z')
+    if (tzOffsetMin(refD, tz) === 480) return local  // UTC+8，與台北相同
+  }
+  const tp = toTaipei(dateStr, hhmm4, stationCode)
+  if (!tp) return local
+  const ds = tp.dayShift === 1  ? '<span class="day-shift">+1</span>'
+           : tp.dayShift === -1 ? '<span class="day-shift">-1</span>' : ''
+  return `${local}L <span class="tz-div">/</span> <span class="tz-tp">${tp.t}T${ds}</span>`
+}
 
 function addDays(dateStr, n) {
   const d = new Date(dateStr + 'T12:00:00')
@@ -522,9 +603,10 @@ function showDetail(task) {
     ? `${+s[1]} 月 ${+s[2]} 日（${wd[new Date(task.startDate).getDay()]}）`
     : `${+s[1]}/${+s[2]}（${wd[new Date(task.startDate).getDay()]}）～ ${+e[1]}/${+e[2]}（${wd[new Date(task.endDate).getDay()]}）`
 
-  const tzHours = tzDiff / 60
-  const tzNote = tzDiff !== 0
-    ? `<div class="tz-note">顯示當地時間（台灣${tzHours > 0 ? '+' : ''}${tzHours}h）</div>`
+  // 有外站就顯示雙時區說明
+  const hasOverseas = task.legs.some(l => l.from && !['TPE','TSA'].includes(l.from) || l.to && !['TPE','TSA'].includes(l.to))
+  const tzNote = hasOverseas
+    ? `<div class="tz-note">時間格式：當地時間L <span class="tz-div">/</span> <span class="tz-tp">台北時間T</span></div>`
     : ''
 
   let html = `<div class="task-date">${dateLabel}</div><div class="task-route">${taskRoute(task)}</div>${tzNote}`
@@ -584,9 +666,15 @@ function showDetail(task) {
           <div class="leg-title" style="margin-bottom:0">${legLabel}${fnPart}${routePart}</div>
           ${acBadge}
         </div>`
-      html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${rep.t ? D(repDate)+fmtT(rep) : '--'}</span></div>`
-      html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${(depS.t||depA.t) ? D(depDate)+fmtInline(depS,depA) : '--'}</span></div>`
-      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${(arrS.t||arrA.t) ? D(arrDate)+fmtInline(arrS,arrA) : '--'}</span></div>`
+      const _depA = leg.departure_actual
+      const _arrA = leg.arrival_actual
+      const _depSt = dualT(ftDepS, depDate, leg.from)
+      const _depAt = _depA ? `<span class="actual"> (A${dualT(_depA, depDate, leg.from)})</span>` : ''
+      const _arrSt = dualT(ftArrS, arrDate, leg.to)
+      const _arrAt = _arrA ? `<span class="actual"> (A${dualT(_arrA, arrDate, leg.to)})</span>` : ''
+      html += `<div class="leg-row"><span class="lbl">報到</span><span class="val">${leg.reporting ? D(repDate)+dualT(leg.reporting, repDate, leg.from) : '--'}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">起飛</span><span class="val">${(ftDepS||_depA) ? D(depDate)+(_depSt==='--'?'':_depSt)+_depAt : '--'}</span></div>`
+      html += `<div class="leg-row"><span class="lbl">降落</span><span class="val">${(ftArrS||_arrA) ? D(arrDate)+(_arrSt==='--'?'':_arrSt)+_arrAt : '--'}</span></div>`
       html += `<div class="leg-row"><span class="lbl">飛時</span><span class="val">${(ftMinS || ftMinA) ? ftLabel : '--'}</span></div>`
 
       if (leg === lastLeg) {
