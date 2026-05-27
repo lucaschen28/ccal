@@ -97,8 +97,8 @@
     .event-pill.flight.cmp.bar-end   { border-radius:0 6px 6px 0; }
     .event-pill.flight.cmp.bar-mid   { border-radius:0; }
     .cmp-banner { background:#eef0f5; color:#555; font-size:12px; font-weight:600; text-align:center; padding:6px 12px; }
-    .cell-layer-own { min-height:20px; }
-    .cell-layer-cmp { border-top:1px dashed #d8d8dd; padding-top:1px; min-height:4px; }
+    .cell-layer-own { height:20px; overflow:visible; }
+    .cell-layer-cmp { border-top:1px dashed #d8d8dd; padding-top:1px; overflow:visible; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
     .layover-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:2px 0; }
     .layover-row .lbl { color:#8e8e93; }
@@ -629,13 +629,20 @@ function showDetail(task) {
   }
 
   const INTERNAL_REST = {
-    '02':48, '032':48, '063':48, '069':48, '073':48, '075':48,
+    // 48h（歐洲/英國長程）
+    '02':48, '032':48, '063':48, '067':48, '068':48, '069':48, '073':48, '075':48, '081':48, '082':48,
+    // 72h（超長程：紐約 012）
     '012':72,
-    '04':'2曆日', '06':'2曆日', '08':'2曆日', '016':'2曆日', '061':'2曆日',
+    // 2曆日（美洲、歐洲最長程）
+    '04':'2曆日', '06':'2曆日', '08':'2曆日', '016':'2曆日', '022':'2曆日', '024':'2曆日', '061':'2曆日',
+    // 24h（澳洲、東南亞、東北亞長程）
     '028':24, '051':24, '053':24, '055':24, '057':24,
-    '100':24, '104':24, '108':24, '110':24,
+    '100':24, '104':24, '108':24, '110':24, '112':24,
+    '190':24, '192':24,
     '269':24, '278':24, '539':24, '551':24, '561':24, '601':24,
-    '757':24, '781':24, '783':24, '831':24, '833':24, '835':24
+    '701':24, '709':24,
+    '757':24, '781':24, '783':24, '785':24, '787':24,
+    '831':24, '833':24, '835':24, '861':24
   }
   const taskFlightNum = task.legs[0].flight_number
   const internalRest = INTERNAL_REST[taskFlightNum] !== undefined ? INTERNAL_REST[taskFlightNum] : 14
