@@ -1267,7 +1267,8 @@ function _renderAddForm(baseDate, isEdit) {
     </div>
     <div id="standby-fields" style="display:${showStandby?'block':'none'}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <input id="sby-fn" class="add-field-input" type="text" inputmode="numeric" maxlength="4"
+        <input id="sby-fn" class="add-field-input" type="text" inputmode="text" maxlength="6"
+          autocapitalize="characters" autocorrect="off" spellcheck="false"
           placeholder="班號" value="${_taskNote}"
           style="width:80px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center;letter-spacing:2px">
         <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="flex:1;margin:0;padding:9px 0;font-size:14px">儲存</button>
