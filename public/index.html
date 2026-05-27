@@ -622,7 +622,11 @@ function renderCalendar() {
       // 比對模式：有私人行程就在日期數字加淡紫圓；可點擊開啟私人行程詳細
       if (_privateNF.length > 0) {
         dn.classList.add('has-private')
-        dn.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(_privateNF[0]) })
+        dn.addEventListener('click', e => {
+          e.stopPropagation()
+          if (_privateNF.length === 1) showNonFlightDetail(_privateNF[0])
+          else showPrivateList(_privateNF)
+        })
       }
       _nonPrivateNF.forEach(ev => _renderNFPill(ev, ownLayer))
     } else {
@@ -927,6 +931,26 @@ function showDetail(task) {
     html += `<button class="open-add-day-btn" onclick="showAddForm('${task.startDate}')">＋ 新增</button>`
   }
   window._swapTask = task
+  document.getElementById('modal-content').innerHTML = html
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function showPrivateList(events) {
+  const wd = ['日','一','二','三','四','五','六']
+  const d = new Date((events[0].date || events[0].startDate) + 'T12:00:00')
+  const dateLabel = `${d.getMonth()+1}/${d.getDate()}（${wd[d.getDay()]}）`
+  let html = `<div class="task-date">${dateLabel}</div>`
+  html += `<div class="task-route">私人行程（${events.length} 筆）</div>`
+  html += `<div class="leg-block">`
+  events.forEach((ev, i) => {
+    html += `<div class="leg-row" style="cursor:pointer;padding:8px 4px;border-bottom:1px solid #f0f0f5"
+      onclick="showNonFlightDetail(window._pvList[${i}])">
+      <span class="val" style="font-weight:500">${ev.title || '私人行程'}</span>
+      <span style="float:right;color:#c7c7cc">›</span>
+    </div>`
+  })
+  html += `</div>`
+  window._pvList = events
   document.getElementById('modal-content').innerHTML = html
   document.getElementById('modal-overlay').classList.add('active')
 }
