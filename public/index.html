@@ -1234,23 +1234,29 @@ function _renderAddForm(baseDate, isEdit) {
   const showFlight   = _taskType === 'flight'
   const showStandby  = _taskType === 'standby'
   const showPrivate  = _taskType === 'private'
-  const showNonflight = !showFlight && !showStandby && !showPrivate
+  const showDayoff   = _taskType === 'dayoff'
+  const showNonflight = !showFlight && !showStandby && !showPrivate && !showDayoff
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date">← <span style="color:#007aff;cursor:pointer" onclick="document.getElementById('modal-overlay').classList.remove('active')">取消</span></div>
     <div class="task-route" style="margin-bottom:10px">${isEdit?'修改':'新增'}　<span style="font-size:13px;color:#8e8e93;font-weight:400">${dateLabel}</span></div>
     <div class="add-section-label">任務類型</div>
     <div class="duty-type-row" style="margin-bottom:14px">${typeBtns}</div>
-    <div id="nonflight-fields" style="display:${showNonflight?'block':'none'}">
-      <div id="dayoff-days-row" style="display:${_taskType==='dayoff'?'flex':'none'};align-items:center;gap:10px;margin-bottom:12px">
+    <div id="dayoff-fields" style="display:${showDayoff?'block':'none'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <input id="dayoff-code" class="add-field-input" type="text" maxlength="6"
+          placeholder="假別" value="${showDayoff ? _taskNote : ''}"
+          style="width:80px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center;letter-spacing:1px">
         <input id="dayoff-days" class="add-field-input" type="number" min="1" max="30"
-          value="${_taskDayoffDays}"
-          style="width:60px;margin-bottom:0;font-size:17px;font-weight:700;text-align:center">
+          placeholder="1" value="${_taskDayoffDays > 1 ? _taskDayoffDays : ''}"
+          style="width:52px;margin-bottom:0;text-align:center">
         <span style="font-size:14px;color:#3c3c43;white-space:nowrap">天</span>
         <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="flex:1;margin:0;padding:9px 0;font-size:14px">儲存</button>
       </div>
+    </div>
+    <div id="nonflight-fields" style="display:${showNonflight?'block':'none'}">
       <div class="add-section-label">說明（選填）</div>
       <input id="task-note" class="add-field-input" type="text" placeholder="例：A320 複訓、年假" value="${_taskNote}">
-      <button id="nonflight-save-btn" class="add-save-btn" onclick="submitFlight('${baseDate}')" style="margin-top:4px;display:${_taskType==='dayoff'?'none':'block'}">儲存</button>
+      <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="margin-top:4px">儲存</button>
     </div>
     <div id="private-fields" style="display:${showPrivate?'block':'none'}">
       <div class="add-section-label">標題（必填，顯示於月曆）</div>
@@ -1331,16 +1337,12 @@ function setTaskType(type, btn) {
   _taskType = type
   document.querySelectorAll('.duty-type-btn').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
-  document.getElementById('flight-fields').style.display    = type === 'flight'  ? 'block' : 'none'
-  document.getElementById('standby-fields').style.display   = type === 'standby' ? 'block' : 'none'
-  document.getElementById('private-fields').style.display   = type === 'private' ? 'block' : 'none'
-  const showNF = type !== 'flight' && type !== 'standby' && type !== 'private'
+  document.getElementById('flight-fields').style.display   = type === 'flight'  ? 'block' : 'none'
+  document.getElementById('standby-fields').style.display  = type === 'standby' ? 'block' : 'none'
+  document.getElementById('private-fields').style.display  = type === 'private' ? 'block' : 'none'
+  document.getElementById('dayoff-fields').style.display   = type === 'dayoff'  ? 'block' : 'none'
+  const showNF = !['flight','standby','private','dayoff'].includes(type)
   document.getElementById('nonflight-fields').style.display = showNF ? 'block' : 'none'
-  if (showNF) {
-    const isDayoff = type === 'dayoff'
-    document.getElementById('dayoff-days-row').style.display   = isDayoff ? 'flex' : 'none'
-    document.getElementById('nonflight-save-btn').style.display = isDayoff ? 'none' : 'block'
-  }
 }
 
 function setSegAc(idx, ac) {
@@ -1367,6 +1369,7 @@ function _syncFromDom() {
   const sbyFn = document.getElementById('sby-fn'); if (sbyFn && _taskType === 'standby') _taskNote = sbyFn.value.trim()
   const privTitle = document.getElementById('private-title'); if (privTitle) _taskPrivateTitle = privTitle.value.trim()
   const privDesc  = document.getElementById('private-desc');  if (privDesc)  _taskPrivateDesc  = privDesc.value.trim()
+  const dofCode = document.getElementById('dayoff-code'); if (dofCode) _taskNote = dofCode.value.trim().toUpperCase()
   const dofDays = document.getElementById('dayoff-days'); if (dofDays) _taskDayoffDays = parseInt(dofDays.value) || 1
   const sbyS  = document.getElementById('sby-start'); if (sbyS) _taskSbyStart = sbyS.value
   const sbyE  = document.getElementById('sby-end');   if (sbyE) _taskSbyEnd   = sbyE.value
