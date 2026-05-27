@@ -97,6 +97,8 @@
     .event-pill.flight.cmp.bar-end   { border-radius:0 6px 6px 0; }
     .event-pill.flight.cmp.bar-mid   { border-radius:0; }
     .cmp-banner { background:#eef0f5; color:#555; font-size:12px; font-weight:600; text-align:center; padding:6px 12px; }
+    .cell-layer-own { min-height:20px; }
+    .cell-layer-cmp { border-top:1px dashed #d8d8dd; padding-top:1px; min-height:4px; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
     .layover-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:2px 0; }
     .layover-row .lbl { color:#8e8e93; }
@@ -495,7 +497,11 @@ function renderCalendar() {
     wrap.appendChild(dn)
     cell.appendChild(wrap)
 
-    // Task bars
+    // ── 建立分層容器（比對模式時固定層次，無比對時直接用 cell）──
+    const ownLayer = compareUserId ? document.createElement('div') : cell
+    if (compareUserId) { ownLayer.className = 'cell-layer-own'; cell.appendChild(ownLayer) }
+
+    // Task bars（第一層：自己）
     tasksOnDate(ds).forEach(task => {
       const isStart = ds === task.startDate
       const isEnd   = ds === task.endDate
@@ -522,7 +528,7 @@ function renderCalendar() {
       }
 
       pill.addEventListener('click', e => { e.stopPropagation(); showDetail(task) })
-      cell.appendChild(pill)
+      ownLayer.appendChild(pill)
     })
 
     // 非飛航事件（休假/受訓/會議/SBY 等）
@@ -536,11 +542,13 @@ function renderCalendar() {
       pill.className = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : typeClass)
       pill.textContent = ev.code || ev.type
       pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
-      cell.appendChild(pill)
+      ownLayer.appendChild(pill)
     })
 
-    // ── 比對層（灰階）──────────────────────────────────────────
+    // ── 比對層（灰階，固定在第二層）──────────────────────────
     if (compareUserId) {
+      const cmpLayer = document.createElement('div')
+      cmpLayer.className = 'cell-layer-cmp'
       compareTasksOnDate(ds).forEach(task => {
         const isStart = ds === task.startDate
         const isEnd   = ds === task.endDate
@@ -557,7 +565,7 @@ function renderCalendar() {
         pill.className = cls
         pill.textContent = (isStart || col === 0) ? padFN(task.legs[0].flight_number) : ' '
         pill.addEventListener('click', e => { e.stopPropagation(); showDetail(task) })
-        cell.appendChild(pill)
+        cmpLayer.appendChild(pill)
       })
       compareData.filter(e =>
         e.date === ds && e.type && e.type !== 'flight' &&
@@ -567,8 +575,9 @@ function renderCalendar() {
         const pill = document.createElement('div')
         pill.className = 'event-pill cmp'
         pill.textContent = ev.code || ev.type
-        cell.appendChild(pill)
+        cmpLayer.appendChild(pill)
       })
+      cell.appendChild(cmpLayer)
     }
 
     // 點空白格子 → 新增（查看他人、過去日期停用）
