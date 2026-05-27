@@ -65,6 +65,7 @@
     .ac-badge { font-size:11px; font-weight:700; background:#e8f0fe; color:#1a6ef7; border-radius:6px; padding:2px 8px; white-space:nowrap; flex-shrink:0; }
     .event-pill.dayoff  { background:#fde8e8; color:#c0392b; }
     .event-pill.meeting { background:#d4f5e0; color:#1a7a42; }
+    .event-pill.private { background:#fce4ec; color:#9c1f4a; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
     /* Multi-day bar */
     .event-pill.bar-start { border-radius:4px 0 0 4px; margin-right:-1px; }
@@ -577,9 +578,9 @@ function renderCalendar() {
       (e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code))
     ).forEach(ev => {
       const pill = document.createElement('div')
-      const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
+      const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill', private:'private' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
       pill.className = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : typeClass)
-      pill.textContent = ev.code || ev.type
+      pill.textContent = ev.type === 'private' ? (ev.title || '私人') : (ev.code || ev.type)
       pill.addEventListener('click', e => { e.stopPropagation(); showNonFlightDetail(ev) })
       ownLayer.appendChild(pill)
     })
@@ -883,11 +884,15 @@ function showNonFlightDetail(ev) {
   const d = new Date(ev.date + 'T12:00:00')
   const wd = ['日','一','二','三','四','五','六']
   const dateLabel = `${d.getMonth()+1} 月 ${d.getDate()} 日（${wd[d.getDay()]}）`
-  const typeLabel = { day_off:'休假', training:'受訓', meeting:'會議', standby:'待命' }[ev.type] || ev.type
+  const typeLabel = { day_off:'休假', training:'受訓', meeting:'會議', standby:'待命', private:'私人行程' }[ev.type] || ev.type
   let html = `<div class="task-date">${dateLabel}</div>`
-  html += `<div class="task-route">${typeLabel}　<span style="font-weight:400;font-size:14px;color:#8e8e93">${ev.code||''}</span></div>`
+  html += `<div class="task-route">${typeLabel}　<span style="font-weight:400;font-size:14px;color:#8e8e93">${ev.type==='private'?(ev.title||''):(ev.code||'')}</span></div>`
 
-  if (ev.type === 'standby') {
+  if (ev.type === 'private') {
+    if (ev.note) {
+      html += `<div class="leg-block"><div class="leg-row"><span class="lbl">說明</span><span class="val">${ev.note}</span></div></div>`
+    }
+  } else if (ev.type === 'standby') {
     html += `<div class="leg-block">`
     html += `<div class="leg-row"><span class="lbl">班號</span><span class="val">${ev.code || '--'}</span></div>`
     if (ev.start_time || ev.end_time) {
@@ -932,9 +937,11 @@ async function deleteNonFlight(id) {
 }
 
 function showNonFlightForm(dateStr, ev) {
-  const typeMap = { training:'training', day_off:'dayoff', meeting:'meeting', standby:'standby' }
+  const typeMap = { training:'training', day_off:'dayoff', meeting:'meeting', standby:'standby', private:'private' }
   _taskType = typeMap[ev.type] || 'dayoff'
   _taskNote = ev.code || ''
+  _taskPrivateTitle = ev.title || ''
+  _taskPrivateDesc  = ev.note  || ''
   _taskSbyStart = ev.start_time ? ev.start_time.slice(0,2)+':'+ev.start_time.slice(2,4) : ''
   _taskSbyEnd   = ev.end_time   ? ev.end_time.slice(0,2)+':'+ev.end_time.slice(2,4)     : ''
   _editTask = null
@@ -1150,6 +1157,8 @@ async function submitSwap() {
 // ── 新增 / 修改表單 ──────────────────────────────────────────
 let _taskType = 'flight'
 let _taskNote = ''
+let _taskPrivateTitle = ''
+let _taskPrivateDesc = ''
 let _taskDays = 1
 let _taskRep = ''
 let _taskSegs = []
@@ -1194,14 +1203,16 @@ function _renderAddForm(baseDate, isEdit) {
     { key:'standby', label:'待命' },
     { key:'training', label:'受訓' },
     { key:'dayoff', label:'休假' },
-    { key:'meeting', label:'會議' }
+    { key:'meeting', label:'會議' },
+    { key:'private', label:'私人' }
   ].map(t =>
     `<button class="duty-type-btn${_taskType===t.key?' active':''}" onclick="setTaskType('${t.key}',this)">${t.label}</button>`
   ).join('')
 
   const showFlight   = _taskType === 'flight'
   const showStandby  = _taskType === 'standby'
-  const showNonflight = !showFlight && !showStandby
+  const showPrivate  = _taskType === 'private'
+  const showNonflight = !showFlight && !showStandby && !showPrivate
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date">← <span style="color:#007aff;cursor:pointer" onclick="document.getElementById('modal-overlay').classList.remove('active')">取消</span></div>
     <div class="task-route" style="margin-bottom:10px">${isEdit?'修改':'新增'}　<span style="font-size:13px;color:#8e8e93;font-weight:400">${dateLabel}</span></div>
@@ -1210,6 +1221,13 @@ function _renderAddForm(baseDate, isEdit) {
     <div id="nonflight-fields" style="display:${showNonflight?'block':'none'}">
       <div class="add-section-label">說明（選填）</div>
       <input id="task-note" class="add-field-input" type="text" placeholder="例：A320 複訓、年假" value="${_taskNote}">
+      <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="margin-top:4px">儲存</button>
+    </div>
+    <div id="private-fields" style="display:${showPrivate?'block':'none'}">
+      <div class="add-section-label">標題（必填，顯示於月曆）</div>
+      <input id="private-title" class="add-field-input" type="text" placeholder="例：牙醫、家庭聚會" maxlength="20" value="${_taskPrivateTitle}">
+      <div class="add-section-label" style="margin-top:8px">說明（選填）</div>
+      <input id="private-desc" class="add-field-input" type="text" placeholder="補充說明" value="${_taskPrivateDesc}">
       <button class="add-save-btn" onclick="submitFlight('${baseDate}')" style="margin-top:4px">儲存</button>
     </div>
     <div id="standby-fields" style="display:${showStandby?'block':'none'}">
@@ -1311,6 +1329,8 @@ function removeSeg(idx) {
 function _syncFromDom() {
   const note = document.getElementById('task-note'); if (note) _taskNote = note.value.trim()
   const sbyFn = document.getElementById('sby-fn'); if (sbyFn && _taskType === 'standby') _taskNote = sbyFn.value.trim()
+  const privTitle = document.getElementById('private-title'); if (privTitle) _taskPrivateTitle = privTitle.value.trim()
+  const privDesc  = document.getElementById('private-desc');  if (privDesc)  _taskPrivateDesc  = privDesc.value.trim()
   const sbyS  = document.getElementById('sby-start'); if (sbyS) _taskSbyStart = sbyS.value
   const sbyE  = document.getElementById('sby-end');   if (sbyE) _taskSbyEnd   = sbyE.value
   const days = document.getElementById('task-days'); if (days) _taskDays = parseInt(days.value) || 1
@@ -1332,6 +1352,28 @@ async function submitFlight(baseDate) {
     const entry = { type:'standby', code: fn, date: baseDate, manually_added: true }
     if (_taskSbyStart) entry.start_time = _taskSbyStart.replace(':','')
     if (_taskSbyEnd)   entry.end_time   = _taskSbyEnd.replace(':','')
+    try {
+      if (_editNonFlight && _editNonFlight.id) {
+        await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
+        _editNonFlight = null
+      }
+      await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
+      document.getElementById('modal-overlay').classList.remove('active')
+      await loadSchedule()
+    } catch { alert('連線失敗') }
+    return
+  }
+
+  if (_taskType === 'private') {
+    if (!_taskPrivateTitle) { alert('請填寫標題'); return }
+    const entry = {
+      type: 'private',
+      code: 'PV',
+      title: _taskPrivateTitle,
+      note: _taskPrivateDesc || '',
+      date: baseDate,
+      manually_added: true
+    }
     try {
       if (_editNonFlight && _editNonFlight.id) {
         await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
