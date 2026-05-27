@@ -1555,7 +1555,7 @@ async function showUserCodeModal() {
     <div class="add-section-label" style="margin:14px 0 6px">常用</div>
     <div id="contact-chips">${contacts.map(c => `
       <button class="contact-chip" onclick="quickCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
-        ${c.name}
+        ${c.name}<span style="font-weight:400;color:#8e8e93;margin-left:3px">/ ${c.code}</span>
         <span class="chip-del" onclick="event.stopPropagation();deleteContact('${c.code}')">✕</span>
       </button>`).join('')}
     </div>` : ''
