@@ -108,6 +108,24 @@ app.delete('/api/contacts/:userId/:code', (req, res) => {
   res.json({ ok: true })
 })
 
+// 用員編反查 userId
+app.get('/api/lookup/emp/:empId', (req, res) => {
+  const empId = req.params.empId.trim()
+  if (!empId) return res.status(400).json({ error: '無效員編' })
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('_profile.json'))
+    for (const file of files) {
+      try {
+        const profile = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'))
+        if (profile.empId === empId) {
+          return res.json({ userId: file.replace('_profile.json', '') })
+        }
+      } catch {}
+    }
+  } catch {}
+  res.status(404).json({ error: '找不到此員編' })
+})
+
 // 用戶 profile（員編等）
 function profilePath(userId) {
   const fp = userPath(userId)

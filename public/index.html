@@ -1634,8 +1634,8 @@ async function showUserCodeModal() {
     </div>
     <div class="add-section-label" style="margin-bottom:8px">看別人的班表</div>
     <div style="display:flex;gap:8px">
-      <input id="view-code-input" class="add-field-input" maxlength="6" placeholder="輸入 6 位代碼"
-        style="flex:1;margin-bottom:0;text-transform:uppercase;letter-spacing:4px;font-weight:700;font-size:16px;text-align:center">
+      <input id="view-code-input" class="add-field-input" maxlength="12" placeholder="代碼 或 員編"
+        style="flex:1;margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-weight:700;font-size:16px;text-align:center">
       <button onclick="goViewOther()" style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 14px;font-size:14px;font-weight:700;cursor:pointer">查看</button>
       <button onclick="goCompare()" style="background:#fff;color:#007aff;border:1.5px solid #007aff;border-radius:10px;padding:0 14px;font-size:14px;font-weight:700;cursor:pointer">比對</button>
     </div>
@@ -1713,21 +1713,41 @@ async function deleteContact(code) {
 }
 
 
-async function goViewOther() {
-  const code = (document.getElementById('view-code-input').value || '').toUpperCase().trim()
-  if (!/^[A-Z0-9]{6}$/.test(code)) {
-    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'; return
+// 輸入代碼或員編，自動解析出 { userId, data }；失敗回 null 並顯示錯誤
+async function _resolveInput(raw) {
+  const errEl = document.getElementById('view-code-err')
+  const input = raw.toUpperCase().trim()
+  if (!input) { errEl.textContent = '請輸入代碼或員編'; return null }
+  errEl.textContent = '載入中…'
+  // 先嘗試當作 userId 代碼
+  if (/^[A-Z0-9]{4,12}$/.test(input)) {
+    const res = await fetch(`/api/schedule/${input}`).catch(() => null)
+    if (res && res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data) && data.length > 0) return { userId: input, data }
+    }
   }
-  document.getElementById('view-code-err').textContent = '載入中…'
-  const res = await fetch(`/api/schedule/${code}`).catch(() => null)
-  if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
-  const data = await res.json()
-  if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
-  viewUserId = code
-  history.replaceState({}, '', '?view=' + code)
+  // fallback：嘗試員編查詢
+  errEl.textContent = '查詢員編中…'
+  const lookup = await fetch(`/api/lookup/emp/${encodeURIComponent(input)}`).catch(() => null)
+  if (!lookup || !lookup.ok) { errEl.textContent = '找不到此代碼或員編'; return null }
+  const { userId } = await lookup.json()
+  const res2 = await fetch(`/api/schedule/${userId}`).catch(() => null)
+  if (!res2 || !res2.ok) { errEl.textContent = '找不到班表資料'; return null }
+  const data2 = await res2.json()
+  if (!Array.isArray(data2) || data2.length === 0) { errEl.textContent = '此員編尚無班表資料'; return null }
+  return { userId, data: data2 }
+}
+
+async function goViewOther() {
+  const raw = document.getElementById('view-code-input').value || ''
+  const result = await _resolveInput(raw)
+  if (!result) return
+  viewUserId = result.userId
+  history.replaceState({}, '', '?view=' + result.userId)
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
-  _maybeShowSaveHint(code)
+  _maybeShowSaveHint(result.userId)
 }
 
 function _addToCompareList(code, data, name) {
@@ -1738,23 +1758,24 @@ function _addToCompareList(code, data, name) {
 }
 
 async function goCompare() {
-  const code = (document.getElementById('view-code-input').value || '').toUpperCase().trim()
-  if (!/^[A-Z0-9]{6}$/.test(code)) {
-    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'; return
-  }
-  document.getElementById('view-code-err').textContent = '載入中…'
-  const res = await fetch(`/api/schedule/${code}`).catch(() => null)
-  if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
-  const data = await res.json()
-  if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
+  const raw = document.getElementById('view-code-input').value || ''
+  const result = await _resolveInput(raw)
+  if (!result) return
+  const { userId, data } = result
   const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
-  const contact = contacts.find(c => c.code === code)
-  _addToCompareList(code, data, contact?.name)
+  const contact = contacts.find(c => c.code === userId)
+  let displayName = contact?.name
+  if (!displayName) {
+    const profile = await fetch(`/api/profile/${userId}`).then(r => r.json()).catch(() => ({}))
+    displayName = profile.empId || userId
+  }
+  _addToCompareList(userId, data, displayName)
   document.getElementById('modal-overlay').classList.remove('active')
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
   _updateCompareBanner()
-  _maybeShowSaveHint(code)
+  renderQuickCompareBar()
+  _maybeShowSaveHint(userId)
 }
 
 // 若代碼不在聯絡人，在比對橫幅旁顯示「＋儲存」提示
