@@ -208,6 +208,12 @@ let tasks = []
 let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
 
+function todayISO() {
+  const t = new Date()
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`
+}
+function isPast(dateStr) { return dateStr < todayISO() }
+
 // ── 使用者 ID（房間代碼）──────────────────────────────────────
 function _genId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -421,8 +427,8 @@ function renderCalendar() {
       cell.appendChild(pill)
     })
 
-    // 點空白格子 → 新增（查看他人時停用）
-    if (isCur && viewUserId === MY_USER_ID) {
+    // 點空白格子 → 新增（查看他人、過去日期停用）
+    if (isCur && viewUserId === MY_USER_ID && !isPast(ds)) {
       cell.style.cursor = 'pointer'
       cell.addEventListener('click', () => showAddForm(ds))
     }
@@ -696,7 +702,7 @@ function showNonFlightDetail(ev) {
     html += `<button class="open-edit-btn" onclick="showNonFlightForm('${ev.date}', window._nfEntry)">✏️ 修改</button>`
     html += `<button class="add-del-btn" onclick="deleteNonFlight('${ev.id}')">刪除</button>`
   }
-  if (ev.type === 'standby') {
+  if (ev.type === 'standby' && !isPast(ev.date)) {
     html += `<button class="open-add-day-btn" onclick="showAddForm('${ev.date}')">＋ 新增航班</button>`
   }
   window._nfEntry = ev
