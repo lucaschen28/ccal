@@ -487,23 +487,8 @@ function _updateViewBanner() {
 const CMP_COLORS = ['#f9c98a', '#f5e88a']
 
 function _updateCompareBanner() {
-  let banner = document.getElementById('cmp-banner')
-  if (compareList.length) {
-    if (!banner) {
-      banner = document.createElement('div')
-      banner.id = 'cmp-banner'
-      banner.className = 'cmp-banner'
-      document.getElementById('app').insertBefore(banner, document.querySelector('.weekday-row'))
-    }
-    const tags = compareList.map((c, i) =>
-      `<span style="display:inline-flex;align-items:center;gap:4px;background:${CMP_COLORS[i]};border-radius:10px;padding:1px 8px;margin:0 2px">
-        <b>${c.name}</b><span style="cursor:pointer;color:#555;margin-left:2px" onclick="removeCompare(${i})">✕</span>
-      </span>`
-    ).join('')
-    banner.innerHTML = `🔄 比對中：${tags}　<span style="color:#007aff;cursor:pointer" onclick="endCompare()">全部結束</span>`
-  } else if (banner) {
-    banner.remove()
-  }
+  const banner = document.getElementById('cmp-banner')
+  if (banner) banner.remove()
 }
 
 function removeCompare(idx) {
