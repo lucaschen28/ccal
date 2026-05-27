@@ -924,6 +924,8 @@ async function showDetail(task) {
     }
   })
 
+  html += `<div id="crew-placeholder"></div>`
+
   const todayStr2 = new Date().toISOString().slice(0,10)
   if (task.startDate >= todayStr2) {
     html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板</button>`
@@ -954,8 +956,8 @@ async function showDetail(task) {
     const contacts = contactsRes?.ok ? await contactsRes.json() : []
     const others   = crew.filter(c => c.userId !== MY_USER_ID)
     if (!others.length) return
-    const mc = document.getElementById('modal-content')
-    if (!mc) return
+    const placeholder = document.getElementById('crew-placeholder')
+    if (!placeholder) return
     const layerColors = [{ bg:'#f9c98a', color:'#7a4000' }, { bg:'#f5e88a', color:'#6b5500' }]
     const section = document.createElement('div')
     section.style.cssText = 'margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f5'
@@ -973,7 +975,7 @@ async function showDetail(task) {
       chip.onclick = () => toggleCompare(c.userId, displayName)
       section.appendChild(chip)
     })
-    mc.appendChild(section)
+    placeholder.replaceWith(section)
   })()
 }
 
