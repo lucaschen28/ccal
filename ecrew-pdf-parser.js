@@ -89,6 +89,34 @@ function parsePDFText(text) {
     // 只有指標（S / R / S,R）→ 跳過
     if (/^[SR,]+$/.test(firstLine)) continue
 
+    // ── 受訓 ──────────────────────────────────────────────────
+    const TRAINING_CODES = ['CM', 'SEP', 'CRM', 'LT', 'OE', 'RECUR']
+    const trainingCode = body.find(l => TRAINING_CODES.includes(l.trim()))
+    if (trainingCode) {
+      // 找所有 HH:MM - HH:MM 時間段
+      const allText0 = body.join(' ')
+      const trRe = /(\d{2}):(\d{2})\s*[-–]\s*(\d{2}):(\d{2})/g
+      const ranges = []
+      let trm
+      while ((trm = trRe.exec(allText0)) !== null) {
+        if (parseInt(trm[1]) <= 23 && parseInt(trm[3]) <= 23)
+          ranges.push({ start: trm[1]+trm[2], end: trm[3]+trm[4] })
+      }
+      const entry = {
+        id:             `ecrew_${date}_training`,
+        type:           'training',
+        code:           trainingCode.trim(),
+        date,
+        ecrew_imported: true
+      }
+      if (ranges.length > 0) {
+        entry.start_time = ranges[0].start
+        entry.end_time   = ranges[ranges.length - 1].end
+      }
+      entries.push(entry)
+      continue
+    }
+
     // ── 飛航任務 ──────────────────────────────────────────────
     const allText = body.join(' ')
 
