@@ -303,7 +303,9 @@ function groupTasks(flights) {
   }
   const tasks = []
   for (const [, legs] of dutyMap) {
-    tasks.push({ legs, startDate: legs[0].date, endDate: legs[legs.length-1].date })
+    const lastLeg = legs[legs.length-1]
+    const endDate = lastLeg.arrival_next_day ? addDays(lastLeg.date, 1) : lastLeg.date
+    tasks.push({ legs, startDate: legs[0].date, endDate })
   }
   // 沒有 duty_id 的用原本 from/to 邏輯
   for (const f of noDuty) {
