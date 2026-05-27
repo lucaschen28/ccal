@@ -97,6 +97,9 @@
     .event-pill.flight.cmp.bar-end   { border-radius:0 6px 6px 0; }
     .event-pill.flight.cmp.bar-mid   { border-radius:0; }
     .cmp-banner { background:#eef0f5; color:#555; font-size:12px; font-weight:600; text-align:center; padding:6px 12px; }
+    .contact-chip { display:inline-flex; align-items:center; gap:6px; background:#f2f2f7; border-radius:20px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; margin:4px 4px 0 0; border:none; }
+    .contact-chip:active { background:#e5e5ea; }
+    .contact-chip .chip-del { color:#c7c7cc; font-size:15px; line-height:1; margin-left:2px; }
     .cell-layer-own { height:20px; overflow:visible; }
     .cell-layer-cmp { border-top:1px dashed #d8d8dd; padding-top:1px; overflow:visible; }
     .layover-block { background:#f0f6ff; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
@@ -463,6 +466,7 @@ function _updateCompareBanner() {
 
 function endCompare() {
   compareUserId = null; compareData = []; compareTasks = []
+  document.getElementById('save-hint-bar')?.remove()
   _updateCompareBanner(); renderCalendar()
 }
 
@@ -1406,8 +1410,18 @@ document.getElementById('settings-btn').addEventListener('click', () => showSett
 })()
 
 // ── 我的代碼 / 看別人班表 ────────────────────────────────────
-function showUserCodeModal() {
+async function showUserCodeModal() {
   const shareUrl = location.origin + location.pathname + '?view=' + MY_USER_ID
+  // 先載入聯絡人
+  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
+  const chipsHtml = contacts.length ? `
+    <div class="add-section-label" style="margin:14px 0 6px">常用</div>
+    <div id="contact-chips">${contacts.map(c => `
+      <button class="contact-chip" onclick="quickCompare('${c.code}')">
+        ${c.name}
+        <span class="chip-del" onclick="event.stopPropagation();deleteContact('${c.code}')">✕</span>
+      </button>`).join('')}
+    </div>` : ''
   document.getElementById('modal-content').innerHTML = `
     <div class="task-route" style="margin-bottom:14px">我的代碼</div>
     <div style="text-align:center;margin-bottom:16px">
@@ -1426,6 +1440,7 @@ function showUserCodeModal() {
       <button onclick="goCompare()" style="background:#fff;color:#007aff;border:1.5px solid #007aff;border-radius:10px;padding:0 14px;font-size:14px;font-weight:700;cursor:pointer">比對</button>
     </div>
     <div id="view-code-err" style="color:#ff3b30;font-size:12px;margin-top:6px;min-height:16px"></div>
+    ${chipsHtml}
   `
   document.getElementById('modal-overlay').classList.add('active')
   setTimeout(() => {
@@ -1434,48 +1449,94 @@ function showUserCodeModal() {
   }, 50)
 }
 
+async function quickCompare(code) {
+  document.getElementById('view-code-err').textContent = '載入中…'
+  const res = await fetch(`/api/schedule/${code}`).catch(() => null)
+  if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
+  const data = await res.json()
+  if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
+  compareUserId = code
+  compareData = data
+  compareTasks = groupTasks(data.filter(e => e.type === 'flight'))
+  document.getElementById('modal-overlay').classList.remove('active')
+  if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
+  else { renderCalendar() }
+  _updateCompareBanner()
+}
+
+async function deleteContact(code) {
+  await fetch(`/api/contacts/${MY_USER_ID}/${code}`, { method:'DELETE' }).catch(() => {})
+  showUserCodeModal()
+}
+
+
 async function goViewOther() {
   const code = (document.getElementById('view-code-input').value || '').toUpperCase().trim()
   if (!/^[A-Z0-9]{6}$/.test(code)) {
-    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'
-    return
+    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'; return
   }
   document.getElementById('view-code-err').textContent = '載入中…'
   const res = await fetch(`/api/schedule/${code}`).catch(() => null)
   if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
-  if (!Array.isArray(data) || data.length === 0) {
-    document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'
-    return
-  }
+  if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
   viewUserId = code
   history.replaceState({}, '', '?view=' + code)
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
+  _maybeShowSaveHint(code)
 }
 
 async function goCompare() {
   const code = (document.getElementById('view-code-input').value || '').toUpperCase().trim()
   if (!/^[A-Z0-9]{6}$/.test(code)) {
-    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'
-    return
+    document.getElementById('view-code-err').textContent = '請輸入正確的 6 位代碼'; return
   }
   document.getElementById('view-code-err').textContent = '載入中…'
   const res = await fetch(`/api/schedule/${code}`).catch(() => null)
   if (!res || !res.ok) { document.getElementById('view-code-err').textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
-  if (!Array.isArray(data) || data.length === 0) {
-    document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'
-    return
-  }
+  if (!Array.isArray(data) || data.length === 0) { document.getElementById('view-code-err').textContent = '此代碼尚無班表資料'; return }
   compareUserId = code
   compareData = data
   compareTasks = groupTasks(data.filter(e => e.type === 'flight'))
   document.getElementById('modal-overlay').classList.remove('active')
-  // 若目前在看別人的班表，切回自己的
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
   _updateCompareBanner()
+  _maybeShowSaveHint(code)
+}
+
+// 若代碼不在聯絡人，在比對橫幅旁顯示「＋儲存」提示
+async function _maybeShowSaveHint(code) {
+  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
+  if (contacts.some(c => c.code === code)) return
+  // 在橫幅區插入儲存提示
+  let hint = document.getElementById('save-hint-bar')
+  if (!hint) {
+    hint = document.createElement('div')
+    hint.id = 'save-hint-bar'
+    hint.style.cssText = 'background:#fffbe6;color:#7a5c00;font-size:12px;font-weight:600;text-align:center;padding:6px 12px;display:flex;align-items:center;justify-content:center;gap:8px'
+    const banner = document.getElementById('cmp-banner') || document.getElementById('calendar')
+    banner.parentNode.insertBefore(hint, banner.nextSibling)
+  }
+  hint.innerHTML = `儲存「${code}」為常用？暱稱：
+    <input id="save-hint-name" placeholder="${code}" maxlength="8"
+      style="width:64px;border:1px solid #c9a800;border-radius:6px;padding:2px 6px;font-size:12px">
+    <button onclick="_saveContactFromHint('${code}')"
+      style="background:#007aff;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">儲存</button>
+    <button onclick="document.getElementById('save-hint-bar').remove()"
+      style="background:none;border:none;color:#8e8e93;font-size:12px;cursor:pointer">略過</button>`
+}
+
+async function _saveContactFromHint(code) {
+  const name = (document.getElementById('save-hint-name')?.value || '').trim() || code
+  await fetch(`/api/contacts/${MY_USER_ID}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ code, name })
+  }).catch(() => {})
+  const bar = document.getElementById('save-hint-bar')
+  if (bar) { bar.innerHTML = `✓ 已儲存「${name}」`; setTimeout(() => bar.remove(), 2000) }
 }
 
 document.getElementById('user-code-btn').addEventListener('click', showUserCodeModal)

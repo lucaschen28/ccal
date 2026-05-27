@@ -74,6 +74,40 @@ app.delete('/api/schedule/:userId/:id', (req, res) => {
   res.json({ ok: true })
 })
 
+// 聯絡人（常用代碼）
+function contactsPath(userId) {
+  const fp = userPath(userId)
+  if (!fp) return null
+  return fp.replace(/\.json$/, '_contacts.json')
+}
+
+app.get('/api/contacts/:userId', (req, res) => {
+  const fp = contactsPath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  res.json(readData(fp))
+})
+
+app.post('/api/contacts/:userId', (req, res) => {
+  const fp = contactsPath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  const { code, name } = req.body
+  if (!code || !/^[A-Z0-9]{4,12}$/.test(code)) return res.status(400).json({ error: '無效代碼' })
+  const list = readData(fp)
+  const idx = list.findIndex(c => c.code === code)
+  if (idx >= 0) list[idx].name = name || list[idx].name
+  else list.push({ code, name: name || code })
+  fs.writeFileSync(fp, JSON.stringify(list, null, 2))
+  res.json({ ok: true })
+})
+
+app.delete('/api/contacts/:userId/:code', (req, res) => {
+  const fp = contactsPath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  const list = readData(fp).filter(c => c.code !== req.params.code)
+  fs.writeFileSync(fp, JSON.stringify(list, null, 2))
+  res.json({ ok: true })
+})
+
 // 驗證存取密碼（新訪客用，已有代碼的直接略過）
 app.post('/api/auth', (req, res) => {
   const expected = process.env.CCAL_ACCESS_CODE
