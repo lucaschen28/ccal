@@ -410,7 +410,7 @@ function renderCalendar() {
     // 非飛航事件（休假/受訓/會議/SBY 等）
     scheduleData.filter(e =>
       e.date === ds && e.type && e.type !== 'flight' &&
-      (e.manually_added || ['RDO','AL','XL','CM','SBY'].includes(e.code))
+      (e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code))
     ).forEach(ev => {
       const pill = document.createElement('div')
       const typeClass = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill' }[ev.type] || (ev.code||'').toLowerCase() || 'al'

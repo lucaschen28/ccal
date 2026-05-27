@@ -23,6 +23,7 @@ function extractTimes(s) {
   const times = []
   let m
   while ((m = re.exec(s)) !== null) {
+    if (parseInt(m[2], 10) > 23) continue  // 排除 74:25 這類累計飛時
     times.push({
       t:        m[2] + m[3],
       isActual: m[1] === 'A',
@@ -40,7 +41,7 @@ function addDays(dateStr, n) {
 
 const DATE_RE   = /^(\d{2}\/\d{2}\/\d{4})\s+(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*/
 const CREW_RE   = /^(CA|FO|CM|F|Y|RP|JR|SP)\s*[-–]\s*(ACM\s*[-–]\s*)?\d/
-const OFF_CODES = ['ADO', '>OFF', 'OFF', 'RDO']
+const OFF_CODES = ['ADO', '>OFF', 'OFF', 'RDO', 'AL', 'XL', 'HC']
 const SKIP_RE   = /^(Generated on|Page \d|China Airlines|Schedule Details|Total Hours|Block Hours|Expiry Dates?|Code Desc|Pax Transfer|Descriptions?|Duty Codes?|Indicators?|ADO\s*[-–]|>?OFF\s*[-–]|RDO\s*[-–]|\d{2,3}:\d{2}\s+\d{2,3}:\d{2}|ECM\/JCM|All times)/
 
 module.exports = async function parseECrewPDF(buffer) {
