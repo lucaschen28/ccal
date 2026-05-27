@@ -108,6 +108,28 @@ app.delete('/api/contacts/:userId/:code', (req, res) => {
   res.json({ ok: true })
 })
 
+// 用戶 profile（員編等）
+function profilePath(userId) {
+  const fp = userPath(userId)
+  if (!fp) return null
+  return fp.replace(/\.json$/, '_profile.json')
+}
+
+app.get('/api/profile/:userId', (req, res) => {
+  const fp = profilePath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  try { res.json(JSON.parse(fs.readFileSync(fp, 'utf8'))) } catch { res.json({}) }
+})
+
+app.post('/api/profile/:userId', (req, res) => {
+  const fp = profilePath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  const existing = (() => { try { return JSON.parse(fs.readFileSync(fp, 'utf8')) } catch { return {} } })()
+  const updated = { ...existing, ...req.body }
+  fs.writeFileSync(fp, JSON.stringify(updated))
+  res.json({ ok: true })
+})
+
 // 驗證存取密碼（新訪客用，已有代碼的直接略過）
 app.post('/api/auth', (req, res) => {
   const expected = process.env.CCAL_ACCESS_CODE

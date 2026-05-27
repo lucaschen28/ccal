@@ -1656,7 +1656,12 @@ async function quickCompare(code, name) {
   if (!res || !res.ok) { if (errEl) errEl.textContent = '找不到此代碼的班表'; return }
   const data = await res.json()
   if (!Array.isArray(data) || data.length === 0) { if (errEl) errEl.textContent = '此代碼尚無班表資料'; return }
-  _addToCompareList(code, data, name)
+  let displayName = name
+  if (!displayName) {
+    const profile = await fetch(`/api/profile/${code}`).then(r => r.json()).catch(() => ({}))
+    displayName = profile.empId || code
+  }
+  _addToCompareList(code, data, displayName)
   document.getElementById('modal-overlay').classList.remove('active')
   if (viewUserId !== MY_USER_ID) { viewUserId = MY_USER_ID; await loadSchedule() }
   else { renderCalendar() }
@@ -1796,8 +1801,8 @@ function saveEmpIdFromModal() {
   const val = (document.getElementById('modal-empid-inp')?.value || '').trim()
   if (!val) return
   localStorage.setItem('cCalEmpId', val)
+  fetch(`/api/profile/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ empId: val }) }).catch(() => {})
   updateUserLabel()
-  // 更新 modal 顯示
   const disp = document.getElementById('modal-empid-display')
   if (disp) disp.textContent = val
   const edit = document.getElementById('modal-empid-edit')
@@ -1911,6 +1916,7 @@ function submitEmpId() {
     return
   }
   localStorage.setItem('cCalEmpId', val)
+  fetch(`/api/profile/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ empId: val }) }).catch(() => {})
   document.getElementById('gate-overlay').classList.remove('active')
   updateUserLabel()
   loadSchedule()
