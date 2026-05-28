@@ -1187,14 +1187,8 @@ async function showSettingsModal(fromSwap) {
         <div class="sf-label">顯示名稱（換班板上的署名）</div>
         <input class="sf-input" id="sf-name" placeholder="例：Lucas" value="${s.displayName||''}">
       </div>
-      <div class="sf-group">
-        <div class="sf-label">換班 Bot URL（Railway 網址）</div>
-        <input class="sf-input" id="sf-boturl" placeholder="https://xxx.railway.app" value="${s.botUrl||''}" autocomplete="off" inputmode="url" spellcheck="false">
-      </div>
-      <div class="sf-group">
-        <div class="sf-label">API Secret（CCAL_API_SECRET 環境變數）</div>
-        <input class="sf-input" id="sf-secret" type="password" placeholder="在 Railway 設定的密碼" value="${s.apiSecret||''}" autocomplete="new-password">
-      </div>
+      <input type="hidden" id="sf-boturl" value="${s.botUrl||''}">
+      <input type="hidden" id="sf-secret" value="${s.apiSecret||''}">
       <button class="sf-save-btn" onclick="saveSettingsForm()">儲存</button>
       <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c;margin-top:4px" onclick="copyInviteLink(this)">📋 複製邀請連結（傳給組員）</button>
     </div>
