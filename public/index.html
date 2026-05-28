@@ -42,6 +42,12 @@
     .fab-icon { width:44px; height:44px; border-radius:50%; background:#fff; border:none; font-size:20px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.14); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     #fab-backdrop { display:none; position:fixed; inset:0; z-index:-1; }
     #fab-backdrop.active { display:block; }
+    /* 手機上不顯示「電腦版」FAB 項目 */
+    @media (max-width: 599px) { #fab-item-view { display:none; } }
+    /* 電腦上手機版模式：FAB 跟著 390px 容器靠右 */
+    @media (min-width: 600px) {
+      body:not(.desktop-mode) #fab-wrap { right: calc((100vw - 390px) / 2 + 16px); }
+    }
 
     header { background:#fff; padding:8px 16px; display:flex; flex-direction:column; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
     .header-nav { display:flex; align-items:center; justify-content:space-between; }
@@ -293,25 +299,25 @@
 <div id="fab-wrap">
   <div id="fab-backdrop" onclick="closeFab()"></div>
   <div id="fab-items">
-    <div class="fab-item" onclick="closeFab();document.getElementById('view-toggle-btn').click()">
+    <div class="fab-item" id="fab-item-view" onclick="closeFab();toggleViewMode()">
       <span class="fab-label" id="view-toggle-label">電腦版</span>
-      <button class="fab-icon" id="view-toggle-btn">📱</button>
+      <button class="fab-icon" id="view-toggle-btn" tabindex="-1">🖥</button>
     </div>
-    <div class="fab-item" onclick="closeFab();document.getElementById('pwa-btn').click()">
+    <div class="fab-item" onclick="closeFab();openPwaModal()">
       <span class="fab-label">加入主畫面</span>
-      <button class="fab-icon" id="pwa-btn">📲</button>
+      <button class="fab-icon" tabindex="-1">📲</button>
     </div>
     <div class="fab-item" onclick="closeFab();showSettingsModal(false)">
       <span class="fab-label">設定</span>
-      <button class="fab-icon" id="settings-btn">⚙️</button>
+      <button class="fab-icon" tabindex="-1">⚙️</button>
     </div>
     <div class="fab-item" onclick="closeFab();showUserCodeModal()">
       <span class="fab-label">我的代碼</span>
-      <button class="fab-icon" id="user-code-btn">👥</button>
+      <button class="fab-icon" tabindex="-1">👥</button>
     </div>
-    <div class="fab-item" onclick="closeFab();document.getElementById('import-pdf-btn').click()">
+    <div class="fab-item" onclick="closeFab();openImportPdf()">
       <span class="fab-label">匯入班表</span>
-      <button class="fab-icon" id="import-pdf-btn">📥</button>
+      <button class="fab-icon" id="fab-import-icon" tabindex="-1">📥</button>
     </div>
   </div>
   <button id="fab-main" onclick="toggleFab()">＋</button>
@@ -1336,7 +1342,7 @@ window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault()
   _pwaInstallPrompt = e
 })
-document.getElementById('pwa-btn').addEventListener('click', () => {
+function openPwaModal() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone
   if (isStandalone) {
     showPwaModal('✅ 已加入主畫面', '你已經在使用主畫面版本了！')
@@ -1364,7 +1370,7 @@ document.getElementById('pwa-btn').addEventListener('click', () => {
       </ol>
       <div style="margin-top:12px;color:#8e8e93;font-size:12px">加入後從主畫面開啟，體驗更像原生 App</div>`)
   }
-})
+}
 function showPwaModal(title, body) {
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:16px;font-weight:700;margin-bottom:12px">${title}</div>
@@ -2066,45 +2072,38 @@ async function deleteEntry() {
   await loadSchedule()
 }
 
-document.getElementById('settings-btn').addEventListener('click', () => showSettingsModal(false))
+// settings-btn removed (now FAB item)
 
 // ── eCrew PDF 匯入 ────────────────────────────────────────────
-;(() => {
-  const btn = document.getElementById('import-pdf-btn')
-  // 只有看自己的班表才顯示匯入鈕
-  if (IS_VIEWING_OTHER) { btn.style.display = 'none' }
-
-  btn.addEventListener('click', () => {
-    if (IS_VIEWING_OTHER) return
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.pdf,application/pdf'
-    input.onchange = async () => {
-      const file = input.files[0]
-      if (!file) return
-      btn.textContent = '⏳'
-      btn.disabled = true
-      try {
-        const form = new FormData()
-        form.append('pdf', file)
-        const res = await fetch(`/api/import/${MY_USER_ID}`, { method: 'POST', body: form })
-        const json = await res.json()
-        if (json.ok) {
-          await loadSchedule()
-          alert(`✅ 匯入完成：${json.imported} 筆班表資料`)
-        } else {
-          alert('❌ 匯入失敗：' + (json.error || '未知錯誤'))
-        }
-      } catch (e) {
-        alert('❌ 匯入失敗：' + e.message)
-      } finally {
-        btn.textContent = '📥'
-        btn.disabled = false
+function openImportPdf() {
+  if (IS_VIEWING_OTHER) return
+  const iconEl = document.getElementById('fab-import-icon')
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.pdf,application/pdf'
+  input.onchange = async () => {
+    const file = input.files[0]
+    if (!file) return
+    if (iconEl) { iconEl.textContent = '⏳'; iconEl.disabled = true }
+    try {
+      const form = new FormData()
+      form.append('pdf', file)
+      const res = await fetch(`/api/import/${MY_USER_ID}`, { method: 'POST', body: form })
+      const json = await res.json()
+      if (json.ok) {
+        await loadSchedule()
+        alert(`✅ 匯入完成：${json.imported} 筆班表資料`)
+      } else {
+        alert('❌ 匯入失敗：' + (json.error || '未知錯誤'))
       }
+    } catch (e) {
+      alert('❌ 匯入失敗：' + e.message)
+    } finally {
+      if (iconEl) { iconEl.textContent = '📥'; iconEl.disabled = false }
     }
-    input.click()
-  })
-})()
+  }
+  input.click()
+}
 
 // ── 我的代碼 / 看別人班表 ────────────────────────────────────
 async function showUserCodeModal() {
@@ -2483,26 +2482,24 @@ function saveEmpIdFromModal() {
   if (edit) edit.style.display = 'none'
 }
 
-document.getElementById('user-code-btn').addEventListener('click', showUserCodeModal)
+// user-code-btn removed (now FAB item)
 
 // 手機/電腦版切換
-;(() => {
+function _updateViewToggle() {
+  const on = document.body.classList.contains('desktop-mode')
   const btn = document.getElementById('view-toggle-btn')
   const lbl = document.getElementById('view-toggle-label')
-  function _updateViewToggle() {
-    const on = document.body.classList.contains('desktop-mode')
-    btn.textContent = on ? '📱' : '🖥'
-    if (lbl) lbl.textContent = on ? '手機版' : '電腦版'
-  }
-  if (localStorage.getItem('cCalDesktopMode') === '1') document.body.classList.add('desktop-mode')
+  if (btn) btn.textContent = on ? '📱' : '🖥'
+  if (lbl) lbl.textContent = on ? '手機版' : '電腦版'
+}
+function toggleViewMode() {
+  document.body.classList.toggle('desktop-mode')
+  localStorage.setItem('cCalDesktopMode', document.body.classList.contains('desktop-mode') ? '1' : '0')
   _updateViewToggle()
-  btn.addEventListener('click', () => {
-    document.body.classList.toggle('desktop-mode')
-    localStorage.setItem('cCalDesktopMode', document.body.classList.contains('desktop-mode') ? '1' : '0')
-    _updateViewToggle()
-    renderCalendar()
-  })
-})()
+  renderCalendar()
+}
+if (localStorage.getItem('cCalDesktopMode') === '1') document.body.classList.add('desktop-mode')
+_updateViewToggle()
 
 document.getElementById('prev').addEventListener('click', () => {
   if (--currentMonth < 0) { currentMonth=11; currentYear-- }
