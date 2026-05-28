@@ -2034,17 +2034,24 @@ async function quickCompare(code, name) {
   _maybeShowSaveHint(code)
 }
 
+const _CONTACTS_KEY = 'ccal_contacts_' + MY_USER_ID
+function _getCachedContacts() {
+  try { return JSON.parse(localStorage.getItem(_CONTACTS_KEY) || '[]') } catch { return [] }
+}
 async function _fetchContacts() {
-  if (!navigator.onLine) {
-    try { return JSON.parse(localStorage.getItem('ccal_contacts_cache') || '[]') } catch { return [] }
-  }
+  // 永遠先讀本地快取
+  const cached = _getCachedContacts()
+  // 離線直接回傳快取
+  if (!navigator.onLine) return cached
+  // 有網路：嘗試拿新資料，失敗就用快取
   try {
     const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json())
-    localStorage.setItem('ccal_contacts_cache', JSON.stringify(contacts))
-    return contacts
-  } catch {
-    try { return JSON.parse(localStorage.getItem('ccal_contacts_cache') || '[]') } catch { return [] }
-  }
+    if (Array.isArray(contacts)) {
+      localStorage.setItem(_CONTACTS_KEY, JSON.stringify(contacts))
+      return contacts
+    }
+  } catch {}
+  return cached
 }
 
 async function renderQuickCompareBar() {
