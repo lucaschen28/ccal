@@ -1158,10 +1158,11 @@ async function _syncSettingsFromServer() {
     if (!sv || !Object.keys(sv).length) return
     const local = getSettings()
     const merged = {
-      lineUserId:  sv.lineUserId  || local.lineUserId  || '',
-      displayName: sv.displayName || local.displayName || '',
-      botUrl:      sv.botUrl      || local.botUrl      || '',
-      apiSecret:   sv.apiSecret   || local.apiSecret   || ''
+      lineUserId:    sv.lineUserId    || local.lineUserId    || '',
+      displayName:   sv.displayName   || local.displayName   || '',
+      botUrl:        sv.botUrl        || local.botUrl        || '',
+      apiSecret:     sv.apiSecret     || local.apiSecret     || '',
+      linePublicId:  sv.linePublicId  || local.linePublicId  || ''
     }
     localStorage.setItem('cCalSettings', JSON.stringify(merged))
   } catch {}
@@ -1193,6 +1194,10 @@ async function showSettingsModal(fromSwap) {
         <div class="sf-label">顯示名稱（換班板上的署名）</div>
         <input class="sf-input" id="sf-name" placeholder="例：員編或暱稱" value="${s.displayName || localStorage.getItem('cCalEmpId') || ''}">
       </div>
+      <div class="sf-group">
+        <div class="sf-label">LINE 公開 ID（選填，讓對方可以加你好友）</div>
+        <input class="sf-input" id="sf-linepublic" placeholder="例：@eva_chen" value="${s.linePublicId||''}" autocomplete="off" spellcheck="false">
+      </div>
       <input type="hidden" id="sf-boturl" value="${s.botUrl||''}">
       <input type="hidden" id="sf-secret" value="${s.apiSecret||''}">
       <button class="sf-save-btn" onclick="saveSettingsForm()">儲存</button>
@@ -1221,10 +1226,11 @@ function copyInviteLink(btn) {
 
 function saveSettingsForm() {
   saveSettings({
-    lineUserId:  document.getElementById('sf-userid').value.trim(),
-    displayName: document.getElementById('sf-name').value.trim(),
-    botUrl:      document.getElementById('sf-boturl').value.trim().replace(/\/$/, ''),
-    apiSecret:   document.getElementById('sf-secret').value.trim()
+    lineUserId:   document.getElementById('sf-userid').value.trim(),
+    displayName:  document.getElementById('sf-name').value.trim(),
+    botUrl:       document.getElementById('sf-boturl').value.trim().replace(/\/$/, ''),
+    apiSecret:    document.getElementById('sf-secret').value.trim(),
+    linePublicId: document.getElementById('sf-linepublic').value.trim()
   })
   if (window._settingsFromSwap && window._emptySwapDate) showSwapFormForEmpty(window._emptySwapDate)
   else if (window._settingsFromSwap && window._swapTask) showSwapForm()
@@ -1389,6 +1395,7 @@ async function submitSwap() {
     type: window._swapType,
     userId: s.lineUserId,
     displayName: s.displayName || '組員',
+    linePublicId: s.linePublicId || '',
     commission: window._swapComm,
     note: (document.getElementById('swap-note').value || '').trim()
   }
@@ -1960,8 +1967,13 @@ function showSwapBoardDayDetail(ds, type) {
     const flightStr = (e.flights||[]).length ? e.flights.map(f => f.date+'/'+f.flight).join(' ') : ''
     const typeWord = type === 'throw' ? '丟' : '接'
     const mid = type === 'throw' ? `${typeWord} ${flightStr}` : typeWord
-    return `<div style="padding:10px 0;border-bottom:1px solid #f0f0f5;font-size:14px;color:#1c1c1e;">
-      ${e.displayName} ${mid} ${priceStr}${noteStr}
+    const lineId = (e.linePublicId || '').trim()
+    const lineUrl = lineId ? 'https://line.me/R/ti/p/' + (lineId.startsWith('@') ? lineId : '@' + lineId) : ''
+    const lineBtn = lineUrl
+      ? `<a href="${lineUrl}" target="_blank" style="margin-left:8px;text-decoration:none;font-size:18px;" title="LINE 聯絡">💬</a>`
+      : ''
+    return `<div style="padding:10px 0;border-bottom:1px solid #f0f0f5;font-size:14px;color:#1c1c1e;display:flex;align-items:center;justify-content:space-between;">
+      <span>${e.displayName} ${mid} ${priceStr}${noteStr}</span>${lineBtn}
     </div>`
   }).join('')
   document.getElementById('modal-content').innerHTML = `
