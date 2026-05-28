@@ -196,6 +196,11 @@
     .gate-btn { width:100%; background:#007aff; color:#fff; border:none; border-radius:12px; padding:14px; font-size:16px; font-weight:700; cursor:pointer; }
     .gate-btn:disabled { background:#a8d4ff; cursor:not-allowed; }
     .gate-err { font-size:12px; color:#ff3b30; min-height:16px; margin-top:6px; text-align:center; }
+    .gate-path-tabs { display:flex; background:#f2f2f7; border-radius:10px; padding:2px; margin-bottom:16px; }
+    .gate-path-tab { flex:1; border:none; background:none; border-radius:8px; padding:8px 0; font-size:14px; font-weight:600; color:#8e8e93; cursor:pointer; }
+    .gate-path-tab.active { background:#fff; color:#1c1c1e; box-shadow:0 1px 4px rgba(0,0,0,0.12); }
+    .gate-field-label { font-size:12px; color:#8e8e93; margin:8px 0 4px; }
+    .gate-pin-hint { font-size:11px; color:#ff9500; margin-bottom:12px; line-height:1.5; }
 
     /* Settings */
     .settings-btn { font-size:18px; cursor:pointer; padding:4px 8px; background:none; border:none; color:#8e8e93; }
@@ -244,13 +249,39 @@
       <button class="gate-btn" id="gate-btn" onclick="submitGate()">進入</button>
       <div class="gate-err" id="gate-err"></div>
     </div>
-    <!-- 第二步：員編 -->
+    <!-- 第二步：選擇路徑 -->
     <div id="gate-step2" style="display:none">
-      <div class="gate-sub">請輸入你的員編</div>
-      <input class="gate-input" id="gate-empid" type="text" inputmode="numeric" placeholder="例：644392" autocomplete="off"
-        onkeydown="if(event.key==='Enter')submitEmpId()">
-      <button class="gate-btn" id="gate-empid-btn" onclick="submitEmpId()">開始使用</button>
-      <div class="gate-err" id="gate-empid-err"></div>
+      <div class="gate-path-tabs">
+        <button class="gate-path-tab active" id="tab-new" onclick="showGatePath('new')">新用戶</button>
+        <button class="gate-path-tab" id="tab-restore" onclick="showGatePath('restore')">舊用戶換裝置</button>
+      </div>
+
+      <!-- 路徑 A：新用戶 -->
+      <div id="gate-path-new">
+        <div class="gate-field-label">員工編號</div>
+        <input class="gate-input" id="gate-empid" type="text" inputmode="numeric" placeholder="例：644392" autocomplete="off"
+          onkeydown="if(event.key==='Enter')document.getElementById('gate-pin-new').focus()">
+        <div class="gate-field-label">設定個人 PIN（4–6 位數字）</div>
+        <input class="gate-input" id="gate-pin-new" type="password" inputmode="numeric" maxlength="6" placeholder="只有你自己知道的數字" autocomplete="new-password"
+          onkeydown="if(event.key==='Enter')submitNewUser()">
+        <div class="gate-pin-hint">⚠ PIN 用來在新裝置恢復資料，請記好，系統無法幫你找回。</div>
+        <button class="gate-btn" id="gate-new-btn" onclick="submitNewUser()">建立帳號</button>
+        <div class="gate-err" id="gate-new-err"></div>
+      </div>
+
+      <!-- 路徑 B：舊用戶換裝置 -->
+      <div id="gate-path-restore" style="display:none">
+        <div class="gate-field-label">代碼（你的 6 位英數字代碼）</div>
+        <input class="gate-input" id="gate-restore-code" type="text" inputmode="text" maxlength="6" placeholder="例：A3K9MZ" autocomplete="off"
+          style="letter-spacing:4px;text-transform:uppercase"
+          oninput="this.value=this.value.toUpperCase()"
+          onkeydown="if(event.key==='Enter')document.getElementById('gate-pin-restore').focus()">
+        <div class="gate-field-label">個人 PIN</div>
+        <input class="gate-input" id="gate-pin-restore" type="password" inputmode="numeric" maxlength="6" placeholder="你設定的 PIN" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')submitRestoreUser()">
+        <button class="gate-btn" id="gate-restore-btn" onclick="submitRestoreUser()">恢復資料</button>
+        <div class="gate-err" id="gate-restore-err"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1348,9 +1379,14 @@ async function _syncSettingsFromServer() {
 
 async function showSettingsModal(fromSwap) {
   window._settingsFromSwap = fromSwap || false
-  // 先從伺服器拉回最新設定（清快取後也能恢復）
   await _syncSettingsFromServer()
   const s = getSettings()
+  // 同時抓 profile 判斷是否已有 PIN
+  let hasPin = false
+  try {
+    const p = await fetch(`/api/profile/${MY_USER_ID}`).then(r => r.json())
+    hasPin = !!p.hasPin
+  } catch {}
   const backLink = fromSwap && window._emptySwapDate
     ? `← <span style="color:#007aff;cursor:pointer;" onclick="showEmptyDayDetail('${window._emptySwapDate}')">返回</span>`
     : fromSwap && window._swapTask
@@ -1358,7 +1394,7 @@ async function showSettingsModal(fromSwap) {
     : ''
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date" style="margin-bottom:6px;">${backLink}</div>
-    <div class="task-route" style="margin-bottom:14px;">換班板設定</div>
+    <div class="task-route" style="margin-bottom:14px;">設定</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div class="sf-group">
         <div class="sf-label">LINE User ID</div>
@@ -1378,11 +1414,70 @@ async function showSettingsModal(fromSwap) {
       </div>
       <input type="hidden" id="sf-boturl" value="${s.botUrl||''}">
       <input type="hidden" id="sf-secret" value="${s.apiSecret||''}">
-      <button class="sf-save-btn" onclick="saveSettingsForm()">儲存</button>
+      <button class="sf-save-btn" onclick="saveSettingsForm()">儲存設定</button>
       <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c;margin-top:4px" onclick="copyInviteLink(this)">📋 複製邀請連結（傳給組員）</button>
+      <button class="sf-save-btn" style="background:#fff;color:#ff3b30;border:1.5px solid #ff3b30;margin-top:4px" onclick="doLogout()">登出 / 切換帳號</button>
+
+      <div style="border-top:1px solid #e5e5ea;margin-top:4px;padding-top:14px;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">${hasPin ? '更改個人 PIN' : '設定個人 PIN'}</div>
+        ${hasPin ? `<div class="sf-group">
+          <div class="sf-label">目前 PIN</div>
+          <input class="sf-input" id="sf-pin-current" type="password" inputmode="numeric" maxlength="6" placeholder="輸入目前的 PIN" autocomplete="current-password">
+        </div>` : `<div style="font-size:11px;color:#ff9500;margin-bottom:8px;">⚠ 設定後可在新裝置用代碼＋PIN 恢復資料，請記好。</div>`}
+        <div class="sf-group">
+          <div class="sf-label">新 PIN（4–6 位數字）</div>
+          <input class="sf-input" id="sf-pin-new" type="password" inputmode="numeric" maxlength="6" placeholder="設定新 PIN" autocomplete="new-password">
+        </div>
+        <div class="sf-group">
+          <div class="sf-label">確認新 PIN</div>
+          <input class="sf-input" id="sf-pin-confirm" type="password" inputmode="numeric" maxlength="6" placeholder="再輸入一次" autocomplete="new-password">
+        </div>
+        <button class="sf-save-btn" style="background:#ff9500;margin-top:4px" onclick="savePIN(${hasPin})">儲存 PIN</button>
+        <div id="sf-pin-msg" style="font-size:12px;text-align:center;min-height:16px;margin-top:6px;"></div>
+      </div>
     </div>
   `
   document.getElementById('modal-overlay').classList.add('active')
+}
+
+async function savePIN(hasPin) {
+  const newPin     = document.getElementById('sf-pin-new').value.trim()
+  const confirmPin = document.getElementById('sf-pin-confirm').value.trim()
+  const currentPin = hasPin ? (document.getElementById('sf-pin-current')?.value.trim() || '') : ''
+  const msgEl = document.getElementById('sf-pin-msg')
+  msgEl.style.color = '#ff3b30'
+
+  if (!newPin) { msgEl.textContent = '請輸入新 PIN'; return }
+  if (!/^\d{4,6}$/.test(newPin)) { msgEl.textContent = 'PIN 需為 4–6 位數字'; return }
+  if (newPin !== confirmPin) { msgEl.textContent = '兩次 PIN 不一致'; return }
+  if (hasPin && !currentPin) { msgEl.textContent = '請輸入目前的 PIN'; return }
+
+  try {
+    const res = await fetch(`/api/change-pin/${MY_USER_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPin, newPin })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      msgEl.style.color = '#34c759'
+      msgEl.textContent = '✓ PIN 已儲存'
+      document.getElementById('sf-pin-new').value = ''
+      document.getElementById('sf-pin-confirm').value = ''
+      if (document.getElementById('sf-pin-current')) document.getElementById('sf-pin-current').value = ''
+    } else {
+      msgEl.textContent = data.error || '儲存失敗'
+    }
+  } catch {
+    msgEl.textContent = '連線失敗，請稍後再試'
+  }
+}
+
+function doLogout() {
+  if (!confirm('登出後需要重新輸入代碼和 PIN 才能恢復資料，確定嗎？')) return
+  localStorage.removeItem('cCalUserId')
+  localStorage.removeItem('cCalEmpId')
+  location.reload()
 }
 
 function copyInviteLink(btn) {
@@ -2423,7 +2518,7 @@ function updateUserLabel() {
   const el = document.getElementById('user-label')
   if (!el) return
   const empId = localStorage.getItem('cCalEmpId') || ''
-  el.textContent = empId ? `${empId} / ${MY_USER_ID}` : MY_USER_ID
+  el.textContent = empId ? `員編 ${empId}` : ''
 }
 
 // ── 密碼閘門 ─────────────────────────────────────────────────
@@ -2457,17 +2552,79 @@ async function submitGate() {
   }
 }
 
-function submitEmpId() {
-  const val = document.getElementById('gate-empid').value.trim()
-  if (!val) {
-    document.getElementById('gate-empid-err').textContent = '請輸入員編'
-    return
+function showGatePath(path) {
+  document.getElementById('gate-path-new').style.display     = path === 'new'     ? 'block' : 'none'
+  document.getElementById('gate-path-restore').style.display = path === 'restore' ? 'block' : 'none'
+  document.getElementById('tab-new').classList.toggle('active',     path === 'new')
+  document.getElementById('tab-restore').classList.toggle('active', path === 'restore')
+  setTimeout(() => {
+    if (path === 'new') document.getElementById('gate-empid').focus()
+    else document.getElementById('gate-restore-code').focus()
+  }, 50)
+}
+
+async function submitNewUser() {
+  const empId = document.getElementById('gate-empid').value.trim()
+  const pin   = document.getElementById('gate-pin-new').value.trim()
+  const errEl = document.getElementById('gate-new-err')
+  errEl.textContent = ''
+  if (!empId) { errEl.textContent = '請輸入員工編號'; return }
+  if (!pin || pin.length < 4) { errEl.textContent = 'PIN 至少 4 位數字'; return }
+  if (!/^\d+$/.test(pin)) { errEl.textContent = 'PIN 只能是數字'; return }
+
+  const btn = document.getElementById('gate-new-btn')
+  btn.disabled = true; btn.textContent = '檢查中…'
+
+  try {
+    const lookup = await fetch(`/api/lookup/emp/${encodeURIComponent(empId)}`).then(r => r.json())
+    if (lookup.userId) {
+      errEl.textContent = '此員編已被使用。若要在新裝置恢復，請切換至「舊用戶換裝置」。'
+      btn.disabled = false; btn.textContent = '建立帳號'
+      return
+    }
+  } catch {
+    // 網路失敗就跳過檢查，讓用戶繼續（比堵住更友善）
   }
-  localStorage.setItem('cCalEmpId', val)
-  fetch(`/api/profile/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ empId: val }) }).catch(() => {})
+
+  localStorage.setItem('cCalUserId', MY_USER_ID)
+  localStorage.setItem('cCalEmpId', empId)
+  fetch(`/api/profile/${MY_USER_ID}`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ empId, pin })
+  }).catch(() => {})
   document.getElementById('gate-overlay').classList.remove('active')
   updateUserLabel()
   loadSchedule()
+}
+
+async function submitRestoreUser() {
+  const code  = document.getElementById('gate-restore-code').value.trim().toUpperCase()
+  const pin   = document.getElementById('gate-pin-restore').value.trim()
+  const errEl = document.getElementById('gate-restore-err')
+  errEl.textContent = ''
+  if (!code || code.length < 4) { errEl.textContent = '請輸入代碼'; return }
+  if (!pin || pin.length < 4)   { errEl.textContent = '請輸入 PIN'; return }
+
+  const btn = document.getElementById('gate-restore-btn')
+  btn.disabled = true; btn.textContent = '驗證中…'
+  try {
+    const res = await fetch('/api/auth-pin', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ userId: code, pin })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      localStorage.setItem('cCalUserId', code)
+      if (data.empId) localStorage.setItem('cCalEmpId', data.empId)
+      location.reload()
+    } else {
+      errEl.textContent = data.error || '代碼或 PIN 錯誤'
+      btn.disabled = false; btn.textContent = '恢復資料'
+    }
+  } catch {
+    errEl.textContent = '連線失敗，請稍後再試'
+    btn.disabled = false; btn.textContent = '恢復資料'
+  }
 }
 
 // 已有代碼 → 直接載入；沒有 → 顯示密碼閘門

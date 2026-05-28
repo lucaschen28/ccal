@@ -187,7 +187,10 @@ function profilePath(userId) {
 app.get('/api/profile/:userId', (req, res) => {
   const fp = profilePath(req.params.userId)
   if (!fp) return res.status(400).json({ error: '無效的 userId' })
-  try { res.json(JSON.parse(fs.readFileSync(fp, 'utf8'))) } catch { res.json({}) }
+  try {
+    const { pin, ...safe } = JSON.parse(fs.readFileSync(fp, 'utf8'))
+    res.json({ ...safe, hasPin: !!pin })
+  } catch { res.json({}) }
 })
 
 app.post('/api/profile/:userId', (req, res) => {
@@ -219,6 +222,42 @@ app.post('/api/settings/:userId', (req, res) => {
   const updated = { ...existing, ...req.body }
   fs.writeFileSync(fp, JSON.stringify(updated))
   res.json({ ok: true })
+})
+
+// 更改個人 PIN（需驗證目前 PIN，若尚無 PIN 則直接設定）
+app.post('/api/change-pin/:userId', (req, res) => {
+  const fp = profilePath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  const { currentPin, newPin } = req.body
+  if (!newPin || !/^\d{4,6}$/.test(String(newPin))) {
+    return res.status(400).json({ error: 'PIN 需為 4–6 位數字' })
+  }
+  const existing = (() => { try { return JSON.parse(fs.readFileSync(fp, 'utf8')) } catch { return {} } })()
+  if (existing.pin && existing.pin !== String(currentPin)) {
+    return res.status(401).json({ error: '目前 PIN 不正確' })
+  }
+  fs.writeFileSync(fp, JSON.stringify({ ...existing, pin: String(newPin) }))
+  res.json({ ok: true })
+})
+
+// 以代碼 + 個人 PIN 驗證身份（舊用戶換裝置恢復資料）
+app.post('/api/auth-pin', (req, res) => {
+  const { userId, pin } = req.body
+  if (!userId || !pin) return res.status(400).json({ ok: false, error: '缺少代碼或 PIN' })
+  const fp = profilePath(userId)
+  if (!fp) return res.status(400).json({ ok: false, error: '代碼或 PIN 錯誤' })
+  try {
+    const profile = JSON.parse(fs.readFileSync(fp, 'utf8'))
+    if (!profile.pin) {
+      return res.status(401).json({ ok: false, error: '此帳號尚未設定 PIN，請在原裝置的設定頁面（⚙）先設定 PIN，再來這裡恢復。' })
+    }
+    if (profile.pin !== String(pin)) {
+      return res.status(401).json({ ok: false, error: '代碼或 PIN 錯誤' })
+    }
+    res.json({ ok: true, empId: profile.empId || '' })
+  } catch {
+    res.status(401).json({ ok: false, error: '代碼或 PIN 錯誤' })
+  }
 })
 
 // 驗證存取密碼（新訪客用，已有代碼的直接略過）
