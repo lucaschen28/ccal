@@ -257,6 +257,8 @@
 let scheduleData = []
 let tasks = []
 let compareList = []   // [{ userId, data, tasks }, ...]  最多 2 人
+let swapBoardMode = false
+let swapBoardSummary = {}  // { 'YYYY-MM-DD': { throw:[...], accept:[...] } }
 let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
 
@@ -666,6 +668,35 @@ function renderCalendar() {
       })
       cell.appendChild(cmpLayer)
     })
+
+    // ── 換班需求層（swapBoardMode 時顯示丟班/接班筆數）────────
+    if (swapBoardMode) {
+      const sbDay = swapBoardSummary[ds]
+      const throwCount  = sbDay?.throw?.length  || 0
+      const acceptCount = sbDay?.accept?.length || 0
+      const throwLayer = document.createElement('div')
+      throwLayer.className = 'cell-layer-cmp'
+      if (throwCount > 0) {
+        const p = document.createElement('div')
+        p.className = 'event-pill flight cmp'
+        p.style.cssText = 'cursor:pointer;font-size:10px;'
+        p.textContent = `${throwCount}丟`
+        p.addEventListener('click', e => { e.stopPropagation(); showSwapBoardDayDetail(ds, 'throw') })
+        throwLayer.appendChild(p)
+      }
+      cell.appendChild(throwLayer)
+      const acceptLayer = document.createElement('div')
+      acceptLayer.className = 'cell-layer-cmp2'
+      if (acceptCount > 0) {
+        const p = document.createElement('div')
+        p.className = 'event-pill flight cmp2'
+        p.style.cssText = 'cursor:pointer;font-size:10px;'
+        p.textContent = `${acceptCount}接`
+        p.addEventListener('click', e => { e.stopPropagation(); showSwapBoardDayDetail(ds, 'accept') })
+        acceptLayer.appendChild(p)
+      }
+      cell.appendChild(acceptLayer)
+    }
 
     // 點空白格子 → 空格詳細（查看他人、過去日期停用）
     if (isCur && viewUserId === MY_USER_ID && !isPast(ds)) {
@@ -1865,22 +1896,81 @@ async function renderQuickCompareBar() {
   }
   const sorted = [...contacts].sort((a, b) => _contactTier(a) - _contactTier(b))
 
+  const swapChipStyle = swapBoardMode ? 'background:#f9c98a;color:#7a4000;' : ''
   bar.style.display = 'block'
   bar.innerHTML = `
     <div class="qcb-label">常用比對</div>
-    <div>${sorted.map(c => {
-      const idx = compareList.findIndex(x => x.userId === c.code)
-      const active = idx !== -1
-      const style = active ? `background:${layerColors[idx].bg};color:${layerColors[idx].color};` : ''
-      return `<button class="contact-chip" style="${style}"
-        onclick="toggleCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
-        ${c.name}<span style="font-weight:400;margin-left:3px;${active?'color:'+layerColors[idx].color:'color:#8e8e93'}">/ ${c.code}</span>
-      </button>`
-    }).join('')}
+    <div>
+      <button class="contact-chip" style="${swapChipStyle}" onclick="toggleSwapBoardMode()">
+        ✈️ 換班需求
+      </button>
+      ${sorted.map(c => {
+        const idx = compareList.findIndex(x => x.userId === c.code)
+        const active = idx !== -1
+        const style = active ? `background:${layerColors[idx].bg};color:${layerColors[idx].color};` : ''
+        return `<button class="contact-chip" style="${style}"
+          onclick="toggleCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
+          ${c.name}<span style="font-weight:400;margin-left:3px;${active?'color:'+layerColors[idx].color:'color:#8e8e93'}">/ ${c.code}</span>
+        </button>`
+      }).join('')}
     </div>`
 }
 
+async function toggleSwapBoardMode() {
+  swapBoardMode = !swapBoardMode
+  if (swapBoardMode) {
+    compareList = []
+    swapBoardSummary = {}
+    await fetchSwapBoardSummary()
+  }
+  _updateCompareBanner(); renderCalendar(); renderQuickCompareBar()
+}
+
+async function fetchSwapBoardSummary() {
+  const s = getSettings()
+  if (!s.botUrl || !s.apiSecret) return
+  try {
+    const res = await fetch(s.botUrl + '/api/board-summary', {
+      headers: { 'X-CCal-Secret': s.apiSecret }
+    })
+    if (!res.ok) return
+    const entries = await res.json()
+    const map = {}
+    entries.forEach(e => {
+      if (!map[e.dateStr]) map[e.dateStr] = { throw: [], accept: [] }
+      map[e.dateStr][e.type].push(e)
+    })
+    swapBoardSummary = map
+  } catch {}
+}
+
+function showSwapBoardDayDetail(ds, type) {
+  const entries = swapBoardSummary[ds]?.[type] || []
+  if (!entries.length) return
+  const d = new Date(ds + 'T12:00:00')
+  const wd = ['日','一','二','三','四','五','六']
+  const sp = ds.split('-')
+  const dateLabel = `${+sp[1]} 月 ${+sp[2]} 日（${wd[d.getDay()]}）`
+  const typeLabel = type === 'throw' ? '✈️ 丟班' : '🙋 接班'
+  const rows = entries.map(e => {
+    const price = e.commission > 0 ? e.commission + '圈' : e.commission === -1 ? '無料' : '可議'
+    const noteStr = e.note ? `　<span style="color:#8e8e93">${e.note}</span>` : ''
+    const flightStr = (e.flights||[]).length ? e.flights.map(f => f.date+'/'+f.flight).join(' ') : ''
+    return `<div style="padding:10px 0;border-bottom:1px solid #f0f0f5;">
+      <div style="font-weight:600;">${e.displayName}${flightStr ? '　<span style="font-size:12px;color:#8e8e93">'+flightStr+'</span>' : ''}</div>
+      <div style="font-size:13px;color:#3a3a3c;margin-top:3px;">${price}${noteStr}</div>
+    </div>`
+  }).join('')
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-date" style="margin-bottom:6px;">${dateLabel}</div>
+    <div class="task-route" style="margin-bottom:12px;">${typeLabel}　<span style="font-size:13px;font-weight:400;color:#8e8e93">${entries.length} 筆</span></div>
+    ${rows}
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
 async function toggleCompare(code, name) {
+  if (swapBoardMode) { swapBoardMode = false; swapBoardSummary = {}; renderQuickCompareBar() }
   const idx = compareList.findIndex(c => c.userId === code)
   if (idx !== -1) {
     compareList.splice(idx, 1)
