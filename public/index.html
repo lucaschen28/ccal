@@ -31,11 +31,17 @@
       body.desktop-mode .day-num { font-size: 15px; width: 24px; height: 24px; }
       body.desktop-mode header, body.desktop-mode .weekday-row { max-width: none; }
     }
-    /* 切換按鈕：手機隱藏，電腦才顯示 */
-    .view-toggle-btn { display: none; }
-    @media (min-width: 600px) {
-      .view-toggle-btn { display: block; font-size: 16px; cursor: pointer; padding: 4px 8px; background: none; border: none; color: #8e8e93; }
-    }
+    /* FAB Speed Dial */
+    #fab-wrap { position:fixed; bottom:90px; right:16px; z-index:90; display:flex; flex-direction:column; align-items:flex-end; }
+    #fab-main { width:54px; height:54px; border-radius:50%; background:#007aff; color:#fff; border:none; font-size:26px; cursor:pointer; box-shadow:0 4px 16px rgba(0,122,255,0.35); transition:transform 0.25s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    #fab-main.open { transform:rotate(45deg); }
+    #fab-items { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; align-items:flex-end; }
+    .fab-item { display:flex; align-items:center; gap:10px; opacity:0; transform:translateY(10px); transition:opacity 0.18s, transform 0.18s; pointer-events:none; cursor:pointer; }
+    .fab-item.visible { opacity:1; transform:none; pointer-events:auto; }
+    .fab-label { background:rgba(28,28,30,0.82); color:#fff; border-radius:8px; padding:5px 12px; font-size:13px; font-weight:600; white-space:nowrap; backdrop-filter:blur(6px); }
+    .fab-icon { width:44px; height:44px; border-radius:50%; background:#fff; border:none; font-size:20px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.14); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    #fab-backdrop { display:none; position:fixed; inset:0; z-index:-1; }
+    #fab-backdrop.active { display:block; }
 
     header { background:#fff; padding:8px 16px; display:flex; flex-direction:column; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
     .header-nav { display:flex; align-items:center; justify-content:space-between; }
@@ -224,14 +230,7 @@
   <div class="header-nav">
     <button class="nav-btn" id="prev">‹</button>
     <span class="month-label" id="month-label"></span>
-    <div style="display:flex;align-items:center;gap:4px">
-      <button class="view-toggle-btn" id="view-toggle-btn" title="切換手機/電腦版">📱</button>
-      <button class="settings-btn" id="import-pdf-btn" title="匯入 eCrew PDF 班表">📥</button>
-      <button class="settings-btn" id="user-code-btn" title="我的代碼 / 看別人班表">👥</button>
-      <button class="settings-btn" id="settings-btn" title="換班板設定">⚙</button>
-      <button class="settings-btn" id="pwa-btn" title="加入主畫面">📲</button>
-      <button class="nav-btn" id="next">›</button>
-    </div>
+    <button class="nav-btn" id="next">›</button>
   </div>
   <div class="user-label" id="user-label"></div>
 </header>
@@ -289,6 +288,33 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="fab-wrap">
+  <div id="fab-backdrop" onclick="closeFab()"></div>
+  <div id="fab-items">
+    <div class="fab-item" onclick="closeFab();document.getElementById('view-toggle-btn').click()">
+      <span class="fab-label" id="view-toggle-label">電腦版</span>
+      <button class="fab-icon" id="view-toggle-btn">📱</button>
+    </div>
+    <div class="fab-item" onclick="closeFab();document.getElementById('pwa-btn').click()">
+      <span class="fab-label">加入主畫面</span>
+      <button class="fab-icon" id="pwa-btn">📲</button>
+    </div>
+    <div class="fab-item" onclick="closeFab();showSettingsModal(false)">
+      <span class="fab-label">設定</span>
+      <button class="fab-icon" id="settings-btn">⚙️</button>
+    </div>
+    <div class="fab-item" onclick="closeFab();showUserCodeModal()">
+      <span class="fab-label">我的代碼</span>
+      <button class="fab-icon" id="user-code-btn">👥</button>
+    </div>
+    <div class="fab-item" onclick="closeFab();document.getElementById('import-pdf-btn').click()">
+      <span class="fab-label">匯入班表</span>
+      <button class="fab-icon" id="import-pdf-btn">📥</button>
+    </div>
+  </div>
+  <button id="fab-main" onclick="toggleFab()">＋</button>
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
@@ -2459,15 +2485,22 @@ function saveEmpIdFromModal() {
 
 document.getElementById('user-code-btn').addEventListener('click', showUserCodeModal)
 
-// 手機/電腦版切換（僅電腦顯示按鈕）
+// 手機/電腦版切換
 ;(() => {
   const btn = document.getElementById('view-toggle-btn')
-  const isDesktop = localStorage.getItem('cCalDesktopMode') === '1'
-  if (isDesktop) { document.body.classList.add('desktop-mode'); btn.textContent = '📱' }
-  btn.addEventListener('click', () => {
-    const on = document.body.classList.toggle('desktop-mode')
+  const lbl = document.getElementById('view-toggle-label')
+  function _updateViewToggle() {
+    const on = document.body.classList.contains('desktop-mode')
     btn.textContent = on ? '📱' : '🖥'
-    localStorage.setItem('cCalDesktopMode', on ? '1' : '0')
+    if (lbl) lbl.textContent = on ? '手機版' : '電腦版'
+  }
+  if (localStorage.getItem('cCalDesktopMode') === '1') document.body.classList.add('desktop-mode')
+  _updateViewToggle()
+  btn.addEventListener('click', () => {
+    document.body.classList.toggle('desktop-mode')
+    localStorage.setItem('cCalDesktopMode', document.body.classList.contains('desktop-mode') ? '1' : '0')
+    _updateViewToggle()
+    renderCalendar()
   })
 })()
 
@@ -2641,6 +2674,23 @@ if (localStorage.getItem('cCalUserId')) {
 } else {
   document.getElementById('gate-overlay').classList.add('active')
   setTimeout(() => document.getElementById('gate-input').focus(), 100)
+}
+
+// ── FAB Speed Dial ────────────────────────────────────────────
+function toggleFab() {
+  const isOpen = document.getElementById('fab-main').classList.toggle('open')
+  document.getElementById('fab-backdrop').classList.toggle('active', isOpen)
+  const items = [...document.querySelectorAll('.fab-item')]
+  if (isOpen) {
+    items.reverse().forEach((item, i) => setTimeout(() => item.classList.add('visible'), i * 55))
+  } else {
+    items.forEach(item => item.classList.remove('visible'))
+  }
+}
+function closeFab() {
+  document.getElementById('fab-main').classList.remove('open')
+  document.getElementById('fab-backdrop').classList.remove('active')
+  document.querySelectorAll('.fab-item').forEach(item => item.classList.remove('visible'))
 }
 
 // ── Pull-to-refresh ───────────────────────────────────────────
