@@ -191,7 +191,7 @@
     .add-leg-btn { width:100%; background:#f2f2f7; border:none; border-radius:10px; padding:10px; font-size:14px; font-weight:600; color:#007aff; cursor:pointer; margin:4px 0 12px; }
     /* Modal 跟著手機版寬度 */
     @media (min-width:600px) {
-      body:not(.desktop-mode) .modal { max-width:390px; margin:0 auto; }
+      .modal { max-width:390px; margin:0 auto; }
     }
 
     /* 密碼閘門 */
@@ -1478,7 +1478,7 @@ async function showSettingsModal(fromSwap) {
       <!-- 5. 切換電腦/手機版面 -->
       <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">版面切換</div>
-        <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c" onclick="toggleViewMode();showSettingsModal(false)">${isDesktop ? '📱 切換為手機版' : '🖥 切換為電腦版'}</button>
+        <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c" onclick="document.getElementById('modal-overlay').classList.remove('active');toggleViewMode()">${isDesktop ? '📱 切換為手機版' : '🖥 切換為電腦版'}</button>
       </div>
 
       <!-- 6. 加入主畫面 -->
