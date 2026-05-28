@@ -1162,9 +1162,27 @@ async function showSettingsModal(fromSwap) {
         <input class="sf-input" id="sf-secret" type="password" placeholder="在 Railway 設定的密碼" value="${s.apiSecret||''}" autocomplete="new-password">
       </div>
       <button class="sf-save-btn" onclick="saveSettingsForm()">儲存</button>
+      <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c;margin-top:4px" onclick="copyInviteLink(this)">📋 複製邀請連結（傳給組員）</button>
     </div>
   `
   document.getElementById('modal-overlay').classList.add('active')
+}
+
+function copyInviteLink(btn) {
+  const s = getSettings()
+  if (!s.botUrl || !s.apiSecret) {
+    btn.textContent = '⚠️ 請先填寫並儲存 Bot URL 和 API Secret'
+    setTimeout(() => { btn.textContent = '📋 複製邀請連結（傳給組員）' }, 2500)
+    return
+  }
+  const url = location.origin + '/?setup&botUrl=' + encodeURIComponent(s.botUrl) + '&apiSecret=' + encodeURIComponent(s.apiSecret)
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✅ 已複製！貼到群組就好'
+    setTimeout(() => { btn.textContent = '📋 複製邀請連結（傳給組員）' }, 2500)
+  }).catch(() => {
+    // clipboard 失敗（如非 HTTPS 環境），改用 prompt 讓用戶手動複製
+    prompt('複製以下連結傳給組員：', url)
+  })
 }
 
 function saveSettingsForm() {
