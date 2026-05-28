@@ -926,6 +926,7 @@ async function showDetail(task) {
   })
 
   html += `<div id="crew-placeholder"></div>`
+  html += `<div style="font-size:11px;color:#8e8e93;text-align:center;margin-top:14px;padding-top:10px;border-top:1px solid #f0f0f5">以上航班資訊供參，最終以公司 eCrew 為主</div>`
 
   const todayStr2 = new Date().toISOString().slice(0,10)
   if (task.startDate >= todayStr2) {
