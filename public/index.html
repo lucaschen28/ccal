@@ -2035,29 +2035,29 @@ async function quickCompare(code, name) {
 }
 
 const _CONTACTS_KEY = 'ccal_contacts_' + MY_USER_ID
+let _contactsFromNetwork = false  // 追蹤資料是否來自網路（決定是否能信任空陣列）
 function _getCachedContacts() {
   try {
     const val = localStorage.getItem(_CONTACTS_KEY)
     if (val) return JSON.parse(val)
-    // 舊 key 遷移
+    // 舊 key 遷移（ccal_contacts_cache → ccal_contacts_{userId}）
     const old = localStorage.getItem('ccal_contacts_cache')
     if (old) { localStorage.setItem(_CONTACTS_KEY, old); return JSON.parse(old) }
     return []
   } catch { return [] }
 }
 async function _fetchContacts() {
-  // 永遠先讀本地快取
   const cached = _getCachedContacts()
-  // 離線直接回傳快取
-  if (!navigator.onLine) return cached
-  // 有網路：嘗試拿新資料，失敗就用快取
+  if (!navigator.onLine) { _contactsFromNetwork = false; return cached }
   try {
     const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json())
     if (Array.isArray(contacts)) {
       localStorage.setItem(_CONTACTS_KEY, JSON.stringify(contacts))
+      _contactsFromNetwork = true
       return contacts
     }
   } catch {}
+  _contactsFromNetwork = false
   return cached
 }
 
@@ -2065,7 +2065,8 @@ async function renderQuickCompareBar() {
   const bar = document.getElementById('quick-compare-bar')
   if (!bar) return
   const contacts = await _fetchContacts()
-  if (!contacts.length && !compareList.length && !swapBoardMode) { bar.style.display = 'none'; return }
+  // 只有從網路確認 contacts 是空的，才隱藏橫幅；離線或 fetch 失敗時不隱藏
+  if (_contactsFromNetwork && !contacts.length && !compareList.length && !swapBoardMode) { bar.style.display = 'none'; return }
   const layerColors = [
     { bg:'#f9c98a', color:'#7a4000' },
     { bg:'#f5e88a', color:'#6b5500' },
