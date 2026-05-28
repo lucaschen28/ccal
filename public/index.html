@@ -667,10 +667,10 @@ function renderCalendar() {
       cell.appendChild(cmpLayer)
     })
 
-    // 點空白格子 → 新增（查看他人、過去日期停用）
+    // 點空白格子 → 空格詳細（查看他人、過去日期停用）
     if (isCur && viewUserId === MY_USER_ID && !isPast(ds)) {
       cell.style.cursor = 'pointer'
-      cell.addEventListener('click', () => showAddForm(ds))
+      cell.addEventListener('click', () => showEmptyDayDetail(ds))
     }
 
     cal.appendChild(cell)
@@ -1139,7 +1139,9 @@ async function showSettingsModal(fromSwap) {
   // 先從伺服器拉回最新設定（清快取後也能恢復）
   await _syncSettingsFromServer()
   const s = getSettings()
-  const backLink = fromSwap && window._swapTask
+  const backLink = fromSwap && window._emptySwapDate
+    ? `← <span style="color:#007aff;cursor:pointer;" onclick="showEmptyDayDetail('${window._emptySwapDate}')">返回</span>`
+    : fromSwap && window._swapTask
     ? `← <span style="color:#007aff;cursor:pointer;" onclick="showSwapForm()">返回</span>`
     : ''
   document.getElementById('modal-content').innerHTML = `
@@ -1193,7 +1195,8 @@ function saveSettingsForm() {
     botUrl:      document.getElementById('sf-boturl').value.trim().replace(/\/$/, ''),
     apiSecret:   document.getElementById('sf-secret').value.trim()
   })
-  if (window._settingsFromSwap && window._swapTask) showSwapForm()
+  if (window._settingsFromSwap && window._emptySwapDate) showSwapFormForEmpty(window._emptySwapDate)
+  else if (window._settingsFromSwap && window._swapTask) showSwapForm()
   else document.getElementById('modal-overlay').classList.remove('active')
 }
 
@@ -1201,6 +1204,7 @@ function saveSettingsForm() {
 function showSwapForm() {
   const task = window._swapTask
   if (!task) return
+  window._emptySwapDate = null
   const s = getSettings()
   if (!s.lineUserId || !s.botUrl || !s.apiSecret) {
     showSettingsModal(true)
@@ -1230,12 +1234,69 @@ function showSwapForm() {
     <div class="task-date" style="margin-bottom:6px;">
       ← <span style="color:#007aff;cursor:pointer;" onclick="showDetail(window._swapTask)">返回</span>
     </div>
-    <div class="task-route" style="margin-bottom:4px;">發布到換班板</div>
+    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:13px;font-weight:400;color:#8e8e93">✈️ 丟班</span></div>
     <div class="swap-flight-info">${dateLabel}　${taskRoute(task)}</div>
-    <div class="swap-type-row">
-      <button class="swap-type-btn active" id="btn-throw" onclick="setSwapType('throw')">✈️ 丟班</button>
-      <button class="swap-type-btn" id="btn-accept" onclick="setSwapType('accept')">🙋 接班</button>
+    <div class="comm-label">出價</div>
+    <div class="comm-grid" id="comm-grid">
+      ${commBtns}
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" id="comm-custom" min="0.5" max="10" step="0.5"
+          placeholder="　" style="width:56px;border:1.5px solid #e5e5ea;border-radius:8px;padding:7px 6px;font-size:13px;font-weight:600;text-align:center;outline:none;"
+          oninput="setCommCustom(this)">
+        <span style="font-size:13px;font-weight:600;">圈</span>
+      </div>
     </div>
+    <input class="swap-note-input" id="swap-note" placeholder="備注（選填，如：換321的班）" maxlength="50">
+    <button class="swap-post-btn" id="swap-post-btn" onclick="submitSwap()">送出</button>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function showEmptyDayDetail(ds) {
+  const sp = ds.split('-')
+  const d = new Date(ds + 'T12:00:00')
+  const wd = ['日','一','二','三','四','五','六']
+  const dateLabel = `${+sp[1]} 月 ${+sp[2]} 日（${wd[d.getDay()]}）`
+  window._emptySwapDate = ds
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-date" style="margin-bottom:12px;">${dateLabel}</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+      <button class="open-swap-btn" onclick="showSwapFormForEmpty('${ds}')">✈️ 發布到換班板（接班）</button>
+      <button class="open-add-day-btn" onclick="showAddForm('${ds}')">＋ 新增</button>
+    </div>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function showSwapFormForEmpty(ds) {
+  const s = getSettings()
+  if (!s.lineUserId || !s.botUrl || !s.apiSecret) {
+    window._emptySwapDate = ds
+    showSettingsModal(true)
+    return
+  }
+  const sp = ds.split('-')
+  const dayNum = parseInt(sp[2])
+  const d = new Date(ds + 'T12:00:00')
+  const wd = ['日','一','二','三','四','五','六']
+  const dateLabel = `${+sp[1]} 月 ${dayNum} 日（${wd[d.getDay()]}）`
+  const commOptions = [
+    { label:'可議', val:0 }, { label:'無料', val:-1 }
+  ]
+  window._swapType = 'accept'
+  window._swapComm = 0
+  window._swapDate = dayNum
+
+  let commBtns = commOptions.map((o, i) =>
+    `<button class="comm-btn${i===0?' active':''}" onclick="setComm(${o.val},this)">${o.label}</button>`
+  ).join('')
+
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-date" style="margin-bottom:6px;">
+      ← <span style="color:#007aff;cursor:pointer;" onclick="showEmptyDayDetail('${ds}')">返回</span>
+    </div>
+    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:13px;font-weight:400;color:#8e8e93">🙋 接班</span></div>
+    <div class="swap-flight-info">${dateLabel}</div>
     <div class="comm-label">出價</div>
     <div class="comm-grid" id="comm-grid">
       ${commBtns}
@@ -1450,7 +1511,7 @@ function _renderAddForm(baseDate, isEdit) {
       <div class="add-section-label">報到時間</div>
       <input id="task-rep" class="add-field-input" type="time" value="${_taskRep}" style="max-width:160px">
       <div id="segs-container"></div>
-      <button class="add-leg-btn" onclick="addSeg()">＋ 新增航段</button>
+      <button class="add-leg-btn" onclick="addSeg()">＋ 新增</button>
     </div>
     ${isEdit ? `<button class="add-del-btn" onclick="deleteEntry()">刪除此勤務</button>` : ''}
   `
