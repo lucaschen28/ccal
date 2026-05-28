@@ -242,22 +242,28 @@ app.post('/api/bulk/:userId', (req, res) => {
   res.json({ ok: true, count: merged.length })
 })
 
-// eCrew PDF 匯入（完整覆蓋，保留 manually_added）
+// eCrew PDF 匯入（累積合併：舊 PDF 保留，新 PDF 疊加，manually_added 永遠保留）
 app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
   const fp = userPath(req.params.userId)
   if (!fp) return res.status(400).json({ error: '無效的 userId' })
   if (!req.file) return res.status(400).json({ error: '未收到 PDF 檔案' })
   try {
     const newEntries = await parseECrewPDF(req.file.buffer)
-    const existing = readData(fp).filter(e => e.manually_added)
-    const combined = [...existing, ...newEntries]
-    linkLayovers(combined)
-    // 去重：同 id 保留 duty_id 較早的（過夜班連結優先）
+    const all = readData(fp)
+    const manualEntries = all.filter(e => e.manually_added)
+    const oldPdfEntries = all.filter(e => !e.manually_added)
+    // 舊 PDF 先放，新 PDF 後放（新覆蓋舊的同 id）
     const seen = new Map()
+    oldPdfEntries.forEach(e => seen.set(e.id, e))
+    newEntries.forEach(e => seen.set(e.id, e))
+    const combined = [...seen.values(), ...manualEntries]
+    linkLayovers(combined)
+    // 過夜班連結去重：同 id 保留 duty_id 較早的
+    const finalSeen = new Map()
     combined.forEach(e => {
-      if (!seen.has(e.id) || e.duty_id < seen.get(e.id).duty_id) seen.set(e.id, e)
+      if (!finalSeen.has(e.id) || e.duty_id < finalSeen.get(e.id).duty_id) finalSeen.set(e.id, e)
     })
-    const merged = [...seen.values()]
+    const merged = [...finalSeen.values()]
     fs.writeFileSync(fp, JSON.stringify(merged, null, 2))
     res.json({ ok: true, imported: newEntries.length, total: merged.length })
   } catch (err) {
