@@ -609,8 +609,8 @@ function renderCalendar() {
       target.appendChild(pill)
     }
 
-    if (compareList.length) {
-      // 比對模式：有私人行程就在日期數字加淡紫圓；可點擊開啟私人行程詳細
+    if (compareList.length || swapBoardMode) {
+      // 比對模式 / 換班需求模式：私人行程用淡紫圓點在日期數字上，不佔層
       if (_privateNF.length > 0) {
         dn.classList.add('has-private')
         dn.addEventListener('click', e => {
