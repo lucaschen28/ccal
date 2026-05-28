@@ -930,7 +930,7 @@ async function showDetail(task) {
 
   const todayStr2 = new Date().toISOString().slice(0,10)
   if (task.startDate >= todayStr2) {
-    html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板</button>`
+    html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板（丟班）</button>`
   }
   const isManual = task.legs.every(l => l.manually_added)
   if (isManual) {
@@ -1234,7 +1234,7 @@ function showSwapForm() {
     <div class="task-date" style="margin-bottom:6px;">
       ← <span style="color:#007aff;cursor:pointer;" onclick="showDetail(window._swapTask)">返回</span>
     </div>
-    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:13px;font-weight:400;color:#8e8e93">✈️ 丟班</span></div>
+    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:15px;font-weight:700;color:#ff6b00">✈️ 丟班</span></div>
     <div class="swap-flight-info">${dateLabel}　${taskRoute(task)}</div>
     <div class="comm-label">出價</div>
     <div class="comm-grid" id="comm-grid">
@@ -1295,7 +1295,7 @@ function showSwapFormForEmpty(ds) {
     <div class="task-date" style="margin-bottom:6px;">
       ← <span style="color:#007aff;cursor:pointer;" onclick="showEmptyDayDetail('${ds}')">返回</span>
     </div>
-    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:13px;font-weight:400;color:#8e8e93">🙋 接班</span></div>
+    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:15px;font-weight:700;color:#34c759">🙋 接班</span></div>
     <div class="swap-flight-info">${dateLabel}</div>
     <div class="comm-label">出價</div>
     <div class="comm-grid" id="comm-grid">
@@ -1846,10 +1846,22 @@ async function renderQuickCompareBar() {
     { bg:'#f9c98a', color:'#7a4000' },
     { bg:'#f5e88a', color:'#6b5500' },
   ]
+
+  // 排序：比對中 → 有暱稱 → 純數字（員編當名稱）→ 只有代碼
+  function _contactTier(c) {
+    const idx = compareList.findIndex(x => x.userId === c.code)
+    if (idx !== -1) return idx  // 0 或 1，確保比對中的維持 layer 順序
+    const name = c.name || c.code
+    if (name !== c.code && !/^\d+$/.test(name)) return 10  // 有暱稱
+    if (/^\d+$/.test(name)) return 20  // 純數字員編
+    return 30  // 只有代碼
+  }
+  const sorted = [...contacts].sort((a, b) => _contactTier(a) - _contactTier(b))
+
   bar.style.display = 'block'
   bar.innerHTML = `
     <div class="qcb-label">常用比對</div>
-    <div>${contacts.map(c => {
+    <div>${sorted.map(c => {
       const idx = compareList.findIndex(x => x.userId === c.code)
       const active = idx !== -1
       const style = active ? `background:${layerColors[idx].bg};color:${layerColors[idx].color};` : ''
