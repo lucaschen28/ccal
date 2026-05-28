@@ -1235,7 +1235,7 @@ function showSwapForm() {
       ← <span style="color:#007aff;cursor:pointer;" onclick="showDetail(window._swapTask)">返回</span>
     </div>
     <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:15px;font-weight:700;color:#ff6b00">✈️ 丟班</span></div>
-    <div class="swap-flight-info">${dateLabel}　${taskRoute(task)}</div>
+    <div class="swap-flight-info">${dateLabel}　${task.legs.filter(l=>l.flight_number).map(l=>'CI '+padFN(l.flight_number)).join(' / ')}</div>
     <div class="comm-label">出價</div>
     <div class="comm-grid" id="comm-grid">
       ${commBtns}
