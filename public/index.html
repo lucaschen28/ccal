@@ -676,6 +676,7 @@ function renderCalendar() {
       const acceptCount = sbDay?.accept?.length || 0
       const throwLayer = document.createElement('div')
       throwLayer.className = 'cell-layer-cmp'
+      throwLayer.addEventListener('click', e => e.stopPropagation())
       if (throwCount > 0) {
         const p = document.createElement('div')
         p.className = 'event-pill flight cmp'
@@ -687,6 +688,7 @@ function renderCalendar() {
       cell.appendChild(throwLayer)
       const acceptLayer = document.createElement('div')
       acceptLayer.className = 'cell-layer-cmp2'
+      acceptLayer.addEventListener('click', e => e.stopPropagation())
       if (acceptCount > 0) {
         const p = document.createElement('div')
         p.className = 'event-pill flight cmp2'
@@ -698,9 +700,8 @@ function renderCalendar() {
       cell.appendChild(acceptLayer)
     }
 
-    // 點空白格子 → 空格詳細（只有當天真的沒有任何任務才掛；查看他人、過去日期停用）
-    const _hasTasks = _ownFlights.length > 0 || _ownNF.length > 0
-    if (isCur && viewUserId === MY_USER_ID && !isPast(ds) && !_hasTasks) {
+    // 點空白格子 → 空格詳細（查看他人、過去日期停用）
+    if (isCur && viewUserId === MY_USER_ID && !isPast(ds)) {
       cell.style.cursor = 'pointer'
       cell.addEventListener('click', () => showEmptyDayDetail(ds))
     }
