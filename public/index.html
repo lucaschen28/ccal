@@ -1952,7 +1952,7 @@ document.getElementById('settings-btn').addEventListener('click', () => showSett
 async function showUserCodeModal() {
   const shareUrl = location.origin + location.pathname + '?view=' + MY_USER_ID
   // 先載入聯絡人
-  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
+  const contacts = await _fetchContacts()
   const chipsHtml = contacts.length ? `
     <div class="add-section-label" style="margin:14px 0 6px">常用</div>
     <div id="contact-chips">${contacts.map(c => `
@@ -2034,11 +2034,24 @@ async function quickCompare(code, name) {
   _maybeShowSaveHint(code)
 }
 
+async function _fetchContacts() {
+  if (!navigator.onLine) {
+    try { return JSON.parse(localStorage.getItem('ccal_contacts_cache') || '[]') } catch { return [] }
+  }
+  try {
+    const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json())
+    localStorage.setItem('ccal_contacts_cache', JSON.stringify(contacts))
+    return contacts
+  } catch {
+    try { return JSON.parse(localStorage.getItem('ccal_contacts_cache') || '[]') } catch { return [] }
+  }
+}
+
 async function renderQuickCompareBar() {
   const bar = document.getElementById('quick-compare-bar')
   if (!bar) return
-  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
-  if (!contacts.length) { bar.style.display = 'none'; return }
+  const contacts = await _fetchContacts()
+  if (!contacts.length && !compareList.length && !swapBoardMode) { bar.style.display = 'none'; return }
   const layerColors = [
     { bg:'#f9c98a', color:'#7a4000' },
     { bg:'#f5e88a', color:'#6b5500' },
@@ -2226,7 +2239,7 @@ async function goCompare() {
   const result = await _resolveInput(raw)
   if (!result) return
   const { userId, data } = result
-  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
+  const contacts = await _fetchContacts()
   const contact = contacts.find(c => c.code === userId)
   let displayName = contact?.name
   if (!displayName) {
@@ -2244,7 +2257,7 @@ async function goCompare() {
 
 // 若代碼不在聯絡人，在比對橫幅旁顯示「＋儲存」提示
 async function _maybeShowSaveHint(code) {
-  const contacts = await fetch(`/api/contacts/${MY_USER_ID}`).then(r => r.json()).catch(() => [])
+  const contacts = await _fetchContacts()
   if (contacts.some(c => c.code === code)) return
   // 在橫幅區插入儲存提示
   let hint = document.getElementById('save-hint-bar')
