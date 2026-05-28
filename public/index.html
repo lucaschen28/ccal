@@ -33,6 +33,13 @@
     }
     /* FAB Speed Dial */
     #fab-wrap { position:fixed; bottom:90px; right:16px; z-index:90; display:flex; flex-direction:column; align-items:flex-end; }
+    #fab-wrap.fab-left { right:auto; left:16px; align-items:flex-start; }
+    #fab-wrap.fab-top { bottom:auto; top:80px; flex-direction:column-reverse; }
+    #fab-wrap.fab-top #fab-items { margin-bottom:0; margin-top:12px; }
+    #fab-wrap.fab-top .fab-item { transform:translateY(-10px); }
+    #fab-wrap.fab-top .fab-item.visible { transform:none; }
+    #fab-wrap.fab-left #fab-items { align-items:flex-start; }
+    #fab-wrap.fab-left .fab-item { flex-direction:row-reverse; }
     #fab-main { width:54px; height:54px; border-radius:50%; background:#007aff; color:#fff; border:none; font-size:26px; cursor:pointer; box-shadow:0 4px 16px rgba(0,122,255,0.35); transition:transform 0.25s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     #fab-main.open { transform:rotate(45deg); }
     #fab-items { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; align-items:flex-end; }
@@ -42,9 +49,10 @@
     .fab-icon { width:44px; height:44px; border-radius:50%; background:#fff; border:none; font-size:20px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.14); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     #fab-backdrop { display:none; position:fixed; inset:0; z-index:-1; }
     #fab-backdrop.active { display:block; }
-    /* 手機版時 FAB 跟著 390px 容器靠右；電腦版時 FAB 固定右側 16px */
+    /* 手機版時 FAB 跟著 390px 容器；電腦版固定邊緣 */
     @media (min-width: 600px) {
-      body:not(.desktop-mode) #fab-wrap { right: calc((100vw - 390px) / 2 + 16px); }
+      body:not(.desktop-mode) #fab-wrap:not(.fab-left) { right: calc((100vw - 390px) / 2 + 16px); }
+      body:not(.desktop-mode) #fab-wrap.fab-left { left: calc((100vw - 390px) / 2 + 16px); }
     }
 
     header { background:#fff; padding:8px 16px; display:flex; flex-direction:column; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
@@ -1542,6 +1550,19 @@ async function showSettingsModal(fromSwap) {
         <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c" onclick="document.getElementById('modal-overlay').classList.remove('active');openPwaModal()">📲 加入主畫面說明</button>
       </div>
 
+      <!-- ＋ 按鈕位置 -->
+      <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">＋ 按鈕位置</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          ${['tl','tr','bl','br'].map(pos => {
+            const labels = { tl:'↖ 左上', tr:'↗ 右上', bl:'↙ 左下', br:'↘ 右下' }
+            const cur = localStorage.getItem('cCalFabPos') || 'br'
+            const active = cur === pos ? 'background:#007aff;color:#fff;' : 'background:#f2f2f7;color:#3a3a3c;'
+            return `<button onclick="setFabPos('${pos}')" style="${active}border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;">${labels[pos]}</button>`
+          }).join('')}
+        </div>
+      </div>
+
     </div>
   `
   document.getElementById('modal-overlay').classList.add('active')
@@ -2420,7 +2441,7 @@ function showSwapBoardDayDetail(ds, type) {
 }
 
 async function toggleCompare(code, name) {
-  if (swapBoardMode) { swapBoardMode = false; swapBoardSummary = {}; renderQuickCompareBar() }
+  if (swapBoardMode) { swapBoardMode = false; swapBoardSummary = {}; renderCalendar(); renderQuickCompareBar() }
   const idx = compareList.findIndex(c => c.userId === code)
   if (idx !== -1) {
     compareList.splice(idx, 1)
@@ -2742,6 +2763,20 @@ if (localStorage.getItem('cCalUserId')) {
 }
 
 // ── FAB Speed Dial ────────────────────────────────────────────
+function applyFabPosition(pos) {
+  pos = pos || localStorage.getItem('cCalFabPos') || 'br'
+  const wrap = document.getElementById('fab-wrap')
+  wrap.classList.remove('fab-left', 'fab-top')
+  if (pos === 'bl' || pos === 'tl') wrap.classList.add('fab-left')
+  if (pos === 'tr' || pos === 'tl') wrap.classList.add('fab-top')
+}
+function setFabPos(pos) {
+  localStorage.setItem('cCalFabPos', pos)
+  applyFabPosition(pos)
+  closeFab()
+}
+applyFabPosition()
+
 function toggleFab() {
   const isOpen = document.getElementById('fab-main').classList.toggle('open')
   document.getElementById('fab-backdrop').classList.toggle('active', isOpen)
