@@ -698,8 +698,9 @@ function renderCalendar() {
       cell.appendChild(acceptLayer)
     }
 
-    // 點空白格子 → 空格詳細（查看他人、過去日期停用）
-    if (isCur && viewUserId === MY_USER_ID && !isPast(ds)) {
+    // 點空白格子 → 空格詳細（只有當天真的沒有任何任務才掛；查看他人、過去日期停用）
+    const _hasTasks = _ownFlights.length > 0 || _ownNF.length > 0
+    if (isCur && viewUserId === MY_USER_ID && !isPast(ds) && !_hasTasks) {
       cell.style.cursor = 'pointer'
       cell.addEventListener('click', () => showEmptyDayDetail(ds))
     }
