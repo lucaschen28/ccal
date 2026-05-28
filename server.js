@@ -322,14 +322,21 @@ function adminAuth(req, res, next) {
 // 使用者列表
 app.get('/api/admin/users', adminAuth, (req, res) => {
   try {
-    const files = fs.readdirSync(DATA_DIR).filter(f => /^[a-zA-Z0-9]{4,12}\.json$/.test(f))
-    const users = files.map(f => {
-      const userId = f.replace('.json', '')
-      const data = readData(path.join(DATA_DIR, f))
+    const allFiles = fs.readdirSync(DATA_DIR)
+    const scheduleFiles = new Set(allFiles.filter(f => /^[a-zA-Z0-9]{4,12}\.json$/.test(f)).map(f => f.replace('.json', '')))
+    const profileFiles = allFiles.filter(f => /^[a-zA-Z0-9]{4,12}_profile\.json$/.test(f)).map(f => f.replace('_profile.json', ''))
+    const userIds = new Set([...scheduleFiles, ...profileFiles])
+    const users = [...userIds].map(userId => {
+      const scheduleFile = path.join(DATA_DIR, `${userId}.json`)
+      const data = scheduleFiles.has(userId) ? readData(scheduleFile) : []
       let empId = ''
-      try { empId = JSON.parse(fs.readFileSync(path.join(DATA_DIR, `${userId}_profile.json`), 'utf8')).empId || '' } catch {}
-      const stat = fs.statSync(path.join(DATA_DIR, f))
-      return { userId, count: data.length, empId, lastUpdate: stat.mtime }
+      let lastUpdate = null
+      try {
+        const p = JSON.parse(fs.readFileSync(path.join(DATA_DIR, `${userId}_profile.json`), 'utf8'))
+        empId = p.empId || ''
+      } catch {}
+      try { lastUpdate = fs.statSync(scheduleFile).mtime } catch {}
+      return { userId, count: data.length, empId, lastUpdate }
     })
     res.json(users)
   } catch (e) { res.status(500).json({ error: e.message }) }
