@@ -42,8 +42,6 @@
     .fab-icon { width:44px; height:44px; border-radius:50%; background:#fff; border:none; font-size:20px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.14); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     #fab-backdrop { display:none; position:fixed; inset:0; z-index:-1; }
     #fab-backdrop.active { display:block; }
-    /* 手機上不顯示「電腦版」FAB 項目 */
-    @media (max-width: 599px) { #fab-item-view { display:none; } }
     /* 電腦上手機版模式：FAB 跟著 390px 容器靠右 */
     @media (min-width: 600px) {
       body:not(.desktop-mode) #fab-wrap { right: calc((100vw - 390px) / 2 + 16px); }
@@ -299,14 +297,6 @@
 <div id="fab-wrap">
   <div id="fab-backdrop" onclick="closeFab()"></div>
   <div id="fab-items">
-    <div class="fab-item" id="fab-item-view" onclick="closeFab();toggleViewMode()">
-      <span class="fab-label" id="view-toggle-label">電腦版</span>
-      <button class="fab-icon" id="view-toggle-btn" tabindex="-1">🖥</button>
-    </div>
-    <div class="fab-item" onclick="closeFab();openPwaModal()">
-      <span class="fab-label">加入主畫面</span>
-      <button class="fab-icon" tabindex="-1">📲</button>
-    </div>
     <div class="fab-item" onclick="closeFab();showSettingsModal(false)">
       <span class="fab-label">設定</span>
       <button class="fab-icon" tabindex="-1">⚙️</button>
@@ -1429,33 +1419,41 @@ async function showSettingsModal(fromSwap) {
     : fromSwap && window._swapTask
     ? `← <span style="color:#007aff;cursor:pointer;" onclick="showSwapForm()">返回</span>`
     : ''
+  const isDesktop = document.body.classList.contains('desktop-mode')
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date" style="margin-bottom:6px;">${backLink}</div>
     <div class="task-route" style="margin-bottom:14px;">設定</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
-      <div class="sf-group">
-        <div class="sf-label">LINE User ID</div>
-        <input class="sf-input" id="sf-userid" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="${s.lineUserId||''}" autocomplete="off" spellcheck="false">
-        <a href="https://line.me/R/oaMessage/@691qdwyq/?%E6%88%91%E7%9A%84ID" target="_blank"
-          style="display:block;margin-top:6px;font-size:12px;color:#007aff;text-decoration:none;">
-          💬 一鍵開啟 Bot，點送出即可取得 ID
-        </a>
-      </div>
-      <div class="sf-group">
-        <div class="sf-label">顯示名稱（換班板上的署名）</div>
-        <input class="sf-input" id="sf-name" placeholder="例：員編或暱稱" value="${s.displayName || localStorage.getItem('cCalEmpId') || ''}">
-      </div>
-      <div class="sf-group">
-        <div class="sf-label">LINE 公開 ID（選填，讓對方可以加你好友）</div>
-        <input class="sf-input" id="sf-linepublic" placeholder="例：@eva_chen" value="${s.linePublicId||''}" autocomplete="off" spellcheck="false">
-      </div>
-      <input type="hidden" id="sf-boturl" value="${s.botUrl||''}">
-      <input type="hidden" id="sf-secret" value="${s.apiSecret||''}">
-      <button class="sf-save-btn" onclick="saveSettingsForm()">儲存設定</button>
-      <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c;margin-top:4px" onclick="copyInviteLink(this)">📋 複製邀請連結（傳給組員）</button>
-      <button class="sf-save-btn" style="background:#fff;color:#ff3b30;border:1.5px solid #ff3b30;margin-top:4px" onclick="doLogout()">登出 / 切換帳號</button>
 
-      <div style="border-top:1px solid #e5e5ea;margin-top:4px;padding-top:14px;">
+      <!-- 1. 複製邀請連結 -->
+      <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c" onclick="copyInviteLink(this)">📋 複製邀請連結（傳給組員）</button>
+
+      <!-- 2. 我的個人設定 -->
+      <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">我的個人設定</div>
+        <div class="sf-group">
+          <div class="sf-label">LINE User ID</div>
+          <input class="sf-input" id="sf-userid" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="${s.lineUserId||''}" autocomplete="off" spellcheck="false">
+          <a href="https://line.me/R/oaMessage/@691qdwyq/?%E6%88%91%E7%9A%84ID" target="_blank"
+            style="display:block;margin-top:6px;font-size:12px;color:#007aff;text-decoration:none;">
+            💬 一鍵開啟 Bot，點送出即可取得 ID
+          </a>
+        </div>
+        <div class="sf-group">
+          <div class="sf-label">顯示名稱（換班板上的署名）</div>
+          <input class="sf-input" id="sf-name" placeholder="例：員編或暱稱" value="${s.displayName || localStorage.getItem('cCalEmpId') || ''}">
+        </div>
+        <div class="sf-group">
+          <div class="sf-label">LINE 公開 ID（選填，讓對方可以加你好友）</div>
+          <input class="sf-input" id="sf-linepublic" placeholder="例：@eva_chen" value="${s.linePublicId||''}" autocomplete="off" spellcheck="false">
+        </div>
+        <input type="hidden" id="sf-boturl" value="${s.botUrl||''}">
+        <input type="hidden" id="sf-secret" value="${s.apiSecret||''}">
+        <button class="sf-save-btn" onclick="saveSettingsForm()">儲存設定</button>
+      </div>
+
+      <!-- 3. 設定個人 PIN -->
+      <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">${hasPin ? '更改個人 PIN' : '設定個人 PIN'}</div>
         ${hasPin ? `<div class="sf-group">
           <div class="sf-label">目前 PIN</div>
@@ -1472,6 +1470,24 @@ async function showSettingsModal(fromSwap) {
         <button class="sf-save-btn" style="background:#ff9500;margin-top:4px" onclick="savePIN(${hasPin})">儲存 PIN</button>
         <div id="sf-pin-msg" style="font-size:12px;text-align:center;min-height:16px;margin-top:6px;"></div>
       </div>
+
+      <!-- 4. 登出 / 切換帳號 -->
+      <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
+        <button class="sf-save-btn" style="background:#fff;color:#ff3b30;border:1.5px solid #ff3b30" onclick="doLogout()">登出 / 切換帳號</button>
+      </div>
+
+      <!-- 5. 切換電腦/手機版面 -->
+      <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">版面切換</div>
+        <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c" onclick="toggleViewMode();showSettingsModal(false)">${isDesktop ? '📱 切換為手機版' : '🖥 切換為電腦版'}</button>
+      </div>
+
+      <!-- 6. 加入主畫面 -->
+      <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
+        <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">加入主畫面</div>
+        <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c" onclick="document.getElementById('modal-overlay').classList.remove('active');openPwaModal()">📲 加入主畫面說明</button>
+      </div>
+
     </div>
   `
   document.getElementById('modal-overlay').classList.add('active')
@@ -2485,21 +2501,12 @@ function saveEmpIdFromModal() {
 // user-code-btn removed (now FAB item)
 
 // 手機/電腦版切換
-function _updateViewToggle() {
-  const on = document.body.classList.contains('desktop-mode')
-  const btn = document.getElementById('view-toggle-btn')
-  const lbl = document.getElementById('view-toggle-label')
-  if (btn) btn.textContent = on ? '📱' : '🖥'
-  if (lbl) lbl.textContent = on ? '手機版' : '電腦版'
-}
 function toggleViewMode() {
   document.body.classList.toggle('desktop-mode')
   localStorage.setItem('cCalDesktopMode', document.body.classList.contains('desktop-mode') ? '1' : '0')
-  _updateViewToggle()
   renderCalendar()
 }
 if (localStorage.getItem('cCalDesktopMode') === '1') document.body.classList.add('desktop-mode')
-_updateViewToggle()
 
 document.getElementById('prev').addEventListener('click', () => {
   if (--currentMonth < 0) { currentMonth=11; currentYear-- }
