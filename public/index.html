@@ -2036,7 +2036,14 @@ async function quickCompare(code, name) {
 
 const _CONTACTS_KEY = 'ccal_contacts_' + MY_USER_ID
 function _getCachedContacts() {
-  try { return JSON.parse(localStorage.getItem(_CONTACTS_KEY) || '[]') } catch { return [] }
+  try {
+    const val = localStorage.getItem(_CONTACTS_KEY)
+    if (val) return JSON.parse(val)
+    // 舊 key 遷移
+    const old = localStorage.getItem('ccal_contacts_cache')
+    if (old) { localStorage.setItem(_CONTACTS_KEY, old); return JSON.parse(old) }
+    return []
+  } catch { return [] }
 }
 async function _fetchContacts() {
   // 永遠先讀本地快取
