@@ -1363,6 +1363,13 @@ async function submitSwap() {
   }
   if (window._swapType === 'throw') body.flights = window._swapFlights
   else body.date = window._swapDate
+  // 如果任務月份 > 今天月份，告知 bot 這是下個月的班
+  const _fullDate = (window._swapTask && window._swapTask.startDate) || window._emptySwapDate
+  if (_fullDate) {
+    const _taskMonth = parseInt(_fullDate.split('-')[1])
+    const _curMonth  = new Date().getMonth() + 1
+    if (_taskMonth > _curMonth) body.confirmedNextMonth = true
+  }
 
   try {
     const res = await fetch(s.botUrl + '/api/post-shift', {
