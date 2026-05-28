@@ -230,15 +230,23 @@
 <body>
 
 <!-- 內建瀏覽器（WebView）偵測提示 -->
-<div id="inapp-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#fff;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;">
-  <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+<div id="inapp-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#fff;overflow-y:auto;flex-direction:column;align-items:center;justify-content:flex-start;padding:48px 24px 32px;text-align:center;">
+  <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
   <div style="font-size:20px;font-weight:700;margin-bottom:8px;">請用瀏覽器開啟</div>
-  <div style="font-size:14px;color:#3c3c43;line-height:1.7;margin-bottom:28px;">
+  <div style="font-size:14px;color:#3c3c43;line-height:1.7;margin-bottom:20px;">
     目前是在 App 內建的瀏覽器中開啟，<br>
     部分功能（離線使用、加入主畫面）<br>
     無法正常運作。
   </div>
-  <div id="inapp-instruction" style="background:#f2f2f7;border-radius:16px;padding:20px 24px;width:100%;max-width:320px;font-size:15px;line-height:2;font-weight:500;"></div>
+  <div style="background:#f2f2f7;border-radius:16px;padding:16px 20px;width:100%;max-width:320px;margin-bottom:10px;">
+    <div style="font-size:11px;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">需要離線使用 / 加入主畫面</div>
+    <div id="inapp-instruction" style="font-size:15px;font-weight:600;line-height:2;"></div>
+  </div>
+  <div onclick="document.getElementById('inapp-overlay').style.display='none'"
+    style="background:#f2f2f7;border-radius:16px;padding:16px 20px;width:100%;max-width:320px;cursor:pointer;">
+    <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">點選這，直接繼續使用 →</div>
+    <div style="font-size:13px;color:#8e8e93;line-height:1.5;">暫時不需要離線功能，<br>先進來試用看看</div>
+  </div>
 </div>
 
 <script>
