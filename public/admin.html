@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CCal 管理者</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f2f2f7; color: #1c1c1e; min-height: 100vh; }
+
+    /* 密碼閘門 */
+    .gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    .gate-card { background: #fff; border-radius: 20px; padding: 32px 24px; width: 100%; max-width: 360px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+    .gate-title { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+    .gate-sub { font-size: 13px; color: #8e8e93; text-align: center; margin-bottom: 24px; }
+    .gate-input { width: 100%; border: 1px solid #e5e5ea; border-radius: 10px; padding: 12px 14px; font-size: 16px; outline: none; margin-bottom: 12px; }
+    .gate-input:focus { border-color: #007aff; }
+    .gate-btn { width: 100%; background: #007aff; color: #fff; border: none; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .gate-btn:disabled { opacity: 0.5; }
+    .gate-err { color: #ff3b30; font-size: 13px; text-align: center; margin-top: 8px; min-height: 18px; }
+
+    /* 主頁面 */
+    #admin-content { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .admin-title { font-size: 20px; font-weight: 700; }
+    .logout-btn { font-size: 13px; color: #ff3b30; background: none; border: none; cursor: pointer; padding: 4px 8px; }
+
+    /* 卡片 */
+    .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+    .card-title { font-size: 13px; font-weight: 600; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+    /* 使用者列表 */
+    .user-row { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #f2f2f7; gap: 10px; }
+    .user-row:last-child { border-bottom: none; }
+    .user-id { font-size: 13px; font-weight: 700; color: #007aff; font-family: monospace; min-width: 60px; }
+    .user-info { flex: 1; }
+    .user-name { font-size: 14px; font-weight: 600; }
+    .user-meta { font-size: 12px; color: #8e8e93; margin-top: 2px; }
+    .delete-btn { background: none; border: 1px solid #ff3b30; color: #ff3b30; border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    .delete-btn:hover { background: #fff1f0; }
+
+    /* 設定 */
+    .sf-group { margin-bottom: 14px; }
+    .sf-label { font-size: 13px; color: #8e8e93; margin-bottom: 6px; }
+    .sf-input { width: 100%; border: 1px solid #e5e5ea; border-radius: 8px; padding: 10px 12px; font-size: 14px; outline: none; font-family: inherit; }
+    .sf-input:focus { border-color: #007aff; }
+    .save-btn { width: 100%; background: #34c759; color: #fff; border: none; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 4px; }
+    .save-btn:disabled { opacity: 0.5; }
+    .save-msg { text-align: center; font-size: 13px; color: #34c759; margin-top: 8px; min-height: 18px; }
+
+    /* 統計數字 */
+    .stat-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .stat-box { flex: 1; background: #f2f2f7; border-radius: 10px; padding: 12px; text-align: center; }
+    .stat-num { font-size: 28px; font-weight: 700; color: #007aff; }
+    .stat-label { font-size: 11px; color: #8e8e93; margin-top: 2px; }
+
+    .empty-hint { text-align: center; color: #8e8e93; font-size: 14px; padding: 20px 0; }
+    .loading { text-align: center; color: #8e8e93; font-size: 14px; padding: 20px 0; }
+  </style>
+</head>
+<body>
+
+<!-- 密碼閘門 -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-title">⚙ 管理者</div>
+    <div class="gate-sub">CCal 系統管理</div>
+    <input class="gate-input" id="admin-pw" type="password" placeholder="管理者密碼"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="gate-btn" id="login-btn" onclick="doLogin()">進入</button>
+    <div class="gate-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- 管理主頁面 -->
+<div id="admin-content">
+  <div class="admin-header">
+    <div class="admin-title">⚙ 管理者</div>
+    <button class="logout-btn" onclick="doLogout()">登出</button>
+  </div>
+
+  <!-- 統計 -->
+  <div class="card">
+    <div class="card-title">系統概況</div>
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-num" id="stat-users">—</div>
+        <div class="stat-label">使用中用戶</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-entries">—</div>
+        <div class="stat-label">班表總筆數</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 換班板全域設定 -->
+  <div class="card">
+    <div class="card-title">換班板全域設定</div>
+    <div class="sf-group">
+      <div class="sf-label">Bot URL</div>
+      <input class="sf-input" id="cfg-boturl" placeholder="https://crew-swap-bot-production.up.railway.app">
+    </div>
+    <div class="sf-group">
+      <div class="sf-label">API Secret</div>
+      <input class="sf-input" id="cfg-secret" placeholder="API Secret">
+    </div>
+    <button class="save-btn" id="cfg-save-btn" onclick="saveConfig()">儲存設定</button>
+    <div class="save-msg" id="cfg-save-msg"></div>
+  </div>
+
+  <!-- 使用者列表 -->
+  <div class="card">
+    <div class="card-title">使用者列表</div>
+    <div id="user-list"><div class="loading">載入中…</div></div>
+  </div>
+</div>
+
+<script>
+let _adminPw = ''
+
+async function doLogin() {
+  const pw = document.getElementById('admin-pw').value.trim()
+  if (!pw) return
+  const btn = document.getElementById('login-btn')
+  btn.disabled = true; btn.textContent = '驗證中…'
+  try {
+    const res = await fetch('/api/admin/users', { headers: { 'x-admin-password': pw } })
+    if (res.status === 403) {
+      document.getElementById('login-err').textContent = '密碼錯誤'
+      btn.disabled = false; btn.textContent = '進入'
+      return
+    }
+    if (res.status === 503) {
+      document.getElementById('login-err').textContent = '管理者密碼未設定，請先在 Railway 設定 ADMIN_PASSWORD'
+      btn.disabled = false; btn.textContent = '進入'
+      return
+    }
+    _adminPw = pw
+    sessionStorage.setItem('adminPw', pw)
+    document.getElementById('gate').style.display = 'none'
+    document.getElementById('admin-content').style.display = 'block'
+    const users = await res.json()
+    renderUsers(users)
+    loadConfig()
+  } catch {
+    document.getElementById('login-err').textContent = '連線失敗'
+    btn.disabled = false; btn.textContent = '進入'
+  }
+}
+
+function doLogout() {
+  _adminPw = ''
+  sessionStorage.removeItem('adminPw')
+  document.getElementById('gate').style.display = 'flex'
+  document.getElementById('admin-content').style.display = 'none'
+  document.getElementById('admin-pw').value = ''
+  document.getElementById('login-btn').disabled = false
+  document.getElementById('login-btn').textContent = '進入'
+}
+
+function renderUsers(users) {
+  const total = users.reduce((s, u) => s + u.count, 0)
+  document.getElementById('stat-users').textContent = users.length
+  document.getElementById('stat-entries').textContent = total
+
+  if (!users.length) {
+    document.getElementById('user-list').innerHTML = '<div class="empty-hint">尚無使用者資料</div>'
+    return
+  }
+  users.sort((a, b) => b.count - a.count)
+  document.getElementById('user-list').innerHTML = users.map(u => `
+    <div class="user-row" id="row-${u.userId}">
+      <div class="user-id">${u.userId}</div>
+      <div class="user-info">
+        <div class="user-name">${u.empId ? `員編 ${u.empId}` : '（未填員編）'}</div>
+        <div class="user-meta">${u.count} 筆班表　${u.lastUpdate ? '最後更新 ' + fmtDate(u.lastUpdate) : ''}</div>
+      </div>
+      <button class="delete-btn" onclick="deleteUser('${u.userId}')">刪除</button>
+    </div>`).join('')
+}
+
+async function deleteUser(userId) {
+  if (!confirm(`確定刪除 ${userId} 的所有資料？此動作無法復原。`)) return
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-password': _adminPw }
+    })
+    if (res.ok) {
+      document.getElementById(`row-${userId}`)?.remove()
+      const rows = document.querySelectorAll('.user-row').length
+      document.getElementById('stat-users').textContent = rows
+    } else {
+      alert('刪除失敗')
+    }
+  } catch { alert('連線失敗') }
+}
+
+async function loadConfig() {
+  try {
+    const res = await fetch('/api/admin/config', { headers: { 'x-admin-password': _adminPw } })
+    if (!res.ok) return
+    const cfg = await res.json()
+    document.getElementById('cfg-boturl').value = cfg.botUrl || ''
+    document.getElementById('cfg-secret').value = cfg.apiSecret || ''
+  } catch {}
+}
+
+async function saveConfig() {
+  const btn = document.getElementById('cfg-save-btn')
+  btn.disabled = true; btn.textContent = '儲存中…'
+  try {
+    const res = await fetch('/api/admin/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': _adminPw },
+      body: JSON.stringify({
+        botUrl: document.getElementById('cfg-boturl').value.trim(),
+        apiSecret: document.getElementById('cfg-secret').value.trim()
+      })
+    })
+    if (res.ok) {
+      document.getElementById('cfg-save-msg').textContent = '✓ 已儲存'
+      setTimeout(() => { document.getElementById('cfg-save-msg').textContent = '' }, 2000)
+    }
+  } catch {}
+  btn.disabled = false; btn.textContent = '儲存設定'
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso)
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+// 自動登入（session 內）
+const savedPw = sessionStorage.getItem('adminPw')
+if (savedPw) {
+  document.getElementById('admin-pw').value = savedPw
+  doLogin()
+}
+</script>
+</body>
+</html>

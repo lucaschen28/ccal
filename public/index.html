@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>CCal 班表</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="CCal">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <meta name="theme-color" content="#007aff">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f2f2f7; color: #1c1c1e; }
@@ -36,7 +42,7 @@
     .nav-btn { background:none; border:none; font-size:22px; cursor:pointer; padding:4px 12px; color:#007aff; }
     .month-label { font-size:17px; font-weight:600; }
     .user-label { font-size:11px; color:#8e8e93; text-align:center; padding-bottom:2px; letter-spacing:0.5px; }
-    .refresh-btn { background:none; border:none; font-size:16px; cursor:pointer; padding:4px 8px; color:#8e8e93; }
+
 
     .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); background:#fff; border-bottom:1px solid #e5e5ea; }
     .weekday-row div { text-align:center; padding:5px 0; font-size:11px; color:#8e8e93; font-weight:500; }
@@ -213,7 +219,7 @@
       <button class="settings-btn" id="import-pdf-btn" title="匯入 eCrew PDF 班表">📥</button>
       <button class="settings-btn" id="user-code-btn" title="我的代碼 / 看別人班表">👥</button>
       <button class="settings-btn" id="settings-btn" title="換班板設定">⚙</button>
-      <button class="refresh-btn" id="refresh-btn" title="從行事曆更新資料">↻</button>
+      <button class="settings-btn" id="pwa-btn" title="加入主畫面">📲</button>
       <button class="nav-btn" id="next">›</button>
     </div>
   </div>
@@ -1262,25 +1268,51 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) e.currentTarget.classList.remove('active')
 })
 
-document.getElementById('refresh-btn').addEventListener('click', async () => {
-  const btn = document.getElementById('refresh-btn')
-  btn.textContent = '⏳'
-  btn.disabled = true
-  try {
-    const res = await fetch('/api/refresh', { method: 'POST' })
-    if (res.ok) {
-      await loadSchedule()
-      btn.textContent = '✓'
-      setTimeout(() => { btn.textContent = '↻'; btn.disabled = false }, 1500)
-    } else {
-      btn.textContent = '✗'
-      setTimeout(() => { btn.textContent = '↻'; btn.disabled = false }, 2000)
-    }
-  } catch {
-    btn.textContent = '✗'
-    setTimeout(() => { btn.textContent = '↻'; btn.disabled = false }, 2000)
+// ── 加入主畫面 ───────────────────────────────────────────────
+let _pwaInstallPrompt = null
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault()
+  _pwaInstallPrompt = e
+})
+document.getElementById('pwa-btn').addEventListener('click', () => {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone
+  if (isStandalone) {
+    showPwaModal('✅ 已加入主畫面', '你已經在使用主畫面版本了！')
+    return
+  }
+  if (_pwaInstallPrompt) {
+    _pwaInstallPrompt.prompt()
+    _pwaInstallPrompt.userChoice.then(() => { _pwaInstallPrompt = null })
+    return
+  }
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  if (isIOS) {
+    showPwaModal('📲 加入主畫面（iOS）',
+      `<ol style="line-height:2;padding-left:20px">
+        <li>點下方中間的 <strong>↑ 分享</strong> 按鈕</li>
+        <li>向下捲動，點選 <strong>「加入主畫面」</strong></li>
+        <li>右上角點 <strong>「新增」</strong></li>
+      </ol>
+      <div style="margin-top:12px;color:#8e8e93;font-size:12px">加入後從主畫面開啟，體驗更像原生 App</div>`)
+  } else {
+    showPwaModal('📲 加入主畫面（Android）',
+      `<ol style="line-height:2;padding-left:20px">
+        <li>點右上角 <strong>⋮ 選單</strong></li>
+        <li>選擇 <strong>「新增至主畫面」</strong> 或 <strong>「安裝應用程式」</strong></li>
+      </ol>
+      <div style="margin-top:12px;color:#8e8e93;font-size:12px">加入後從主畫面開啟，體驗更像原生 App</div>`)
   }
 })
+function showPwaModal(title, body) {
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:16px;font-weight:700;margin-bottom:12px">${title}</div>
+    <div style="font-size:14px;color:#3c3c43;line-height:1.6">${body}</div>
+    <button onclick="document.getElementById('modal-overlay').classList.remove('active')"
+      style="width:100%;margin-top:20px;padding:12px;background:#007aff;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer">
+      好
+    </button>`
+  document.getElementById('modal-overlay').classList.add('active')
+}
 // ── Settings ────────────────────────────────────────────────
 function getSettings() {
   try { return JSON.parse(localStorage.getItem('cCalSettings') || '{}') } catch { return {} }

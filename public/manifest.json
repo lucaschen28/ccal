@@ -1,0 +1,17 @@
+{
+  "name": "CCal 班表",
+  "short_name": "CCal",
+  "description": "華航組員班表行事曆",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2f2f7",
+  "theme_color": "#007aff",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

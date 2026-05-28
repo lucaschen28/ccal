@@ -272,6 +272,53 @@ app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
   }
 })
 
+// ── 管理者 API ───────────────────────────────────────────────
+function adminAuth(req, res, next) {
+  const pw = process.env.ADMIN_PASSWORD
+  if (!pw) return res.status(503).json({ error: '管理者密碼未設定，請在 Railway 設定 ADMIN_PASSWORD' })
+  if (req.headers['x-admin-password'] !== pw) return res.status(403).json({ error: '密碼錯誤' })
+  next()
+}
+
+// 使用者列表
+app.get('/api/admin/users', adminAuth, (req, res) => {
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => /^[a-zA-Z0-9]{4,12}\.json$/.test(f))
+    const users = files.map(f => {
+      const userId = f.replace('.json', '')
+      const data = readData(path.join(DATA_DIR, f))
+      let empId = ''
+      try { empId = JSON.parse(fs.readFileSync(path.join(DATA_DIR, `${userId}_profile.json`), 'utf8')).empId || '' } catch {}
+      const stat = fs.statSync(path.join(DATA_DIR, f))
+      return { userId, count: data.length, empId, lastUpdate: stat.mtime }
+    })
+    res.json(users)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// 刪除使用者（所有相關檔案）
+app.delete('/api/admin/users/:userId', adminAuth, (req, res) => {
+  const fp = userPath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  const base = fp.replace(/\.json$/, '')
+  ;['.json', '_profile.json', '_settings.json', '_contacts.json'].forEach(ext => {
+    try { fs.unlinkSync(base + ext) } catch {}
+  })
+  res.json({ ok: true })
+})
+
+// 全域設定（Bot URL、API Secret）
+const GLOBAL_CONFIG_PATH = path.join(DATA_DIR, '_global_config.json')
+app.get('/api/admin/config', adminAuth, (req, res) => {
+  try { res.json(JSON.parse(fs.readFileSync(GLOBAL_CONFIG_PATH, 'utf8'))) }
+  catch { res.json({}) }
+})
+app.post('/api/admin/config', adminAuth, (req, res) => {
+  const { botUrl, apiSecret } = req.body
+  fs.writeFileSync(GLOBAL_CONFIG_PATH, JSON.stringify({ botUrl: botUrl || '', apiSecret: apiSecret || '' }, null, 2))
+  res.json({ ok: true })
+})
+
 app.listen(PORT, () => {
   console.log(`✅ CCal 啟動：http://localhost:${PORT}`)
   console.log(`📁 資料目錄：${DATA_DIR}`)
