@@ -198,6 +198,8 @@
     .sf-input { width:100%; border:1px solid #e5e5ea; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; font-family:inherit; background:#fff; }
     .sf-input:focus { border-color:#007aff; }
     .sf-save-btn { width:100%; background:#34c759; color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; margin-top:4px; }
+    #offline-bar { display:none; background:#ff9500; color:#fff; font-size:12px; font-weight:600; text-align:center; padding:5px 12px; }
+    #offline-bar.active { display:block; }
   </style>
 </head>
 <body>
@@ -217,6 +219,7 @@
   </div>
   <div class="user-label" id="user-label"></div>
 </header>
+<div id="offline-bar"></div>
 <div class="weekday-row">
   <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
 </div>
@@ -278,6 +281,135 @@ const MY_USER_ID = localStorage.getItem('cCalUserId') || _genId()
 // ?view=XXXXXX → 查看他人班表
 let viewUserId = (new URLSearchParams(location.search).get('view') || MY_USER_ID).toUpperCase()
 const IS_VIEWING_OTHER = viewUserId !== MY_USER_ID
+
+// ── IndexedDB (離線快取) ──────────────────────────────────────
+let _idb = null
+function idbOpen() {
+  if (_idb) return Promise.resolve(_idb)
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ccal-offline', 1)
+    req.onupgradeneeded = e => {
+      const db = e.target.result
+      if (!db.objectStoreNames.contains('scheduleCache'))
+        db.createObjectStore('scheduleCache', { keyPath: 'userId' })
+      if (!db.objectStoreNames.contains('syncQueue'))
+        db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true })
+    }
+    req.onsuccess = e => { _idb = e.target.result; resolve(_idb) }
+    req.onerror = () => reject(req.error)
+  })
+}
+async function idbGetSchedule(userId) {
+  try {
+    const db = await idbOpen()
+    return await new Promise(resolve => {
+      const req = db.transaction('scheduleCache').objectStore('scheduleCache').get(userId)
+      req.onsuccess = () => resolve(req.result || null)
+      req.onerror = () => resolve(null)
+    })
+  } catch { return null }
+}
+async function idbSaveSchedule(userId, entries) {
+  try {
+    const db = await idbOpen()
+    await new Promise(resolve => {
+      const tx = db.transaction('scheduleCache', 'readwrite')
+      tx.objectStore('scheduleCache').put({ userId, entries, cachedAt: Date.now() })
+      tx.oncomplete = resolve; tx.onerror = resolve
+    })
+  } catch {}
+}
+async function idbAddToSyncQueue(method, url, body) {
+  try {
+    const db = await idbOpen()
+    await new Promise(resolve => {
+      const tx = db.transaction('syncQueue', 'readwrite')
+      tx.objectStore('syncQueue').add({ method, url, body, queuedAt: Date.now() })
+      tx.oncomplete = resolve; tx.onerror = resolve
+    })
+  } catch {}
+}
+async function idbGetSyncQueue() {
+  try {
+    const db = await idbOpen()
+    return await new Promise(resolve => {
+      const req = db.transaction('syncQueue').objectStore('syncQueue').getAll()
+      req.onsuccess = () => resolve(req.result || [])
+      req.onerror = () => resolve([])
+    })
+  } catch { return [] }
+}
+async function idbDeleteFromSyncQueue(id) {
+  try {
+    const db = await idbOpen()
+    await new Promise(resolve => {
+      const tx = db.transaction('syncQueue', 'readwrite')
+      tx.objectStore('syncQueue').delete(id)
+      tx.oncomplete = resolve; tx.onerror = resolve
+    })
+  } catch {}
+}
+
+// ── 離線 banner ───────────────────────────────────────────────
+function _showOfflineBanner(cachedAt, pendingCount) {
+  const el = document.getElementById('offline-bar')
+  if (!el) return
+  const d = new Date(cachedAt)
+  const ts = `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  const pending = pendingCount > 0 ? ` · ${pendingCount} 項操作待同步` : ''
+  el.textContent = `📴 離線中${pending} · 資料為 ${ts} 的版本`
+  el.classList.add('active')
+}
+function _hideOfflineBanner() {
+  document.getElementById('offline-bar')?.classList.remove('active')
+}
+
+// ── API 包裝（支援離線佇列）────────────────────────────────────
+async function apiPost(url, body) {
+  if (!navigator.onLine) {
+    if (!body.id) body.id = 'manual_' + Date.now() + '_' + Math.floor(Math.random() * 9999)
+    body.manually_added = true
+    await idbAddToSyncQueue('POST', url, body)
+    const local = await idbGetSchedule(MY_USER_ID)
+    if (local) await idbSaveSchedule(MY_USER_ID, [...local.entries, body])
+    const q = await idbGetSyncQueue()
+    const loc = await idbGetSchedule(MY_USER_ID)
+    _showOfflineBanner(loc ? loc.cachedAt : Date.now(), q.length)
+    return { ok: true, entry: body, _offline: true }
+  }
+  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) })
+  return res.json()
+}
+async function apiDelete(url) {
+  if (!navigator.onLine) {
+    const id = url.split('/').pop()
+    await idbAddToSyncQueue('DELETE', url, null)
+    const local = await idbGetSchedule(MY_USER_ID)
+    if (local) await idbSaveSchedule(MY_USER_ID, local.entries.filter(e => e.id !== id))
+    const q = await idbGetSyncQueue()
+    const loc = await idbGetSchedule(MY_USER_ID)
+    _showOfflineBanner(loc ? loc.cachedAt : Date.now(), q.length)
+    return { ok: true, _offline: true }
+  }
+  await fetch(url, { method:'DELETE' }).catch(() => {})
+  return { ok: true }
+}
+
+// ── 同步佇列 flush（上線時呼叫）───────────────────────────────
+async function flushSyncQueue() {
+  const queue = await idbGetSyncQueue()
+  if (!queue.length) return
+  for (const item of queue) {
+    try {
+      const opts = { method: item.method }
+      if (item.body) { opts.headers = {'Content-Type':'application/json'}; opts.body = JSON.stringify(item.body) }
+      const res = await fetch(item.url, opts)
+      if (res.ok || res.status === 404) await idbDeleteFromSyncQueue(item.id)
+    } catch { break }
+  }
+  await loadSchedule()
+  _hideOfflineBanner()
+}
 
 function hhmm(s) { return s && s.length >= 4 ? s.slice(0,2)+':'+s.slice(2,4) : '--' }
 function padFN(n) { return String(n).padStart(3, '0') }
@@ -464,8 +596,22 @@ function compareTasksOnDate(tasks, dateStr) {
 }
 
 async function loadSchedule() {
-  const res = await fetch(`/api/schedule/${viewUserId}`)
-  scheduleData = await res.json()
+  try {
+    const res = await fetch(`/api/schedule/${viewUserId}`)
+    if (!res.ok) throw new Error('http')
+    scheduleData = await res.json()
+    await idbSaveSchedule(viewUserId, scheduleData)
+    _hideOfflineBanner()
+  } catch {
+    const local = await idbGetSchedule(viewUserId)
+    if (local) {
+      scheduleData = local.entries
+      const q = await idbGetSyncQueue()
+      _showOfflineBanner(local.cachedAt, q.length)
+    } else {
+      scheduleData = []
+    }
+  }
   tasks = groupTasks(scheduleData.filter(e => e.type === 'flight'))
   renderCalendar()
   _updateViewBanner()
@@ -1088,7 +1234,7 @@ function showNonFlightDetail(ev) {
 
 async function deleteNonFlight(id) {
   if (!confirm('確定刪除？')) return
-  await fetch(`/api/schedule/${MY_USER_ID}/${id}`, { method:'DELETE' }).catch(()=>{})
+  await apiDelete(`/api/schedule/${MY_USER_ID}/${id}`)
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
 }
@@ -1669,15 +1815,13 @@ async function submitFlight(baseDate) {
     const entry = { type:'standby', code: fn, date: baseDate, manually_added: true }
     if (_taskSbyStart) entry.start_time = _taskSbyStart.replace(':','')
     if (_taskSbyEnd)   entry.end_time   = _taskSbyEnd.replace(':','')
-    try {
-      if (_editNonFlight && _editNonFlight.id) {
-        await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
-        _editNonFlight = null
-      }
-      await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
-      document.getElementById('modal-overlay').classList.remove('active')
-      await loadSchedule()
-    } catch { _showFormErr('連線失敗，請稍後再試') }
+    if (_editNonFlight && _editNonFlight.id) {
+      await apiDelete(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`)
+      _editNonFlight = null
+    }
+    await apiPost(`/api/schedule/${MY_USER_ID}`, entry)
+    document.getElementById('modal-overlay').classList.remove('active')
+    await loadSchedule()
     return
   }
 
@@ -1691,15 +1835,13 @@ async function submitFlight(baseDate) {
       date: baseDate,
       manually_added: true
     }
-    try {
-      if (_editNonFlight && _editNonFlight.id) {
-        await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
-        _editNonFlight = null
-      }
-      await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
-      document.getElementById('modal-overlay').classList.remove('active')
-      await loadSchedule()
-    } catch { _showFormErr('連線失敗，請稍後再試') }
+    if (_editNonFlight && _editNonFlight.id) {
+      await apiDelete(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`)
+      _editNonFlight = null
+    }
+    await apiPost(`/api/schedule/${MY_USER_ID}`, entry)
+    document.getElementById('modal-overlay').classList.remove('active')
+    await loadSchedule()
     return
   }
 
@@ -1716,15 +1858,13 @@ async function submitFlight(baseDate) {
       endDate: addDays(baseDate, days - 1),
       manually_added: true
     }
-    try {
-      if (_editNonFlight && _editNonFlight.id) {
-        await fetch(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`, { method:'DELETE' }).catch(()=>{})
-        _editNonFlight = null
-      }
-      await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
-      document.getElementById('modal-overlay').classList.remove('active')
-      await loadSchedule()
-    } catch { alert('連線失敗') }
+    if (_editNonFlight && _editNonFlight.id) {
+      await apiDelete(`/api/schedule/${MY_USER_ID}/${_editNonFlight.id}`)
+      _editNonFlight = null
+    }
+    await apiPost(`/api/schedule/${MY_USER_ID}`, entry)
+    document.getElementById('modal-overlay').classList.remove('active')
+    await loadSchedule()
     return
   }
 
@@ -1733,7 +1873,7 @@ async function submitFlight(baseDate) {
 
   if (_editTask) {
     for (const leg of _editTask.legs) {
-      if (leg.id) await fetch(`/api/schedule/${MY_USER_ID}/${leg.id}`, { method:'DELETE' }).catch(()=>{})
+      if (leg.id) await apiDelete(`/api/schedule/${MY_USER_ID}/${leg.id}`)
     }
   }
 
@@ -1751,8 +1891,7 @@ async function submitFlight(baseDate) {
     if (seg.arr)    entry.arrival_scheduled   = seg.arr.replace(':','')
     if (seg.acType) entry.aircraft_type = seg.acType
     if (i === 0 && _taskRep) entry.reporting = _taskRep.replace(':','')
-    const res = await fetch(`/api/schedule/${MY_USER_ID}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(entry) })
-    const data = await res.json()
+    const data = await apiPost(`/api/schedule/${MY_USER_ID}`, entry)
     if (!data.ok) { _showFormErr('儲存失敗'); return }
   }
   document.getElementById('modal-overlay').classList.remove('active')
@@ -1763,7 +1902,7 @@ async function deleteEntry() {
   const task = _editTask || window._swapTask
   if (!task || !confirm('確定刪除此勤務所有航段？')) return
   for (const leg of task.legs) {
-    if (leg.id) await fetch(`/api/schedule/${MY_USER_ID}/${leg.id}`, { method:'DELETE' }).catch(()=>{})
+    if (leg.id) await apiDelete(`/api/schedule/${MY_USER_ID}/${leg.id}`)
   }
   document.getElementById('modal-overlay').classList.remove('active')
   await loadSchedule()
@@ -1864,14 +2003,27 @@ async function showUserCodeModal() {
 async function quickCompare(code, name) {
   const errEl = document.getElementById('view-code-err')
   if (errEl) errEl.textContent = '載入中…'
-  const res = await fetch(`/api/schedule/${code}`).catch(() => null)
-  if (!res || !res.ok) { if (errEl) errEl.textContent = '找不到此代碼的班表'; return }
-  const data = await res.json()
-  if (!Array.isArray(data) || data.length === 0) { if (errEl) errEl.textContent = '此代碼尚無班表資料'; return }
+  let data
+  if (navigator.onLine) {
+    const res = await fetch(`/api/schedule/${code}`).catch(() => null)
+    if (!res || !res.ok) { if (errEl) errEl.textContent = '找不到此代碼的班表'; return }
+    data = await res.json()
+    if (!Array.isArray(data) || data.length === 0) { if (errEl) errEl.textContent = '此代碼尚無班表資料'; return }
+    await idbSaveSchedule(code, data)
+  } else {
+    const local = await idbGetSchedule(code)
+    if (!local) { if (errEl) errEl.textContent = '離線中，無此人的快照資料'; return }
+    data = local.entries
+    if (errEl) errEl.textContent = ''
+  }
   let displayName = name
   if (!displayName) {
-    const profile = await fetch(`/api/profile/${code}`).then(r => r.json()).catch(() => ({}))
-    displayName = profile.empId || code
+    if (navigator.onLine) {
+      const profile = await fetch(`/api/profile/${code}`).then(r => r.json()).catch(() => ({}))
+      displayName = profile.empId || code
+    } else {
+      displayName = code
+    }
   }
   _addToCompareList(code, data, displayName)
   document.getElementById('modal-overlay').classList.remove('active')
@@ -1936,19 +2088,35 @@ async function toggleSwapBoardMode() {
 async function fetchSwapBoardSummary() {
   const s = getSettings()
   if (!s.botUrl || !s.apiSecret) return
+  function _buildMap(entries) {
+    const map = {}
+    entries.forEach(e => {
+      if (!map[e.dateStr]) map[e.dateStr] = { throw: [], accept: [] }
+      map[e.dateStr][e.type].push(e)
+    })
+    return map
+  }
+  if (!navigator.onLine) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('ccal_swapboard_cache') || 'null')
+      if (cached) swapBoardSummary = _buildMap(cached.entries)
+    } catch {}
+    return
+  }
   try {
     const res = await fetch(s.botUrl + '/api/board-summary', {
       headers: { 'X-CCal-Secret': s.apiSecret }
     })
     if (!res.ok) return
     const entries = await res.json()
-    const map = {}
-    entries.forEach(e => {
-      if (!map[e.dateStr]) map[e.dateStr] = { throw: [], accept: [] }
-      map[e.dateStr][e.type].push(e)
-    })
-    swapBoardSummary = map
-  } catch {}
+    localStorage.setItem('ccal_swapboard_cache', JSON.stringify({ entries, cachedAt: Date.now() }))
+    swapBoardSummary = _buildMap(entries)
+  } catch {
+    try {
+      const cached = JSON.parse(localStorage.getItem('ccal_swapboard_cache') || 'null')
+      if (cached) swapBoardSummary = _buildMap(cached.entries)
+    } catch {}
+  }
 }
 
 function showSwapBoardDayDetail(ds, type) {
@@ -2252,6 +2420,19 @@ if (localStorage.getItem('cCalUserId')) {
   document.getElementById('gate-overlay').classList.add('active')
   setTimeout(() => document.getElementById('gate-input').focus(), 100)
 }
+
+// ── Service Worker 註冊 ───────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
+}
+
+// ── 網路狀態監聽 ──────────────────────────────────────────────
+window.addEventListener('online', () => {
+  flushSyncQueue()
+})
+window.addEventListener('offline', () => {
+  loadSchedule()
+})
 </script>
 </body>
 </html>
