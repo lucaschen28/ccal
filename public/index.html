@@ -1105,10 +1105,38 @@ document.getElementById('refresh-btn').addEventListener('click', async () => {
 function getSettings() {
   try { return JSON.parse(localStorage.getItem('cCalSettings') || '{}') } catch { return {} }
 }
-function saveSettings(s) { localStorage.setItem('cCalSettings', JSON.stringify(s)) }
+function saveSettings(s) {
+  localStorage.setItem('cCalSettings', JSON.stringify(s))
+  // 同步到伺服器（背景執行，不阻擋 UI）
+  fetch(`/api/settings/${MY_USER_ID}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(s)
+  }).catch(() => {})
+}
 
-function showSettingsModal(fromSwap) {
+// 從伺服器拉回設定並合併到 localStorage
+async function _syncSettingsFromServer() {
+  try {
+    const res = await fetch(`/api/settings/${MY_USER_ID}`)
+    if (!res.ok) return
+    const sv = await res.json()
+    if (!sv || !Object.keys(sv).length) return
+    const local = getSettings()
+    const merged = {
+      lineUserId:  sv.lineUserId  || local.lineUserId  || '',
+      displayName: sv.displayName || local.displayName || '',
+      botUrl:      sv.botUrl      || local.botUrl      || '',
+      apiSecret:   sv.apiSecret   || local.apiSecret   || ''
+    }
+    localStorage.setItem('cCalSettings', JSON.stringify(merged))
+  } catch {}
+}
+
+async function showSettingsModal(fromSwap) {
   window._settingsFromSwap = fromSwap || false
+  // 先從伺服器拉回最新設定（清快取後也能恢復）
+  await _syncSettingsFromServer()
   const s = getSettings()
   const backLink = fromSwap && window._swapTask
     ? `← <span style="color:#007aff;cursor:pointer;" onclick="showSwapForm()">返回</span>`
@@ -2010,6 +2038,7 @@ if (localStorage.getItem('cCalUserId')) {
   updateUserLabel()
   loadSchedule()
   renderQuickCompareBar()
+  _syncSettingsFromServer()  // 背景同步設定（清快取後自動恢復）
 } else {
   document.getElementById('gate-overlay').classList.add('active')
   setTimeout(() => document.getElementById('gate-input').focus(), 100)

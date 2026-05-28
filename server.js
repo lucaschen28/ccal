@@ -199,6 +199,28 @@ app.post('/api/profile/:userId', (req, res) => {
   res.json({ ok: true })
 })
 
+// 用戶設定（LINE User ID、換班 Bot URL 等）
+function settingsPath(userId) {
+  const fp = userPath(userId)
+  if (!fp) return null
+  return fp.replace(/\.json$/, '_settings.json')
+}
+
+app.get('/api/settings/:userId', (req, res) => {
+  const fp = settingsPath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  try { res.json(JSON.parse(fs.readFileSync(fp, 'utf8'))) } catch { res.json({}) }
+})
+
+app.post('/api/settings/:userId', (req, res) => {
+  const fp = settingsPath(req.params.userId)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  const existing = (() => { try { return JSON.parse(fs.readFileSync(fp, 'utf8')) } catch { return {} } })()
+  const updated = { ...existing, ...req.body }
+  fs.writeFileSync(fp, JSON.stringify(updated))
+  res.json({ ok: true })
+})
+
 // 驗證存取密碼（新訪客用，已有代碼的直接略過）
 app.post('/api/auth', (req, res) => {
   const expected = process.env.CCAL_ACCESS_CODE
