@@ -2793,6 +2793,63 @@ function closeFab() {
   document.querySelectorAll('.fab-item').forEach(item => item.classList.remove('visible'))
 }
 
+// ── FAB 拖曳吸附 ─────────────────────────────────────────────
+;(() => {
+  const wrap = document.getElementById('fab-wrap')
+  const main = document.getElementById('fab-main')
+  let dragging = false, hasMoved = false
+  let startX = 0, startY = 0, origLeft = 0, origTop = 0
+
+  function onDragStart(cx, cy) {
+    const r = wrap.getBoundingClientRect()
+    startX = cx; startY = cy
+    origLeft = r.left; origTop = r.top
+    dragging = true; hasMoved = false
+  }
+
+  function onDragMove(cx, cy, preventFn) {
+    if (!dragging) return
+    const dx = cx - startX, dy = cy - startY
+    if (!hasMoved && Math.hypot(dx, dy) < 8) return
+    if (!hasMoved) { hasMoved = true; closeFab() }
+    if (preventFn) preventFn()
+    const W = window.innerWidth, H = window.innerHeight
+    const nx = Math.max(8, Math.min(W - 62, origLeft + dx))
+    const ny = Math.max(8, Math.min(H - 62, origTop + dy))
+    wrap.classList.remove('fab-left', 'fab-top')
+    wrap.style.right  = 'auto'
+    wrap.style.bottom = 'auto'
+    wrap.style.left   = nx + 'px'
+    wrap.style.top    = ny + 'px'
+  }
+
+  function onDragEnd(preventFn) {
+    if (!dragging) return
+    dragging = false
+    if (!hasMoved) return
+    if (preventFn) preventFn()
+    const r   = wrap.getBoundingClientRect()
+    const cx  = r.left + r.width  / 2
+    const cy  = r.top  + r.height / 2
+    const pos = (cy < window.innerHeight / 2 ? 't' : 'b') +
+                (cx < window.innerWidth  / 2 ? 'l' : 'r')
+    wrap.style.left = wrap.style.top = wrap.style.right = wrap.style.bottom = ''
+    setFabPos(pos)
+  }
+
+  main.addEventListener('touchstart', e => onDragStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true })
+  document.addEventListener('touchmove', e => {
+    if (dragging) onDragMove(e.touches[0].clientX, e.touches[0].clientY, () => e.preventDefault())
+  }, { passive: false })
+  document.addEventListener('touchend', e => {
+    if (dragging) onDragEnd(e.cancelable ? () => e.preventDefault() : null)
+  }, { passive: false })
+
+  main.addEventListener('mousedown', e => onDragStart(e.clientX, e.clientY))
+  document.addEventListener('mousemove', e => onDragMove(e.clientX, e.clientY, null))
+  document.addEventListener('mouseup',  () => onDragEnd(null))
+})()
+
 // ── Pull-to-refresh ───────────────────────────────────────────
 ;(function() {
   const THRESHOLD = 64  // 拉超過這個距離才觸發
