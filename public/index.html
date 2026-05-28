@@ -228,6 +228,52 @@
   </style>
 </head>
 <body>
+
+<!-- 內建瀏覽器（WebView）偵測提示 -->
+<div id="inapp-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#fff;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;">
+  <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+  <div style="font-size:20px;font-weight:700;margin-bottom:8px;">請用瀏覽器開啟</div>
+  <div style="font-size:14px;color:#3c3c43;line-height:1.7;margin-bottom:28px;">
+    目前是在 App 內建的瀏覽器中開啟，<br>
+    部分功能（離線使用、加入主畫面）<br>
+    無法正常運作。
+  </div>
+  <div id="inapp-instruction" style="background:#f2f2f7;border-radius:16px;padding:20px 24px;width:100%;max-width:320px;font-size:15px;line-height:2;font-weight:500;"></div>
+</div>
+
+<script>
+;(() => {
+  const ua = navigator.userAgent
+  const isLine = /Line\//i.test(ua)
+  const isFB   = /FBAN|FBAV/i.test(ua)
+  const isIG   = /Instagram/i.test(ua)
+  const isAndroidWV = /Android/.test(ua) && /; wv\)/.test(ua)
+  if (!isLine && !isFB && !isIG && !isAndroidWV) return
+
+  const overlay = document.getElementById('inapp-overlay')
+  const inst    = document.getElementById('inapp-instruction')
+  const isIOS   = /iPhone|iPad|iPod/i.test(ua)
+
+  overlay.style.display = 'flex'
+
+  if (isLine) {
+    if (isIOS) {
+      inst.innerHTML = '點右下角的 <strong>···</strong><br>→ 選「在瀏覽器中開啟」'
+    } else {
+      inst.innerHTML = '點右上角的 <strong>⋮</strong><br>→ 選「以瀏覽器開啟」'
+    }
+  } else if (isFB || isIG) {
+    if (isIOS) {
+      inst.innerHTML = '點右下角的 <strong>···</strong><br>→ 選「在 Safari 中開啟」'
+    } else {
+      inst.innerHTML = '點右上角的 <strong>⋮</strong><br>→ 選「在瀏覽器中開啟」'
+    }
+  } else {
+    inst.innerHTML = '請複製網址，<br>貼到 Safari 或 Chrome 開啟。'
+  }
+})()
+</script>
+
 <div id="ptr-indicator">↻</div>
 <div id="app">
 <header>
