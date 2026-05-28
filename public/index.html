@@ -1191,7 +1191,7 @@ async function showDetail(task) {
       const chip = document.createElement('button')
       chip.className = 'contact-chip'
       chip.setAttribute('style', bgStyle)
-      chip.innerHTML = `${displayName}<span style="font-weight:400;color:${isActive ? layerColors[cmpIdx].color : '#8e8e93'};margin-left:3px">/ ${c.userId}</span>`
+      chip.innerHTML = displayName
       chip.onclick = () => toggleCompare(c.userId, displayName)
       section.appendChild(chip)
     })
@@ -2224,7 +2224,7 @@ async function renderQuickCompareBar() {
         const style = active ? `background:${layerColors[idx].bg};color:${layerColors[idx].color};` : ''
         return `<button class="contact-chip" style="${style}"
           onclick="toggleCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
-          ${c.name}<span style="font-weight:400;margin-left:3px;${active?'color:'+layerColors[idx].color:'color:#8e8e93'}">/ ${c.code}</span>
+          ${c.name || c.code}
         </button>`
       }).join('')}
     </div>`
