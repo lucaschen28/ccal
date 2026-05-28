@@ -1951,12 +1951,15 @@ function showSwapBoardDayDetail(ds, type) {
   const dateLabel = `${+sp[1]} 月 ${+sp[2]} 日（${wd[d.getDay()]}）`
   const typeLabel = type === 'throw' ? '✈️ 丟班' : '🙋 接班'
   const rows = entries.map(e => {
-    const price = e.commission > 0 ? e.commission + '圈' : e.commission === -1 ? '無料' : '可議'
-    const noteStr = e.note ? `　<span style="color:#8e8e93">${e.note}</span>` : ''
+    const priceStr = e.commission > 0
+      ? `<span style="color:#e00">${e.commission}</span>圈`
+      : e.commission === -1 ? '無料' : '可議'
+    const noteStr = e.note ? `（${e.note}）` : ''
     const flightStr = (e.flights||[]).length ? e.flights.map(f => f.date+'/'+f.flight).join(' ') : ''
-    return `<div style="padding:10px 0;border-bottom:1px solid #f0f0f5;">
-      <div style="font-weight:600;">${e.displayName}${flightStr ? '　<span style="font-size:12px;color:#8e8e93">'+flightStr+'</span>' : ''}</div>
-      <div style="font-size:13px;color:#3a3a3c;margin-top:3px;">${price}${noteStr}</div>
+    const typeWord = type === 'throw' ? '丟' : '接'
+    const mid = type === 'throw' ? `${typeWord} ${flightStr}` : typeWord
+    return `<div style="padding:10px 0;border-bottom:1px solid #f0f0f5;font-size:14px;color:#1c1c1e;">
+      ${e.displayName} ${mid} ${priceStr}${noteStr}
     </div>`
   }).join('')
   document.getElementById('modal-content').innerHTML = `
