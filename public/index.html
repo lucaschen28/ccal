@@ -2400,8 +2400,15 @@ function showSwapBoardDayDetail(ds, type) {
            </svg>
          </a>`
       : ''
+    const compareBtn = e.ccalUserId && e.ccalUserId !== MY_USER_ID
+      ? `<button onclick="document.getElementById('modal-overlay').classList.remove('active');toggleCompare('${e.ccalUserId}','${(e.displayName||e.ccalUserId).replace(/'/g,"\\'")}')"
+           style="margin-left:8px;width:28px;height:28px;border-radius:6px;background:#e8f0fe;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="比對班表">
+           📅
+         </button>`
+      : ''
     return `<div style="padding:10px 0;border-bottom:1px solid #f0f0f5;font-size:14px;color:#1c1c1e;display:flex;align-items:center;justify-content:space-between;">
-      <span>${e.displayName} ${mid} ${priceStr}${noteStr}</span>${lineBtn}
+      <span>${e.displayName} ${mid} ${priceStr}${noteStr}</span>
+      <div style="display:flex;align-items:center;flex-shrink:0;">${compareBtn}${lineBtn}</div>
     </div>`
   }).join('')
   document.getElementById('modal-content').innerHTML = `
