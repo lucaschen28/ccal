@@ -14,9 +14,9 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f2f2f7; color: #1c1c1e; }
 
-    /* 電腦上：固定 390px 置中 */
+    /* 手機版：置中 390px */
     @media (min-width: 600px) {
-      #app {
+      body:not(.desktop-mode) #app {
         max-width: 390px;
         margin: 0 auto;
         box-shadow: 0 0 40px rgba(0,0,0,0.12);
@@ -24,11 +24,12 @@
         background: #f2f2f7;
       }
     }
-    /* 電腦寬版：格子稍高一點 */
+    /* 電腦版：全寬，格子高一點 */
     @media (min-width: 600px) {
       body.desktop-mode .day-cell { min-height: 90px; }
       body.desktop-mode .event-pill { font-size: 11px; height: 20px; line-height: 20px; }
       body.desktop-mode .day-num { font-size: 15px; width: 24px; height: 24px; }
+      body.desktop-mode header, body.desktop-mode .weekday-row { max-width: none; }
     }
     /* FAB Speed Dial */
     #fab-wrap { position:fixed; bottom:90px; right:16px; z-index:90; display:flex; flex-direction:column; align-items:flex-end; }
@@ -41,9 +42,9 @@
     .fab-icon { width:44px; height:44px; border-radius:50%; background:#fff; border:none; font-size:20px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.14); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     #fab-backdrop { display:none; position:fixed; inset:0; z-index:-1; }
     #fab-backdrop.active { display:block; }
-    /* 電腦上：FAB 跟著 390px 容器靠右 */
+    /* 手機版時 FAB 跟著 390px 容器靠右；電腦版時 FAB 固定右側 16px */
     @media (min-width: 600px) {
-      #fab-wrap { right: calc((100vw - 390px) / 2 + 16px); }
+      body:not(.desktop-mode) #fab-wrap { right: calc((100vw - 390px) / 2 + 16px); }
     }
 
     header { background:#fff; padding:8px 16px; display:flex; flex-direction:column; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
