@@ -1815,13 +1815,64 @@ function toggleSfAircraft(a) {
   })
 }
 
+// ── LINE User ID 引導畫面 ────────────────────────────────────
+function showLineUserIdPrompt(onSaved) {
+  window._lineIdPromptCallback = onSaved
+  document.getElementById('modal-content').innerHTML = `
+    <div style="text-align:center;padding:4px 0 8px;">
+      <div style="font-size:36px;margin-bottom:10px;">💬</div>
+      <div style="font-size:17px;font-weight:700;color:#1c1c1e;margin-bottom:6px;">需要 LINE User ID 才能刊登需求</div>
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:18px;">填入後即可使用換班功能，只需設定一次。</div>
+
+      <div style="background:#fff8e1;border-radius:10px;padding:12px 14px;margin-bottom:10px;text-align:left;">
+        <div style="font-size:12px;font-weight:700;color:#b45309;margin-bottom:5px;">⚠ 不填寫時無法使用</div>
+        <div style="font-size:12px;color:#92400e;line-height:1.6;">刊登丟班 / 接班需求<br>刪除自己發布的需求</div>
+      </div>
+      <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;margin-bottom:20px;text-align:left;">
+        <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:5px;">✅ 不受影響的功能</div>
+        <div style="font-size:12px;color:#15803d;line-height:1.6;">瀏覽換班板 · 比對班表 · 查找他人班表<br>截圖分享 · 匯入班表</div>
+      </div>
+
+      <div style="text-align:left;font-size:13px;font-weight:600;color:#1c1c1e;margin-bottom:6px;">填入 LINE User ID</div>
+      <input id="prompt-lineid" class="sf-input"
+        placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        value="${getSettings().lineUserId||''}"
+        autocomplete="off" spellcheck="false"
+        style="margin-bottom:10px;">
+      <a href="https://line.me/R/oaMessage/@691qdwyq/?%E6%88%91%E7%9A%84ID" target="_blank"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:#06C755;border-radius:10px;font-size:14px;font-weight:700;color:#fff;text-decoration:none;margin-bottom:12px;">
+        💬 一鍵開啟 Bot 取得 LINE User ID
+      </a>
+      <button onclick="_saveLineIdAndContinue()"
+        style="width:100%;padding:13px;background:#007aff;border:none;border-radius:10px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;">
+        儲存並繼續
+      </button>
+    </div>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function _saveLineIdAndContinue() {
+  const val = (document.getElementById('prompt-lineid')?.value || '').trim()
+  if (!val) { showToast('請輸入 LINE User ID'); return }
+  saveSettings({ ...getSettings(), lineUserId: val })
+  document.getElementById('modal-overlay').classList.remove('active')
+  const cb = window._lineIdPromptCallback
+  window._lineIdPromptCallback = null
+  if (cb) cb()
+}
+
 // ── Swap form ────────────────────────────────────────────────
 function showSwapForm() {
   const task = window._swapTask
   if (!task) return
   window._emptySwapDate = null
   const s = getSettings()
-  if (!s.lineUserId || !s.botUrl || !s.apiSecret) {
+  if (!s.lineUserId) {
+    showLineUserIdPrompt(() => showSwapForm())
+    return
+  }
+  if (!s.botUrl || !s.apiSecret) {
     showSettingsModal(true)
     return
   }
@@ -1885,7 +1936,12 @@ function showEmptyDayDetail(ds) {
 
 function showSwapFormForEmpty(ds) {
   const s = getSettings()
-  if (!s.lineUserId || !s.botUrl || !s.apiSecret) {
+  if (!s.lineUserId) {
+    window._emptySwapDate = ds
+    showLineUserIdPrompt(() => showSwapFormForEmpty(ds))
+    return
+  }
+  if (!s.botUrl || !s.apiSecret) {
     window._emptySwapDate = ds
     showSettingsModal(true)
     return
