@@ -62,9 +62,9 @@
     .user-label { font-size:11px; color:#8e8e93; text-align:center; padding-bottom:2px; letter-spacing:0.5px; }
 
 
-    .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); background:#fff; border-bottom:1px solid #e5e5ea; }
+    .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); background:#fff; border-bottom:1px solid #e5e5ea; position:relative; overflow:hidden; }
     .weekday-row div { text-align:center; padding:5px 0; font-size:11px; color:#8e8e93; font-weight:500; }
-    .weekday-row div:first-child { color:#ff3b30; }
+    .weekday-row div:nth-child(2) { color:#ff3b30; }
     .weekday-row div:last-child { color:#007aff; }
 
     .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:#e5e5ea; }
@@ -229,10 +229,9 @@
     .sf-save-btn { width:100%; background:#34c759; color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; margin-top:4px; }
     #offline-bar { display:none; background:#ff9500; color:#fff; font-size:12px; font-weight:600; text-align:center; padding:5px 12px; }
     #offline-bar.active { display:block; }
-    #ptr-indicator { position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-48px); width:36px; height:36px; background:#fff; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,0.15); display:flex; align-items:center; justify-content:center; font-size:18px; transition:transform 0.2s; z-index:50; pointer-events:none; }
-    #ptr-indicator.pulling { transition:none; }
-    #ptr-indicator.refreshing { transform:translateX(-50%) translateY(8px); animation:ptr-spin 0.8s linear infinite; }
-    @keyframes ptr-spin { to { rotate: 360deg; } }
+    #ptr-bar { position:absolute; top:0; left:0; height:3px; width:0%; background:#007aff; pointer-events:none; z-index:11; transition:width 0.1s linear; border-radius:0 2px 2px 0; }
+    #ptr-bar.refreshing { width:35%; animation:ptr-run 0.9s ease-in-out infinite; transition:none; }
+    @keyframes ptr-run { 0% { left:-35%; } 100% { left:110%; } }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </head>
@@ -291,7 +290,6 @@
 })()
 </script>
 
-<div id="ptr-indicator">↻</div>
 <div id="app">
 <header>
   <div class="header-nav">
@@ -303,6 +301,7 @@
 </header>
 <div id="offline-bar"></div>
 <div class="weekday-row">
+  <div id="ptr-bar"></div>
   <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
 </div>
 <div class="calendar-grid" id="calendar"></div>
@@ -1731,16 +1730,16 @@ function deleteAllData() {
 function showAboutModal() {
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:17px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">關於 CCal</div>
-    <div style="font-size:13px;color:#8e8e93;margin-bottom:16px;">版本 2026.05</div>
+    <div style="font-size:14px;color:#8e8e93;margin-bottom:16px;">版本 2026.05</div>
 
-    <p style="font-size:15px;color:#3c3c43;line-height:1.7;margin-bottom:16px;">
+    <p style="font-size:16px;color:#3c3c43;line-height:1.7;margin-bottom:16px;">
       嗨，我是 Lucas，也是華航的一名組員。<br><br>
       換班多年，試過各種行事曆工具，始終找不到一個真正符合空服員習慣的東西——可以輕鬆看班、跟同事比對班表、截圖傳家人、還能直接處理換班需求。於是自己動手寫了 CCal。
     </p>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
-      <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">🔒 關於隱私與個資</div>
-      <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;font-size:14px;color:#15803d;line-height:1.7;">
+      <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">🔒 關於隱私與個資</div>
+      <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;font-size:15px;color:#15803d;line-height:1.7;">
         完全理解大家的顧慮。CCal 的設計原則是：<strong>能少用就少用。</strong><br><br>
         ・班表資料存在你自己的手機本地，不會上傳伺服器<br>
         ・員編與基本資訊，只有在「換班小幫手刊登需求」與「查找比對班表」時才會用到，<strong>不會挪作其他用途</strong><br>
@@ -1750,7 +1749,7 @@ function showAboutModal() {
     </div>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
-      <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:12px;">📋 功能介紹</div>
+      <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:12px;">📋 功能介紹</div>
 
       ${/* ── 班表行事曆 ── */[{
         icon:'📅', title:'班表行事曆',
@@ -1761,23 +1760,23 @@ function showAboutModal() {
         ]
       }].map(f => `
         <div style="display:flex;gap:10px;margin-bottom:6px;">
-          <div style="font-size:22px;flex-shrink:0;width:30px;text-align:center;">${f.icon}</div>
+          <div style="font-size:24px;flex-shrink:0;width:32px;text-align:center;">${f.icon}</div>
           <div style="flex:1;">
-            <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:3px;">${f.title}</div>
-            <div style="font-size:13px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
+            <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:3px;">${f.title}</div>
+            <div style="font-size:14px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
             ${f.sub.map(s => `
               <div style="margin-top:8px;margin-left:4px;padding-left:12px;border-left:2px solid #d1e9ff;background:linear-gradient(to right,#f0f8ff,#fff);border-radius:0 6px 6px 0;padding:6px 8px;">
-                <div style="font-size:13px;font-weight:700;color:#3b82f6;margin-bottom:3px;">${s.icon} ${s.title}</div>
-                <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
+                <div style="font-size:14px;font-weight:700;color:#3b82f6;margin-bottom:3px;">${s.icon} ${s.title}</div>
+                <div style="font-size:13px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
               </div>`).join('')}
           </div>
         </div>`).join('')}
 
       ${/* ── 功能列 ── */''}<div style="margin-top:14px;display:flex;gap:10px;margin-bottom:6px;">
-        <div style="font-size:22px;flex-shrink:0;width:30px;text-align:center;">➕</div>
+        <div style="font-size:24px;flex-shrink:0;width:32px;text-align:center;">➕</div>
         <div style="flex:1;">
-          <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:3px;">功能列</div>
-          <div style="font-size:13px;color:#8e8e93;line-height:1.6;">點擊右下角 ＋ 展開，App 所有主要功能都在這裡。</div>
+          <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:3px;">功能列</div>
+          <div style="font-size:14px;color:#8e8e93;line-height:1.6;">點擊右下角 ＋ 展開，App 所有主要功能都在這裡。</div>
           ${[
             {icon:'⚙️', title:'設定',
              desc:'管理員編、艙等資格、機種資格及 LINE User ID 等個人資訊。'},
@@ -1795,12 +1794,12 @@ function showAboutModal() {
              desc:'即本頁面，包含功能說明、版本資訊與意見回饋。'},
           ].map(f => `
             <div style="margin-top:8px;margin-left:4px;padding-left:12px;border-left:2px solid #e5e5ea;background:linear-gradient(to right,#f9f9f9,#fff);border-radius:0 6px 6px 0;padding:6px 8px;">
-              <div style="font-size:13px;font-weight:700;color:#3c3c43;margin-bottom:2px;">${f.icon} ${f.title}</div>
-              <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
+              <div style="font-size:14px;font-weight:700;color:#3c3c43;margin-bottom:2px;">${f.icon} ${f.title}</div>
+              <div style="font-size:13px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
               ${(f.sub||[]).map(s => `
                 <div style="margin-top:6px;margin-left:8px;padding-left:10px;border-left:2px solid #d1e9ff;background:linear-gradient(to right,#f0f8ff,#f9f9f9);border-radius:0 4px 4px 0;padding:4px 8px;">
-                  <div style="font-size:12px;font-weight:700;color:#3b82f6;margin-bottom:2px;">${s.icon} ${s.title}</div>
-                  <div style="font-size:11px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
+                  <div style="font-size:13px;font-weight:700;color:#3b82f6;margin-bottom:2px;">${s.icon} ${s.title}</div>
+                  <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
                 </div>`).join('')}
             </div>`).join('')}
         </div>
@@ -1809,14 +1808,14 @@ function showAboutModal() {
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:4px;">
       <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:8px;">⚠️ 免責聲明</div>
-      <div style="font-size:12px;color:#8e8e93;line-height:1.7;">
+      <div style="font-size:13px;color:#8e8e93;line-height:1.7;">
         CCal 為個人自製工具，與中華航空公司無任何官方關聯。本工具持續開發中，功能與資料正確性不作任何保證，所有班務決策請以 eCrew 官方系統及公司規定為準，本工具僅供輔助參考使用。使用即表示了解並接受以上聲明。
       </div>
     </div>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-top:4px;">
       <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">💬 有話要說</div>
-      <div style="font-size:13px;color:#8e8e93;margin-bottom:10px;">使用上的建議或問題，歡迎告訴我，我會收到 LINE 通知。</div>
+      <div style="font-size:14px;color:#8e8e93;margin-bottom:10px;">使用上的建議或問題，歡迎告訴我，我會收到 LINE 通知。</div>
       <textarea id="feedback-text"
         placeholder="輸入你的建議或意見…"
         style="width:100%;padding:10px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:13px;min-height:80px;resize:none;box-sizing:border-box;outline:none;font-family:inherit;"></textarea>
@@ -4146,7 +4145,7 @@ function closeFab() {
 ;(function() {
   const THRESHOLD = 64  // 拉超過這個距離才觸發
   let startY = 0, pulling = false, triggered = false
-  const ind = document.getElementById('ptr-indicator')
+  const bar = document.getElementById('ptr-bar')
 
   document.addEventListener('touchstart', e => {
     if (window.scrollY !== 0) return
@@ -4161,19 +4160,16 @@ function closeFab() {
     const dy = e.touches[0].clientY - startY
     if (dy <= 0) { pulling = false; return }
     const pct = Math.min(dy / THRESHOLD, 1)
-    const ty = -48 + pct * 56  // -48px（隱藏）→ +8px（完全顯示）
-    ind.style.transform = `translateX(-50%) translateY(${ty}px)`
-    ind.classList.add('pulling')
+    bar.style.width = Math.round(pct * 100) + '%'
     if (dy > THRESHOLD && !triggered) triggered = true
   }, { passive: true })
 
   document.addEventListener('touchend', async () => {
     if (!pulling) return
     pulling = false
-    ind.classList.remove('pulling')
-    if (!triggered) { ind.style.transform = ''; return }
+    if (!triggered) { bar.style.width = '0%'; return }
 
-    ind.classList.add('refreshing')
+    bar.classList.add('refreshing')
     // SW navigate 攔截是 network-first，reload 一定拿最新 index.html
     location.reload()
   })
