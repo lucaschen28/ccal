@@ -3240,12 +3240,16 @@ function buildSwapRangeCalendarEl(yms, ownEntries) {
       layer.appendChild(pill)
     })
 
-    // 自己的換班需求標記
+    // 自己的換班需求標記（槓條樣式：紅框無填色）
     ownEntries.filter(e => e.dateStr === ds).forEach(e => {
-      const dot = document.createElement('div')
-      dot.style.cssText = `font-size:9px;font-weight:700;line-height:1.4;color:${e.type==='throw'?'#ff9500':'#34c759'};`
-      dot.textContent = e.type === 'throw' ? '丟' : '接'
-      layer.appendChild(dot)
+      const pill = document.createElement('div')
+      pill.className = 'event-pill'
+      pill.style.cssText = 'border:1.5px solid #ff3b30;background:transparent;display:flex;gap:1px;'
+      const typeColor = e.type === 'throw' ? '#ff9500' : '#34c759'
+      const typeChar = e.type === 'throw' ? '丟' : '接'
+      const numStr = e.commission > 0 ? String(e.commission) : e.commission === -1 ? '無' : '議'
+      pill.innerHTML = `<span style="color:${typeColor};font-weight:700;">${typeChar}</span><span style="color:#ff3b30;font-weight:700;">${numStr}</span>`
+      layer.appendChild(pill)
     })
 
     cellEls.push(cell)
