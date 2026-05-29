@@ -3079,8 +3079,8 @@ function updateUserLabel() {
   const empId = localStorage.getItem('cCalEmpId') || ''
   const s = getSettings()
   const parts = []
-  if (empId) parts.push(`員編 ${empId}`)
-  if (s.seniority) parts.push(`序 ${s.seniority}`)
+  if (empId) parts.push(empId)
+  if (s.seniority) parts.push(s.seniority)
   if (s.role) parts.push(s.role)
   if (s.aircraft && s.aircraft.length) parts.push(s.aircraft.join(' '))
   el.textContent = parts.join('  ·  ')
