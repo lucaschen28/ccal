@@ -177,7 +177,7 @@ app.get('/api/lookup/emp/:empId', (req, res) => {
   res.status(404).json({ error: '找不到此員編' })
 })
 
-// 以 LINE User ID 反查 CCal 代碼
+// 以 LINE User ID 反查 CCal 代碼（同時回傳 linePublicId、empId）
 app.get('/api/lookup/line/:lineUserId', (req, res) => {
   const lineUserId = req.params.lineUserId.trim()
   if (!lineUserId) return res.status(400).json({ error: '無效的 LINE User ID' })
@@ -187,7 +187,18 @@ app.get('/api/lookup/line/:lineUserId', (req, res) => {
       try {
         const settings = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'))
         if (settings.lineUserId === lineUserId) {
-          return res.json({ userId: file.replace('_settings.json', '') })
+          const ccalUserId = file.replace('_settings.json', '')
+          // 也讀 profile 取得 empId
+          let empId = ''
+          try {
+            const profile = JSON.parse(fs.readFileSync(path.join(DATA_DIR, `${ccalUserId}_profile.json`), 'utf8'))
+            empId = profile.empId || ''
+          } catch {}
+          return res.json({
+            userId: ccalUserId,
+            linePublicId: settings.linePublicId || '',
+            empId
+          })
         }
       } catch {}
     }

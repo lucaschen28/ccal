@@ -2412,6 +2412,8 @@ async function fetchSwapBoardSummary() {
     })
     if (!res.ok) return
     const entries = await res.json()
+    // 補齊沒有 ccalUserId 或 linePublicId 的記錄（用 lineUserId 反查 CCal）
+    await _enrichSwapEntries(entries)
     localStorage.setItem('ccal_swapboard_cache', JSON.stringify({ entries, cachedAt: Date.now() }))
     swapBoardSummary = _buildMap(entries)
   } catch {
@@ -2419,6 +2421,30 @@ async function fetchSwapBoardSummary() {
       const cached = _sanitizeCache(JSON.parse(localStorage.getItem('ccal_swapboard_cache') || 'null'))
       if (cached) swapBoardSummary = _buildMap(cached.entries)
     } catch {}
+  }
+}
+
+// 對有 lineUserId 但缺 ccalUserId 或 linePublicId 的記錄，批次反查 CCal
+async function _enrichSwapEntries(entries) {
+  // 只處理有 lineUserId、且缺 ccalUserId 或缺 linePublicId 的記錄
+  const toEnrich = entries.filter(e =>
+    e.lineUserId && (!e.ccalUserId || !e.linePublicId)
+  )
+  if (!toEnrich.length) return
+  // 同一個 lineUserId 只查一次
+  const cache = {}
+  await Promise.all([...new Set(toEnrich.map(e => e.lineUserId))].map(async lid => {
+    try {
+      const r = await fetch(`/api/lookup/line/${encodeURIComponent(lid)}`)
+      if (r.ok) cache[lid] = await r.json()
+    } catch {}
+  }))
+  // 把查到的結果填回去
+  for (const e of entries) {
+    const found = e.lineUserId && cache[e.lineUserId]
+    if (!found) continue
+    if (!e.ccalUserId && found.userId) e.ccalUserId = found.userId
+    if (!e.linePublicId && found.linePublicId) e.linePublicId = found.linePublicId
   }
 }
 
