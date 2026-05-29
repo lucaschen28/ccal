@@ -3123,8 +3123,13 @@ function showMySwapSummary() {
              white-space:pre-wrap;word-break:break-all;margin:0 0 12px;">${escaped}</pre>
     <button id="copy-summary-btn" onclick="copySwapSummary()"
       style="width:100%;padding:12px;background:#007aff;border:none;border-radius:10px;
-             font-size:14px;font-weight:700;color:#fff;cursor:pointer;">
+             font-size:14px;font-weight:700;color:#fff;cursor:pointer;margin-bottom:8px;">
       📋 複製
+    </button>
+    <button onclick="captureSwapCard()"
+      style="width:100%;padding:12px;background:#34c759;border:none;border-radius:10px;
+             font-size:14px;font-weight:700;color:#fff;cursor:pointer;">
+      📸 截圖分享（班表＋需求）
     </button>
   `
   document.getElementById('modal-overlay').classList.add('active')
@@ -3137,6 +3142,109 @@ function copySwapSummary() {
     btn.textContent = '✅ 已複製'
     setTimeout(() => { if (btn) btn.textContent = '📋 複製' }, 2000)
   }).catch(() => showToast('複製失敗，請手動選取文字'))
+}
+
+async function captureSwapCard() {
+  // 取出自己的需求
+  const all = []
+  for (const [dateStr] of Object.entries(swapBoardSummary)) {
+    const day = swapBoardSummary[dateStr]
+    for (const e of (day.throw  || [])) all.push({ ...e, dateStr, type: 'throw'  })
+    for (const e of (day.accept || [])) all.push({ ...e, dateStr, type: 'accept' })
+  }
+  const own = all
+    .filter(e => (e.ccalUserId && e.ccalUserId.length <= 12 ? e.ccalUserId : '') === MY_USER_ID)
+    .sort((a, b) => a.dateStr.localeCompare(b.dateStr))
+  if (!own.length) { showToast('目前沒有刊登中的需求'); return }
+
+  // 找出需要截的月份（年月字串，0-indexed month）
+  const yms = [...new Set(own.map(e => e.dateStr.slice(0, 7)))].sort()
+
+  document.getElementById('modal-overlay').classList.remove('active')
+  const origYear = currentYear, origMonth = currentMonth
+  const qcBar = document.getElementById('quick-compare-bar')
+  const qcWasVisible = qcBar && qcBar.style.display !== 'none'
+  if (qcWasVisible) qcBar.style.display = 'none'
+  _screenshotMode = true
+  showToast('截圖中…', 10000)
+  await new Promise(r => setTimeout(r, 200))
+
+  const calCanvases = []
+  try {
+    if (typeof html2canvas === 'undefined') { showToast('截圖工具未載入，請重新整理後再試'); return }
+    const appEl = document.getElementById('app')
+
+    // 逐月截圖
+    for (const ym of yms) {
+      const [y, m] = ym.split('-').map(Number)
+      currentYear = y; currentMonth = m - 1   // currentMonth 是 0-indexed
+      renderCalendar()
+      await new Promise(r => setTimeout(r, 300))
+      const c = await html2canvas(appEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
+      calCanvases.push(c)
+    }
+
+    // 建換班需求卡片元素
+    const s = getSettings()
+    const empId = localStorage.getItem('cCalEmpId') || ''
+    const headerParts = [empId, s.role, ...(s.aircraft || [])].filter(Boolean)
+    let cardHtml = `<div style="font-weight:700;font-size:14px;color:#1c1c1e;margin-bottom:12px;">${headerParts.join(' ')}</div>`
+    let curMonth = null
+    for (const e of own) {
+      const sp = e.dateStr.split('-')
+      const mo = +sp[1], day = +sp[2]
+      if (mo !== curMonth) {
+        cardHtml += `<div style="text-align:center;font-size:11px;color:#8e8e93;
+          border-top:1px solid #e5e5ea;margin:8px 0 6px;padding-top:6px;">${mo}月</div>`
+        curMonth = mo
+      }
+      const priceStr = e.commission > 0 ? e.commission + '圈'
+        : e.commission === -1 ? '無料' : '可議'
+      const noteStr = e.note ? ' ' + e.note : ''
+      if (e.type === 'throw') {
+        const fs = (e.flights || []).map(f => f.date + '/' + f.flight).join(' ') || String(day)
+        cardHtml += `<div style="font-size:13px;line-height:1.9;">丟 ${fs} <span style="color:#ff3b30;font-weight:700;">${priceStr}</span>${noteStr}</div>`
+      } else {
+        cardHtml += `<div style="font-size:13px;line-height:1.9;">接 ${day}號 <span style="color:#ff3b30;font-weight:700;">${priceStr}</span>${noteStr}</div>`
+      }
+    }
+
+    const cardEl = document.createElement('div')
+    cardEl.style.cssText = `position:fixed;left:-9999px;top:0;width:${appEl.clientWidth}px;
+      background:#fff;padding:16px;box-sizing:border-box;font-family:-apple-system,sans-serif;`
+    cardEl.innerHTML = cardHtml
+    document.body.appendChild(cardEl)
+    await new Promise(r => setTimeout(r, 100))
+    const summaryCanvas = await html2canvas(cardEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
+    document.body.removeChild(cardEl)
+
+    // 合併：月曆(們) 在上，需求卡在下
+    const W = calCanvases[0].width
+    const H = calCanvases.reduce((h, c) => h + c.height, 0) + summaryCanvas.height
+    const combined = document.createElement('canvas')
+    combined.width = W; combined.height = H
+    const ctx = combined.getContext('2d')
+    let offsetY = 0
+    for (const c of calCanvases) { ctx.drawImage(c, 0, offsetY); offsetY += c.height }
+    ctx.drawImage(summaryCanvas, 0, offsetY)
+
+    const blob = await new Promise(res => combined.toBlob(res, 'image/png'))
+    const fname = `CCal_換班卡.png`
+    const file = new File([blob], fname, { type: 'image/png' })
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'CCal 換班需求' })
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click()
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') showToast('截圖失敗：' + e.message)
+  } finally {
+    _screenshotMode = false
+    if (qcWasVisible) qcBar.style.display = ''
+    showToast('')
+    currentYear = origYear; currentMonth = origMonth
+    renderCalendar()
+  }
 }
 
 async function _swapBoardRefresh(tab) {
