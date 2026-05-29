@@ -1778,11 +1778,7 @@ function selectSfRole(r) {
   const s = getSettings()
   saveSettings({ ...s, role: r })
   document.getElementById('sf-role-display').textContent = r
-  document.querySelectorAll('#sf-role-picker button[data-role]').forEach(b => {
-    const active = b.dataset.role === r
-    b.style.background = active ? '#007aff' : '#e5e5ea'
-    b.style.color = active ? '#fff' : '#3c3c43'
-  })
+  document.getElementById('sf-role-picker').style.display = 'none'
 }
 function toggleSfAircraftPicker() {
   const el = document.getElementById('sf-aircraft-picker')
@@ -1802,11 +1798,7 @@ function toggleSfAircraft(a) {
   }
   saveSettings({ ...s, aircraft: list })
   document.getElementById('sf-aircraft-display').textContent = list.length ? list.join(' ') : '未設定'
-  document.querySelectorAll('#sf-aircraft-picker button[data-ac]').forEach(b => {
-    const active = list.includes(b.dataset.ac)
-    b.style.background = active ? '#007aff' : '#e5e5ea'
-    b.style.color = active ? '#fff' : '#3c3c43'
-  })
+  document.getElementById('sf-aircraft-picker').style.display = 'none'
 }
 
 // ── Swap form ────────────────────────────────────────────────
