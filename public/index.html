@@ -2186,6 +2186,46 @@ async function deleteEntry() {
 // ── eCrew PDF 匯入 ────────────────────────────────────────────
 function openImportPdf() {
   if (IS_VIEWING_OTHER) return
+  // 先顯示說明 modal，讓使用者確認後再選檔案
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-route" style="margin-bottom:12px">📥 匯入班表</div>
+    <div style="background:#e8f4fd;border-radius:12px;padding:12px 14px;font-size:14px;color:#1a4a6b;margin-bottom:16px;line-height:1.6;">
+      CCal 除了可以手動填寫班表外，還可以匯入 eCrew 完整的班表 PDF 檔喔 📋
+    </div>
+    <div style="font-size:13px;color:#3c3c43;line-height:1.8;">
+      <div style="font-weight:700;margin-bottom:6px;color:#1c1c1e;">如何從 eCrew 下載班表 PDF：</div>
+      <div style="display:flex;gap:10px;margin-bottom:6px;">
+        <span style="background:#007aff;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px">1</span>
+        <span>在 eCrew 開啟「Personal Crew Schedule Report」</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:6px;">
+        <span style="background:#007aff;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px">2</span>
+        <span>右上角 <b>⋮</b> → 點 <b>Save</b>（或分享 → <b>儲存到檔案</b>）</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:6px;">
+        <span style="background:#007aff;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px">3</span>
+        <span>存到 iCloud 雲碟或本機「下載項目」</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:4px;">
+        <span style="background:#007aff;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px">4</span>
+        <span>回到這裡，點下方「<b>選擇 PDF 檔案</b>」</span>
+      </div>
+    </div>
+    <div style="margin-top:18px;display:flex;gap:10px;">
+      <button onclick="document.getElementById('modal-overlay').classList.remove('active')"
+        style="flex:1;padding:12px;border:1.5px solid #d1d1d6;background:#fff;border-radius:12px;font-size:15px;color:#3c3c43;cursor:pointer;">
+        取消
+      </button>
+      <button onclick="document.getElementById('modal-overlay').classList.remove('active');_doImportPdf()"
+        style="flex:2;padding:12px;background:#007aff;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">
+        📂 選擇 PDF 檔案
+      </button>
+    </div>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function _doImportPdf() {
   const iconEl = document.getElementById('fab-import-icon')
   const input = document.createElement('input')
   input.type = 'file'

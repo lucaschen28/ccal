@@ -1,4 +1,4 @@
-const CACHE = 'ccal-v21'
+const CACHE = 'ccal-v22'
 const SHELL = ['/', '/index.html']
 
 self.addEventListener('install', e => {
