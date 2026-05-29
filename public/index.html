@@ -2725,6 +2725,24 @@ async function _enrichSwapEntries(entries) {
     const p = e.ccalUserId && profileCache[e.ccalUserId]
     if (p && !e.empId && p.empId) e.empId = p.empId
   }
+
+  // 3. 有 ccalUserId → 補 role / aircraft from /api/settings
+  const toEnrichSettings = entries.filter(e =>
+    e.ccalUserId && e.ccalUserId.length <= 12 && !e.role
+  )
+  const settingsCache = {}
+  await Promise.all([...new Set(toEnrichSettings.map(e => e.ccalUserId))].map(async uid => {
+    try {
+      const r = await fetch(`/api/settings/${encodeURIComponent(uid)}`)
+      if (r.ok) settingsCache[uid] = await r.json()
+    } catch {}
+  }))
+  for (const e of entries) {
+    const sv = e.ccalUserId && settingsCache[e.ccalUserId]
+    if (!sv) continue
+    if (!e.role && sv.role) e.role = sv.role
+    if (!e.aircraft && sv.aircraft && sv.aircraft.length) e.aircraft = sv.aircraft
+  }
 }
 
 // ── 換班板清單 modal ──────────────────────────────────────────
@@ -2761,6 +2779,7 @@ function _renderSwapBoardModal(tab) {
         color:${t===tab?'#007aff':'#8e8e93'};cursor:pointer;">${t}</button>`
   ).join('')
 
+  const myRole = getSettings().role
   const filtered = all.filter(e => {
     if (tab === '丟班') return e.type === 'throw'
     if (tab === '接班') return e.type === 'accept'
@@ -2768,6 +2787,12 @@ function _renderSwapBoardModal(tab) {
       const code = e.ccalUserId && e.ccalUserId.length <= 12 ? e.ccalUserId : ''
       return code === MY_USER_ID
     }
+    return true
+  }).filter(e => {
+    // CM 艙等資格互鎖：CM 只看 CM，非 CM 看不到 CM
+    if (!e.role) return true  // 尚無資格資訊，暫時顯示
+    if (myRole === 'CM' && e.role !== 'CM') return false
+    if (myRole !== 'CM' && e.role === 'CM') return false
     return true
   })
 
@@ -2840,7 +2865,7 @@ function _renderSwapBoardModal(tab) {
 
     return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f5;gap:8px;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${e.empId || e.displayName}</div>
+        <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${e.empId || e.displayName}${e.role ? ' ' + e.role : ''}${e.aircraft && e.aircraft.length ? ' ' + e.aircraft.join(' ') : ''}</div>
         <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
           ${rowTwo}
         </div>
