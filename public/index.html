@@ -2893,12 +2893,30 @@ function _renderSwapBoardModal(tab) {
     <div style="display:flex;border-bottom:1px solid #e5e5ea;margin:-2px -4px 12px;">
       ${tabBar}
     </div>
-    <button onclick="fetchSwapBoardSummary().then(()=>_renderSwapBoardModal('${tab}'))"
-      style="float:right;margin-top:-8px;padding:4px 10px;background:#f2f2f7;border:none;border-radius:8px;font-size:12px;color:#007aff;cursor:pointer;">重新整理</button>
+    <button id="swap-refresh-btn" onclick="_swapBoardRefresh('${tab}')"
+      style="float:right;margin-top:-8px;padding:4px 10px;background:#f2f2f7;border:none;border-radius:8px;font-size:12px;color:#007aff;cursor:pointer;overflow:hidden;transition:color .1s;">重新整理</button>
     <div style="font-size:12px;color:#8e8e93;margin-bottom:8px;">共 ${filtered.length} 筆</div>
     ${rows}${emptyMsg}
   `
   document.getElementById('modal-overlay').classList.add('active')
+}
+
+async function _swapBoardRefresh(tab) {
+  const btn = document.getElementById('swap-refresh-btn')
+  if (!btn || btn.dataset.loading) return
+  btn.dataset.loading = '1'
+  let p = 0
+  const timer = setInterval(() => {
+    p = Math.min(p + 2, 90)
+    btn.style.background = `linear-gradient(to right,#007aff ${p}%,#f2f2f7 ${p}%)`
+    btn.style.color = p >= 50 ? '#fff' : '#007aff'
+  }, 30)
+  await fetchSwapBoardSummary().catch(() => {})
+  clearInterval(timer)
+  btn.style.background = 'linear-gradient(to right,#007aff 100%,#f2f2f7 100%)'
+  btn.style.color = '#fff'
+  await new Promise(r => setTimeout(r, 280))
+  _renderSwapBoardModal(tab)
 }
 
 async function _swapBoardDelete(dateStr, type) {
