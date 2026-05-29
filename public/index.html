@@ -4064,28 +4064,8 @@ function closeFab() {
     if (!triggered) { ind.style.transform = ''; return }
 
     ind.classList.add('refreshing')
-    let swUpdating = false
-    if ('serviceWorker' in navigator) {
-      try {
-        const reg = await navigator.serviceWorker.getRegistration()
-        if (reg) {
-          // 先掛 updatefound，再呼叫 update()，確保不漏接事件
-          reg.addEventListener('updatefound', () => {
-            swUpdating = true
-            // 新 SW 裝好後會 skipWaiting → activate → 發 SW_UPDATED → reload
-            // 加保險：5 秒後若還沒 reload 就強制
-            setTimeout(() => { if (swUpdating) location.reload() }, 5000)
-          }, { once: true })
-          await reg.update()
-        }
-      } catch {}
-    }
-    if (!swUpdating) {
-      await loadSchedule()
-      ind.classList.remove('refreshing')
-      ind.style.transform = ''
-    }
-    // 若 swUpdating，讓 SW_UPDATED 觸發 reload，轉圈到頁面刷新為止
+    // SW navigate 攔截是 network-first，reload 一定拿最新 index.html
+    location.reload()
   })
 })()
 
