@@ -2780,11 +2780,14 @@ function _renderSwapBoardModal(tab) {
     const sp = e.dateStr.split('-')
     const dateLabel = `${+sp[1]}/${+sp[2]}（${wd[d.getDay()]}）`
     const typeEmoji = e.type === 'throw' ? '✈️' : '🙋'
+    const day = +sp[2]
+    const typePrefix = e.type === 'throw' ? '丟' : '接'
     const flightStr = e.type === 'throw'
-      ? (e.flights||[]).map(f => f.flight).join(' ') || ''
-      : (e.flightType || '')
+      ? (e.flights||[]).map(f => `${f.date}/${f.flight}`).join(' ') || String(day)
+      : String(day)
     const priceStr = e.commission > 0 ? `${e.commission}圈` : e.commission === -1 ? '無料' : '可議'
-    const noteStr = e.note ? `・${e.note}` : ''
+    const noteStr = e.note ? e.note : ''
+    const rowTwo = `${typePrefix} ${flightStr} ${priceStr}${noteStr ? ' ' + noteStr : ''}`
 
     // 新鮮度
     const now = Date.now()
@@ -2816,7 +2819,7 @@ function _renderSwapBoardModal(tab) {
         <div style="flex:1;min-width:0;">
           <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji}</div>
           <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${[flightStr, priceStr, noteStr].filter(Boolean).join(' ')}
+            ${rowTwo}
           </div>
         </div>
         <button onclick="${delOnclick}"
@@ -2839,7 +2842,7 @@ function _renderSwapBoardModal(tab) {
       <div style="flex:1;min-width:0;">
         <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${e.empId || e.displayName}</div>
         <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${[flightStr, priceStr, noteStr].filter(Boolean).join(' ')}
+          ${rowTwo}
         </div>
       </div>
       <div style="display:flex;align-items:center;flex-shrink:0;">${compareBtn}${lineBtn}</div>
