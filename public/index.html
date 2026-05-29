@@ -3144,8 +3144,146 @@ function copySwapSummary() {
   }).catch(() => showToast('複製失敗，請手動選取文字'))
 }
 
+function buildSwapRangeCalendarEl(yms, ownEntries) {
+  const W = document.getElementById('app').clientWidth
+  const [fy, fm] = yms[0].split('-').map(Number)
+  const [ly, lm] = yms[yms.length - 1].split('-').map(Number)
+  const multiMonth = yms.length > 1
+  const lastDayOfFirst = new Date(fy, fm, 0).getDate()
+
+  // 從 24 日那週的週日開始
+  const day24 = new Date(fy, fm - 1, 24)
+  const startDay = new Date(day24)
+  startDay.setDate(day24.getDate() - day24.getDay())
+
+  // 截到最後一個月的最後一天
+  const endDay = new Date(ly, lm, 0)
+
+  const t = new Date()
+  const todayStr = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`
+  const colCls = ['col-sun','','','','','','col-sat']
+
+  // 建 cell 清單
+  const cellEls = []
+  const cur = new Date(startDay)
+  while (cur <= endDay) {
+    const col = cur.getDay()
+    const dM = cur.getMonth() + 1, dD = cur.getDate()
+    const ds = `${cur.getFullYear()}-${String(dM).padStart(2,'0')}-${String(dD).padStart(2,'0')}`
+    const isToday = ds === todayStr
+
+    // 日期標籤：首月最後一天 & 次月以後 → M/D，其餘 → D
+    const showMD = multiMonth && (dM !== fm || dD === lastDayOfFirst)
+    const dateLabel = showMD ? `${dM}/${dD}` : String(dD)
+
+    const cell = document.createElement('div')
+    cell.className = ['day-cell', colCls[col], isToday ? 'today' : ''].filter(Boolean).join(' ')
+
+    const wrap = document.createElement('div'); wrap.className = 'day-num-wrap'
+    const dn   = document.createElement('div'); dn.className = 'day-num'; dn.textContent = dateLabel
+
+    // 私人行程 → 圓點（截圖模式）
+    const privNF = scheduleData.filter(e => {
+      if (e.type !== 'private') return false
+      const s = e.startDate || e.date, en = e.endDate || e.date
+      return ds >= s && ds <= en
+    })
+    if (privNF.length) dn.classList.add('has-private')
+    wrap.appendChild(dn); cell.appendChild(wrap)
+
+    const layer = document.createElement('div'); layer.className = 'cell-layer-work'
+    cell.appendChild(layer)
+
+    // 飛航任務
+    tasksOnDate(ds).forEach(task => {
+      const isStart = ds === task.startDate, isEnd = ds === task.endDate
+      const same = task.startDate === task.endDate
+      const vS = isStart || col === 0, vE = isEnd || col === 6
+      const pill = document.createElement('div')
+      let cls = 'event-pill flight' + (task.endDate < todayStr ? ' past' : '')
+      if (!same) {
+        if      (vS && !vE) cls += ' bar-start'
+        else if (!vS && vE) cls += ' bar-end'
+        else if (!vS && !vE) cls += ' bar-mid'
+      }
+      pill.className = cls
+      pill.textContent = (isStart || col === 0) ? padFN(task.legs[0].flight_number) : ' '
+      layer.appendChild(pill)
+    })
+
+    // 非飛航非私人事件
+    scheduleData.filter(e => {
+      if (!e.type || e.type === 'flight' || e.type === 'private') return false
+      const s = e.startDate || e.date, en = e.endDate || e.date
+      if (ds < s || ds > en) return false
+      if (['ADO','OFF','>OFF'].includes(e.code)) return false
+      return e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code)
+    }).forEach(ev => {
+      const evS = ev.startDate || ev.date, evE = ev.endDate || ev.date
+      const multi = evS !== evE
+      const pill = document.createElement('div')
+      const tc = { training:'cm', day_off:'dayoff', meeting:'meeting', standby:'sby-pill' }[ev.type] || (ev.code||'').toLowerCase() || 'al'
+      let cls = 'event-pill ' + (ev.type === 'standby' || ev.code === 'SBY' ? 'sby-pill' : tc)
+      let showText = true
+      if (multi) {
+        const vS = ds === evS || col === 0, vE = ds === evE || col === 6
+        if      (vS && !vE) cls += ' bar-start'
+        else if (!vS && vE) cls += ' bar-end'
+        else if (!vS && !vE) cls += ' bar-mid'
+        showText = vS
+      }
+      pill.className = cls
+      pill.textContent = showText ? (ev.code || ev.type) : ' '
+      layer.appendChild(pill)
+    })
+
+    // 自己的換班需求標記
+    ownEntries.filter(e => e.dateStr === ds).forEach(e => {
+      const dot = document.createElement('div')
+      dot.style.cssText = `font-size:9px;font-weight:700;line-height:1.4;color:${e.type==='throw'?'#ff9500':'#34c759'};`
+      dot.textContent = e.type === 'throw' ? '丟' : '接'
+      layer.appendChild(dot)
+    })
+
+    cellEls.push(cell)
+    cur.setDate(cur.getDate() + 1)
+  }
+
+  // 組合整個元素
+  const el = document.createElement('div')
+  el.style.cssText = `position:fixed;left:-9999px;top:0;width:${W}px;background:#fff;overflow:hidden;font-family:-apple-system,sans-serif;`
+
+  // 標題列
+  const s = getSettings()
+  const empId = localStorage.getItem('cCalEmpId') || ''
+  const hp = [empId, s.role, ...(s.aircraft || [])].filter(Boolean)
+  const rangeLabel = multiMonth ? `${fy}年${fm}月 ～ ${ly}年${lm}月` : `${fy}年${fm}月`
+  const hdr = document.createElement('div')
+  hdr.style.cssText = 'padding:10px 16px 8px;border-bottom:1px solid #e5e5ea;display:flex;justify-content:space-between;align-items:center;'
+  hdr.innerHTML = `<div style="font-size:15px;font-weight:700;color:#1c1c1e;">${rangeLabel}</div>
+    <div style="font-size:12px;color:#8e8e93;">${hp.join(' · ')}</div>`
+  el.appendChild(hdr)
+
+  // 星期標題
+  const wdRow = document.createElement('div')
+  wdRow.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);background:#fff;'
+  ;['日','一','二','三','四','五','六'].forEach((d, i) => {
+    const div = document.createElement('div')
+    div.style.cssText = `text-align:center;font-size:11px;padding:5px 0;font-weight:500;color:${i===0?'#ff3b30':i===6?'#007aff':'#8e8e93'};`
+    div.textContent = d; wdRow.appendChild(div)
+  })
+  el.appendChild(wdRow)
+
+  // 日期格子
+  const grid = document.createElement('div')
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#e5e5ea;'
+  cellEls.forEach(c => grid.appendChild(c))
+  el.appendChild(grid)
+
+  return el
+}
+
 async function captureSwapCard() {
-  // 取出自己的需求
   const all = []
   for (const [dateStr] of Object.entries(swapBoardSummary)) {
     const day = swapBoardSummary[dateStr]
@@ -3157,93 +3295,72 @@ async function captureSwapCard() {
     .sort((a, b) => a.dateStr.localeCompare(b.dateStr))
   if (!own.length) { showToast('目前沒有刊登中的需求'); return }
 
-  // 找出需要截的月份（年月字串，0-indexed month）
   const yms = [...new Set(own.map(e => e.dateStr.slice(0, 7)))].sort()
 
   document.getElementById('modal-overlay').classList.remove('active')
-  const origYear = currentYear, origMonth = currentMonth
-  const qcBar = document.getElementById('quick-compare-bar')
-  const qcWasVisible = qcBar && qcBar.style.display !== 'none'
-  if (qcWasVisible) qcBar.style.display = 'none'
-  _screenshotMode = true
   showToast('截圖中…', 10000)
-  await new Promise(r => setTimeout(r, 200))
+  await new Promise(r => setTimeout(r, 100))
 
-  const calCanvases = []
   try {
     if (typeof html2canvas === 'undefined') { showToast('截圖工具未載入，請重新整理後再試'); return }
-    const appEl = document.getElementById('app')
+    const W = document.getElementById('app').clientWidth
 
-    // 逐月截圖
-    for (const ym of yms) {
-      const [y, m] = ym.split('-').map(Number)
-      currentYear = y; currentMonth = m - 1   // currentMonth 是 0-indexed
-      renderCalendar()
-      await new Promise(r => setTimeout(r, 300))
-      const c = await html2canvas(appEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
-      calCanvases.push(c)
-    }
+    // ── 自訂 range 月曆元素 ──
+    const rangeEl = buildSwapRangeCalendarEl(yms, own)
+    document.body.appendChild(rangeEl)
+    await new Promise(r => setTimeout(r, 200))
+    const calCanvas = await html2canvas(rangeEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
+    document.body.removeChild(rangeEl)
 
-    // 建換班需求卡片元素
+    // ── 換班需求文字卡 ──
     const s = getSettings()
     const empId = localStorage.getItem('cCalEmpId') || ''
-    const headerParts = [empId, s.role, ...(s.aircraft || [])].filter(Boolean)
-    let cardHtml = `<div style="font-weight:700;font-size:14px;color:#1c1c1e;margin-bottom:12px;">${headerParts.join(' ')}</div>`
-    let curMonth = null
+    const hp = [empId, s.role, ...(s.aircraft || [])].filter(Boolean)
+    let cardHtml = `<div style="font-weight:700;font-size:14px;color:#1c1c1e;margin-bottom:12px;">${hp.join(' ')}</div>`
+    let curMo = null
     for (const e of own) {
       const sp = e.dateStr.split('-')
-      const mo = +sp[1], day = +sp[2]
-      if (mo !== curMonth) {
-        cardHtml += `<div style="text-align:center;font-size:11px;color:#8e8e93;
-          border-top:1px solid #e5e5ea;margin:8px 0 6px;padding-top:6px;">${mo}月</div>`
-        curMonth = mo
+      const mo = +sp[1], dy = +sp[2]
+      if (mo !== curMo) {
+        cardHtml += `<div style="text-align:center;font-size:11px;color:#8e8e93;border-top:1px solid #e5e5ea;margin:8px 0 6px;padding-top:6px;">${mo}月</div>`
+        curMo = mo
       }
-      const priceStr = e.commission > 0 ? e.commission + '圈'
-        : e.commission === -1 ? '無料' : '可議'
-      const noteStr = e.note ? ' ' + e.note : ''
+      const price = e.commission > 0 ? e.commission + '圈' : e.commission === -1 ? '無料' : '可議'
+      const note = e.note ? ' ' + e.note : ''
       if (e.type === 'throw') {
-        const fs = (e.flights || []).map(f => f.date + '/' + f.flight).join(' ') || String(day)
-        cardHtml += `<div style="font-size:13px;line-height:1.9;">丟 ${fs} <span style="color:#ff3b30;font-weight:700;">${priceStr}</span>${noteStr}</div>`
+        const fs = (e.flights || []).map(f => f.date + '/' + f.flight).join(' ') || String(dy)
+        cardHtml += `<div style="font-size:13px;line-height:1.9;">丟 ${fs} <span style="color:#ff3b30;font-weight:700;">${price}</span>${note}</div>`
       } else {
-        cardHtml += `<div style="font-size:13px;line-height:1.9;">接 ${day}號 <span style="color:#ff3b30;font-weight:700;">${priceStr}</span>${noteStr}</div>`
+        cardHtml += `<div style="font-size:13px;line-height:1.9;">接 ${dy}號 <span style="color:#ff3b30;font-weight:700;">${price}</span>${note}</div>`
       }
     }
-
     const cardEl = document.createElement('div')
-    cardEl.style.cssText = `position:fixed;left:-9999px;top:0;width:${appEl.clientWidth}px;
-      background:#fff;padding:16px;box-sizing:border-box;font-family:-apple-system,sans-serif;`
+    cardEl.style.cssText = `position:fixed;left:-9999px;top:0;width:${W}px;background:#fff;padding:16px;box-sizing:border-box;font-family:-apple-system,sans-serif;`
     cardEl.innerHTML = cardHtml
     document.body.appendChild(cardEl)
     await new Promise(r => setTimeout(r, 100))
     const summaryCanvas = await html2canvas(cardEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false })
     document.body.removeChild(cardEl)
 
-    // 合併：月曆(們) 在上，需求卡在下
-    const W = calCanvases[0].width
-    const H = calCanvases.reduce((h, c) => h + c.height, 0) + summaryCanvas.height
+    // ── 合併：range calendar 在上，需求卡在下 ──
     const combined = document.createElement('canvas')
-    combined.width = W; combined.height = H
+    combined.width = calCanvas.width
+    combined.height = calCanvas.height + summaryCanvas.height
     const ctx = combined.getContext('2d')
-    let offsetY = 0
-    for (const c of calCanvases) { ctx.drawImage(c, 0, offsetY); offsetY += c.height }
-    ctx.drawImage(summaryCanvas, 0, offsetY)
+    ctx.drawImage(calCanvas, 0, 0)
+    ctx.drawImage(summaryCanvas, 0, calCanvas.height)
 
     const blob = await new Promise(res => combined.toBlob(res, 'image/png'))
-    const fname = `CCal_換班卡.png`
-    const file = new File([blob], fname, { type: 'image/png' })
+    const file = new File([blob], 'CCal_換班卡.png', { type: 'image/png' })
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: 'CCal 換班需求' })
     } else {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click()
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click()
     }
   } catch (e) {
     if (e.name !== 'AbortError') showToast('截圖失敗：' + e.message)
   } finally {
-    _screenshotMode = false
-    if (qcWasVisible) qcBar.style.display = ''
     showToast('')
-    currentYear = origYear; currentMonth = origMonth
-    renderCalendar()
   }
 }
 
