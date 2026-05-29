@@ -2297,12 +2297,10 @@ async function showUserCodeModal() {
       </div>
     </div>
 
-    <!-- 行二：三個操作按鈕 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+    <!-- 行二：兩個操作按鈕 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
       <button onclick="navigator.clipboard.writeText('${MY_USER_ID}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製代碼',1500)})"
         style="padding:9px 4px;background:#fff;border:1.5px solid #007aff;border-radius:10px;font-size:12px;font-weight:600;color:#007aff;cursor:pointer;">複製代碼</button>
-      <button onclick="copyInviteLink(this)"
-        style="padding:9px 4px;background:#fff;border:1.5px solid #34c759;border-radius:10px;font-size:12px;font-weight:600;color:#34c759;cursor:pointer;line-height:1.2;">複製邀請連結</button>
       <button onclick="showScreenshotPicker()"
         style="padding:9px 4px;background:#fff;border:1.5px solid #ff9500;border-radius:10px;font-size:12px;font-weight:600;color:#ff9500;cursor:pointer;line-height:1.2;">截圖班表分享</button>
     </div>
