@@ -2266,7 +2266,7 @@ async function showUserCodeModal() {
   }, 50)
 }
 
-async function quickCompare(code, name) {
+async function quickCompare(code, name, autoSave) {
   const errEl = document.getElementById('view-code-err')
   function _showErr(msg) { if (errEl) errEl.textContent = msg; else showToast(msg) }
   if (errEl) errEl.textContent = '載入中…'
@@ -2300,7 +2300,20 @@ async function quickCompare(code, name) {
   else { renderCalendar() }
   _updateCompareBanner()
   renderQuickCompareBar()
-  _maybeShowSaveHint(code)
+  if (autoSave) {
+    // 從換班看板點進來：直接存到常用比對，不顯示詢問列
+    const contacts = await _fetchContacts()
+    if (!contacts.some(c => c.code === code)) {
+      await fetch(`/api/contacts/${MY_USER_ID}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ code, name: displayName })
+      }).catch(() => {})
+      showToast('已加入常用比對：' + displayName)
+      renderQuickCompareBar()
+    }
+  } else {
+    _maybeShowSaveHint(code)
+  }
 }
 
 const _CONTACTS_KEY = 'ccal_contacts_' + MY_USER_ID
@@ -2449,7 +2462,7 @@ function showSwapBoardDayDetail(ds, type) {
          </a>`
       : ''
     const compareBtn = e.ccalUserId && e.ccalUserId.length <= 12 && e.ccalUserId !== MY_USER_ID
-      ? `<button onclick="document.getElementById('modal-overlay').classList.remove('active');toggleCompare('${e.ccalUserId}','${(e.displayName||e.ccalUserId).replace(/'/g,"\\'")}')"
+      ? `<button onclick="document.getElementById('modal-overlay').classList.remove('active');toggleCompare('${e.ccalUserId}','${(e.displayName||e.ccalUserId).replace(/'/g,"\\'")}',true)"
            style="margin-left:8px;width:28px;height:28px;border-radius:6px;background:#e8f0fe;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="比對班表">
            📅
          </button>`
@@ -2467,7 +2480,7 @@ function showSwapBoardDayDetail(ds, type) {
   document.getElementById('modal-overlay').classList.add('active')
 }
 
-async function toggleCompare(code, name) {
+async function toggleCompare(code, name, autoSave) {
   if (swapBoardMode) { swapBoardMode = false; swapBoardSummary = {}; renderCalendar(); renderQuickCompareBar() }
   const idx = compareList.findIndex(c => c.userId === code)
   if (idx !== -1) {
@@ -2476,7 +2489,7 @@ async function toggleCompare(code, name) {
     _updateCompareBanner(); renderCalendar()
     renderQuickCompareBar()
   } else {
-    await quickCompare(code, name)
+    await quickCompare(code, name, autoSave)
   }
 }
 
