@@ -1731,16 +1731,16 @@ function deleteAllData() {
 function showAboutModal() {
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:17px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">關於 CCal</div>
-    <div style="font-size:12px;color:#8e8e93;margin-bottom:16px;">版本 2026.05</div>
+    <div style="font-size:13px;color:#8e8e93;margin-bottom:16px;">版本 2026.05</div>
 
-    <p style="font-size:14px;color:#3c3c43;line-height:1.7;margin-bottom:16px;">
+    <p style="font-size:15px;color:#3c3c43;line-height:1.7;margin-bottom:16px;">
       嗨，我是 Lucas，也是華航的一名組員。<br><br>
       換班多年，試過各種行事曆工具，始終找不到一個真正符合空服員習慣的東西——可以輕鬆看班、跟同事比對班表、截圖傳家人、還能直接處理換班需求。於是自己動手寫了 CCal。
     </p>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
-      <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">🔒 關於隱私與個資</div>
-      <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;font-size:13px;color:#15803d;line-height:1.7;">
+      <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">🔒 關於隱私與個資</div>
+      <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;font-size:14px;color:#15803d;line-height:1.7;">
         完全理解大家的顧慮。CCal 的設計原則是：<strong>能少用就少用。</strong><br><br>
         ・班表資料存在你自己的手機本地，不會上傳伺服器<br>
         ・員編與基本資訊，只有在「換班小幫手刊登需求」與「查找比對班表」時才會用到，<strong>不會挪作其他用途</strong><br>
@@ -1750,7 +1750,7 @@ function showAboutModal() {
     </div>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
-      <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:12px;">📋 功能介紹</div>
+      <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:12px;">📋 功能介紹</div>
 
       ${/* ── 班表行事曆 ── */[{
         icon:'📅', title:'班表行事曆',
@@ -1761,23 +1761,23 @@ function showAboutModal() {
         ]
       }].map(f => `
         <div style="display:flex;gap:10px;margin-bottom:6px;">
-          <div style="font-size:20px;flex-shrink:0;width:28px;text-align:center;">${f.icon}</div>
+          <div style="font-size:22px;flex-shrink:0;width:30px;text-align:center;">${f.icon}</div>
           <div style="flex:1;">
-            <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">${f.title}</div>
-            <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
+            <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:3px;">${f.title}</div>
+            <div style="font-size:13px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
             ${f.sub.map(s => `
               <div style="margin-top:8px;margin-left:4px;padding-left:12px;border-left:2px solid #d1e9ff;background:linear-gradient(to right,#f0f8ff,#fff);border-radius:0 6px 6px 0;padding:6px 8px;">
-                <div style="font-size:12px;font-weight:700;color:#3b82f6;margin-bottom:2px;">${s.icon} ${s.title}</div>
-                <div style="font-size:11px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
+                <div style="font-size:13px;font-weight:700;color:#3b82f6;margin-bottom:3px;">${s.icon} ${s.title}</div>
+                <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
               </div>`).join('')}
           </div>
         </div>`).join('')}
 
       ${/* ── 功能列 ── */''}<div style="margin-top:14px;display:flex;gap:10px;margin-bottom:6px;">
-        <div style="font-size:20px;flex-shrink:0;width:28px;text-align:center;">➕</div>
+        <div style="font-size:22px;flex-shrink:0;width:30px;text-align:center;">➕</div>
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">功能列</div>
-          <div style="font-size:12px;color:#8e8e93;line-height:1.6;">點擊右下角 ＋ 展開，App 所有主要功能都在這裡。</div>
+          <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:3px;">功能列</div>
+          <div style="font-size:13px;color:#8e8e93;line-height:1.6;">點擊右下角 ＋ 展開，App 所有主要功能都在這裡。</div>
           ${[
             {icon:'⚙️', title:'設定',
              desc:'管理員編、艙等資格、機種資格及 LINE User ID 等個人資訊。'},
@@ -1795,12 +1795,12 @@ function showAboutModal() {
              desc:'即本頁面，包含功能說明、版本資訊與意見回饋。'},
           ].map(f => `
             <div style="margin-top:8px;margin-left:4px;padding-left:12px;border-left:2px solid #e5e5ea;background:linear-gradient(to right,#f9f9f9,#fff);border-radius:0 6px 6px 0;padding:6px 8px;">
-              <div style="font-size:12px;font-weight:700;color:#3c3c43;margin-bottom:2px;">${f.icon} ${f.title}</div>
-              <div style="font-size:11px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
+              <div style="font-size:13px;font-weight:700;color:#3c3c43;margin-bottom:2px;">${f.icon} ${f.title}</div>
+              <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
               ${(f.sub||[]).map(s => `
                 <div style="margin-top:6px;margin-left:8px;padding-left:10px;border-left:2px solid #d1e9ff;background:linear-gradient(to right,#f0f8ff,#f9f9f9);border-radius:0 4px 4px 0;padding:4px 8px;">
-                  <div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:1px;">${s.icon} ${s.title}</div>
-                  <div style="font-size:10px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
+                  <div style="font-size:12px;font-weight:700;color:#3b82f6;margin-bottom:2px;">${s.icon} ${s.title}</div>
+                  <div style="font-size:11px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
                 </div>`).join('')}
             </div>`).join('')}
         </div>
@@ -1809,14 +1809,14 @@ function showAboutModal() {
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:4px;">
       <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:8px;">⚠️ 免責聲明</div>
-      <div style="font-size:11px;color:#8e8e93;line-height:1.7;">
+      <div style="font-size:12px;color:#8e8e93;line-height:1.7;">
         CCal 為個人自製工具，與中華航空公司無任何官方關聯。本工具持續開發中，功能與資料正確性不作任何保證，所有班務決策請以 eCrew 官方系統及公司規定為準，本工具僅供輔助參考使用。使用即表示了解並接受以上聲明。
       </div>
     </div>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-top:4px;">
       <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">💬 有話要說</div>
-      <div style="font-size:12px;color:#8e8e93;margin-bottom:10px;">使用上的建議或問題，歡迎告訴我，我會收到 LINE 通知。</div>
+      <div style="font-size:13px;color:#8e8e93;margin-bottom:10px;">使用上的建議或問題，歡迎告訴我，我會收到 LINE 通知。</div>
       <textarea id="feedback-text"
         placeholder="輸入你的建議或意見…"
         style="width:100%;padding:10px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:13px;min-height:80px;resize:none;box-sizing:border-box;outline:none;font-family:inherit;"></textarea>
