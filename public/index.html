@@ -2474,34 +2474,36 @@ function showSwapBoardDayDetail(ds, type) {
   document.getElementById('modal-overlay').classList.add('active')
 }
 
-// 換班看板：沒有 CCal 代碼時，彈出代碼輸入框取代 Modal 內容
+// 換班看板：沒有 CCal 代碼時，顯示邀請加入提示
 function showSwapCompareInput(displayName) {
+  const s = getSettings()
+  const inviteUrl = (s.botUrl && s.apiSecret)
+    ? location.origin + '/?setup&botUrl=' + encodeURIComponent(s.botUrl) + '&apiSecret=' + encodeURIComponent(s.apiSecret)
+    : null
   document.getElementById('modal-content').innerHTML = `
-    <div class="task-date" style="margin-bottom:6px;">比對班表</div>
-    <div style="font-size:14px;color:#3c3c43;margin-bottom:14px;">請輸入「${displayName}」的 CCal 代碼</div>
-    <div style="display:flex;gap:8px;margin-bottom:8px;">
-      <input id="swap-compare-code-inp" placeholder="例：ABC123" maxlength="12"
-        style="flex:1;padding:10px 12px;border:1px solid #d1d1d6;border-radius:10px;font-size:15px;"
-        oninput="this.value=this.value.toUpperCase()"
-        onkeydown="if(event.key==='Enter')doSwapCompare('${displayName.replace(/'/g,"\\'")}')">
-      <button onclick="doSwapCompare('${displayName.replace(/'/g,"\\'")}'"
-        style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:15px;font-weight:700;cursor:pointer;">
-        比對
-      </button>
+    <div class="task-date" style="margin-bottom:6px;">邀請加入班表系統</div>
+    <div style="font-size:14px;color:#3c3c43;margin-bottom:16px;">
+      「${displayName}」尚未加入班表系統，無法直接比對班表。<br>
+      <span style="font-size:13px;color:#8e8e93;">傳送邀請連結給對方，加入後即可一鍵比對。</span>
     </div>
-    <div id="swap-compare-err" style="font-size:13px;color:#ff3b30;min-height:18px;"></div>
+    ${inviteUrl
+      ? `<button id="swap-invite-btn"
+           onclick="copySwapInvite(this,'${inviteUrl.replace(/'/g,"\\'")}','${displayName.replace(/'/g,"\\'")}')"
+           style="width:100%;padding:12px;background:#007aff;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">
+           📋 複製邀請連結
+         </button>`
+      : `<div style="color:#ff3b30;font-size:13px;">請先在設定頁面填寫 Bot URL 與 API Secret</div>`
+    }
   `
-  document.getElementById('swap-compare-code-inp')?.focus()
 }
 
-async function doSwapCompare(displayName) {
-  const inp = document.getElementById('swap-compare-code-inp')
-  const code = (inp?.value || '').trim().toUpperCase()
-  const errEl = document.getElementById('swap-compare-err')
-  if (!code || code.length < 4) { if (errEl) errEl.textContent = '請輸入有效的 CCal 代碼'; return }
-  if (errEl) errEl.textContent = '載入中…'
-  document.getElementById('modal-overlay').classList.remove('active')
-  await toggleCompare(code, displayName)
+function copySwapInvite(btn, url, displayName) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✅ 已複製！貼給' + displayName + '就好'
+    setTimeout(() => { btn.textContent = '📋 複製邀請連結' }, 3000)
+  }).catch(() => {
+    prompt('複製以下連結傳給' + displayName + '：', url)
+  })
 }
 
 async function toggleCompare(code, name) {
