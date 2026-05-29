@@ -56,15 +56,16 @@
     }
 
     header { background:#fff; padding:8px 16px; display:flex; flex-direction:column; border-bottom:1px solid #e5e5ea; position:sticky; top:0; z-index:10; }
-    .header-nav { display:flex; align-items:center; justify-content:space-between; }
+    .header-nav { display:flex; align-items:center; justify-content:space-between; position:relative; }
+    #ptr-icon { display:none; font-size:16px; position:absolute; right:44px; top:50%; transform:translateY(-50%); pointer-events:none; }
     .nav-btn { background:none; border:none; font-size:22px; cursor:pointer; padding:4px 12px; color:#007aff; }
     .month-label { font-size:17px; font-weight:600; }
     .user-label { font-size:11px; color:#8e8e93; text-align:center; padding-bottom:2px; letter-spacing:0.5px; }
 
 
-    .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); background:#fff; border-bottom:1px solid #e5e5ea; position:relative; overflow:hidden; }
+    .weekday-row { display:grid; grid-template-columns:repeat(7,1fr); background:#fff; border-bottom:1px solid #e5e5ea; }
     .weekday-row div { text-align:center; padding:5px 0; font-size:11px; color:#8e8e93; font-weight:500; }
-    .weekday-row div:nth-child(2) { color:#ff3b30; }
+    .weekday-row div:first-child { color:#ff3b30; }
     .weekday-row div:last-child { color:#007aff; }
 
     .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:#e5e5ea; }
@@ -229,9 +230,6 @@
     .sf-save-btn { width:100%; background:#34c759; color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; margin-top:4px; }
     #offline-bar { display:none; background:#ff9500; color:#fff; font-size:12px; font-weight:600; text-align:center; padding:5px 12px; }
     #offline-bar.active { display:block; }
-    #ptr-bar { position:absolute; top:0; left:0; height:3px; width:0%; background:#007aff; pointer-events:none; z-index:11; transition:width 0.1s linear; border-radius:0 2px 2px 0; }
-    #ptr-bar.refreshing { width:35%; animation:ptr-run 0.9s ease-in-out infinite; transition:none; }
-    @keyframes ptr-run { 0% { left:-35%; } 100% { left:110%; } }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </head>
@@ -295,13 +293,13 @@
   <div class="header-nav">
     <button class="nav-btn" id="prev">‹</button>
     <span class="month-label" id="month-label"></span>
+    <span id="ptr-icon">⏳</span>
     <button class="nav-btn" id="next">›</button>
   </div>
   <div class="user-label" id="user-label"></div>
 </header>
 <div id="offline-bar"></div>
 <div class="weekday-row">
-  <div id="ptr-bar"></div>
   <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
 </div>
 <div class="calendar-grid" id="calendar"></div>
@@ -4145,7 +4143,7 @@ function closeFab() {
 ;(function() {
   const THRESHOLD = 64  // 拉超過這個距離才觸發
   let startY = 0, pulling = false, triggered = false
-  const bar = document.getElementById('ptr-bar')
+  const icon = document.getElementById('ptr-icon')
 
   document.addEventListener('touchstart', e => {
     if (window.scrollY !== 0) return
@@ -4160,16 +4158,20 @@ function closeFab() {
     const dy = e.touches[0].clientY - startY
     if (dy <= 0) { pulling = false; return }
     const pct = Math.min(dy / THRESHOLD, 1)
-    bar.style.width = Math.round(pct * 100) + '%'
+    icon.textContent = '⏳'
+    icon.style.opacity = pct.toFixed(2)
+    icon.style.display = 'inline'
     if (dy > THRESHOLD && !triggered) triggered = true
   }, { passive: true })
 
-  document.addEventListener('touchend', async () => {
+  document.addEventListener('touchend', () => {
     if (!pulling) return
     pulling = false
-    if (!triggered) { bar.style.width = '0%'; return }
+    if (!triggered) { icon.style.display = 'none'; icon.style.opacity = ''; return }
 
-    bar.classList.add('refreshing')
+    icon.style.opacity = '1'
+    let f = false
+    setInterval(() => { icon.textContent = (f = !f) ? '⌛' : '⏳' }, 350)
     // SW navigate 攔截是 network-first，reload 一定拿最新 index.html
     location.reload()
   })
