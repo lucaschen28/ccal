@@ -391,6 +391,23 @@ let swapBoardSummary = {}  // { 'YYYY-MM-DD': { throw:[...], accept:[...] } }
 let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
 
+// ── Toast 通知 ──────────────────────────────────────────────
+let _toastTimer = null
+function showToast(msg, duration) {
+  duration = duration || 2800
+  let el = document.getElementById('ccal-toast')
+  if (!el) {
+    el = document.createElement('div')
+    el.id = 'ccal-toast'
+    el.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,.88);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;z-index:9999;pointer-events:none;transition:opacity .3s;white-space:nowrap;'
+    document.body.appendChild(el)
+  }
+  el.textContent = msg
+  el.style.opacity = '1'
+  clearTimeout(_toastTimer)
+  _toastTimer = setTimeout(() => { el.style.opacity = '0' }, duration)
+}
+
 function todayISO() {
   const t = new Date()
   return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`
@@ -2251,17 +2268,20 @@ async function showUserCodeModal() {
 
 async function quickCompare(code, name) {
   const errEl = document.getElementById('view-code-err')
+  function _showErr(msg) { if (errEl) errEl.textContent = msg; else showToast(msg) }
   if (errEl) errEl.textContent = '載入中…'
+  // 格式保護：CCal 代碼是 6 個英數字，LINE User ID 是 33 字元（U+32字）；後者是舊快取殘留，直接拒絕
+  if (!code || code.length > 12) { _showErr('無法比對：代碼格式不符'); return }
   let data
   if (navigator.onLine) {
     const res = await fetch(`/api/schedule/${code}`).catch(() => null)
-    if (!res || !res.ok) { if (errEl) errEl.textContent = '找不到此代碼的班表'; return }
+    if (!res || !res.ok) { _showErr('找不到此代碼的班表'); return }
     data = await res.json()
-    if (!Array.isArray(data) || data.length === 0) { if (errEl) errEl.textContent = '此代碼尚無班表資料'; return }
+    if (!Array.isArray(data) || data.length === 0) { _showErr('此組員尚無班表資料'); return }
     await idbSaveSchedule(code, data)
   } else {
     const local = await idbGetSchedule(code)
-    if (!local) { if (errEl) errEl.textContent = '離線中，無此人的快照資料'; return }
+    if (!local) { _showErr('離線中，無此人的快照資料'); return }
     data = local.entries
     if (errEl) errEl.textContent = ''
   }
@@ -2373,9 +2393,15 @@ async function fetchSwapBoardSummary() {
     })
     return map
   }
+  // 讀快取前先清理舊格式（ccalUserId 是 LINE User ID 的要清掉）
+  function _sanitizeCache(cached) {
+    if (!cached?.entries) return null
+    const clean = cached.entries.filter(e => !e.ccalUserId || e.ccalUserId.length <= 12)
+    return clean.length === cached.entries.length ? cached : { entries: clean, cachedAt: cached.cachedAt }
+  }
   if (!navigator.onLine) {
     try {
-      const cached = JSON.parse(localStorage.getItem('ccal_swapboard_cache') || 'null')
+      const cached = _sanitizeCache(JSON.parse(localStorage.getItem('ccal_swapboard_cache') || 'null'))
       if (cached) swapBoardSummary = _buildMap(cached.entries)
     } catch {}
     return
@@ -2390,7 +2416,7 @@ async function fetchSwapBoardSummary() {
     swapBoardSummary = _buildMap(entries)
   } catch {
     try {
-      const cached = JSON.parse(localStorage.getItem('ccal_swapboard_cache') || 'null')
+      const cached = _sanitizeCache(JSON.parse(localStorage.getItem('ccal_swapboard_cache') || 'null'))
       if (cached) swapBoardSummary = _buildMap(cached.entries)
     } catch {}
   }
@@ -2422,7 +2448,7 @@ function showSwapBoardDayDetail(ds, type) {
            </svg>
          </a>`
       : ''
-    const compareBtn = e.ccalUserId && e.ccalUserId !== MY_USER_ID
+    const compareBtn = e.ccalUserId && e.ccalUserId.length <= 12 && e.ccalUserId !== MY_USER_ID
       ? `<button onclick="document.getElementById('modal-overlay').classList.remove('active');toggleCompare('${e.ccalUserId}','${(e.displayName||e.ccalUserId).replace(/'/g,"\\'")}')"
            style="margin-left:8px;width:28px;height:28px;border-radius:6px;background:#e8f0fe;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="比對班表">
            📅
