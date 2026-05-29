@@ -3560,6 +3560,12 @@ function closeFab() {
     ind.classList.remove('pulling')
     if (triggered) {
       ind.classList.add('refreshing')
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.getRegistration()
+          if (reg) await reg.update()
+        } catch {}
+      }
       await loadSchedule()
       ind.classList.remove('refreshing')
     }
@@ -3570,6 +3576,9 @@ function closeFab() {
 // ── Service Worker 註冊 ───────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {})
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SW_UPDATED') location.reload()
+  })
 }
 
 // ── 網路狀態監聽 ──────────────────────────────────────────────
