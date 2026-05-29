@@ -2784,7 +2784,7 @@ function _renderSwapBoardModal(tab) {
     const typePrefix = e.type === 'throw' ? '丟' : '接'
     const flightStr = e.type === 'throw'
       ? (e.flights||[]).map(f => `${f.date}/${f.flight}`).join(' ') || String(day)
-      : String(day)
+      : `${day}號`
     const priceStr = e.commission > 0 ? `${e.commission}圈` : e.commission === -1 ? '無料' : '可議'
     const noteStr = e.note ? e.note : ''
     const rowTwo = `${typePrefix} ${flightStr} ${priceStr}${noteStr ? ' ' + noteStr : ''}`
