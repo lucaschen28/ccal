@@ -376,6 +376,10 @@
       <span class="fab-label">匯入班表</span>
       <button class="fab-icon" id="fab-import-icon" tabindex="-1">📥</button>
     </div>
+    <div class="fab-item" onclick="closeFab();showAboutModal()">
+      <span class="fab-label">關於 CCal</span>
+      <button class="fab-icon" tabindex="-1">ℹ️</button>
+    </div>
   </div>
   <button id="fab-main" onclick="toggleFab()">＋</button>
 </div>
@@ -1645,6 +1649,7 @@ async function showSettingsModal(fromSwap) {
       <!-- 4. 登出 / 切換帳號 -->
       <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
         <button class="sf-save-btn" style="background:#fff;color:#ff3b30;border:1.5px solid #ff3b30" onclick="doLogout()">登出 / 切換帳號</button>
+        <button class="sf-save-btn" style="background:#fff;color:#8e8e93;border:1.5px solid #d1d1d6;margin-top:8px;" onclick="deleteAllData()">🗑 一鍵刪除所有本地資料</button>
       </div>
 
       <!-- 5. 切換電腦/手機版面 -->
@@ -1715,6 +1720,62 @@ function doLogout() {
   localStorage.removeItem('cCalUserId')
   localStorage.removeItem('cCalEmpId')
   location.reload()
+}
+
+function deleteAllData() {
+  if (!confirm('確定要刪除所有本地資料嗎？\n\n包含班表、設定、員編等所有資料。\n刪除後需重新登入，此動作無法復原。')) return
+  localStorage.clear()
+  location.reload()
+}
+
+function showAboutModal() {
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:17px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">關於 CCal</div>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:16px;">版本 ccal-v48</div>
+
+    <p style="font-size:14px;color:#3c3c43;line-height:1.7;margin-bottom:16px;">
+      嗨，我是 Lucas，也是華航的一名組員。<br><br>
+      排班多年，試過各種行事曆工具，始終找不到一個真正符合空服員習慣的東西——可以輕鬆看班、跟同事比對班表、截圖傳家人、還能連上換班板。於是自己動手寫了 CCal。
+    </p>
+
+    <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">🔒 關於隱私與個資</div>
+      <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;font-size:13px;color:#15803d;line-height:1.7;">
+        完全理解大家的顧慮。CCal 的設計原則是：<strong>能少用就少用。</strong><br><br>
+        ・班表資料存在你自己的手機本地，不會上傳伺服器<br>
+        ・員編與基本資訊，只有在「換班板刊登需求」與「查找比對班表」時才會用到，<strong>不會挪作其他用途</strong><br>
+        ・所有資料僅用於 CCal 功能本身的運作，不會對外提供、分析或商業使用<br>
+        ・隨時可以一鍵刪除所有本地資料，不留任何痕跡
+      </div>
+    </div>
+
+    <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:12px;">📋 功能介紹</div>
+      ${[
+        ['📅','班表行事曆','將 eCrew 班表匯入後以月曆格式顯示，支援多天跨越班次的條狀呈現，並可標記個人私人行程。'],
+        ['📸','截圖分享','一鍵截圖當月班表。開啟隱私模式後，截圖中的私人行程自動隱藏，只顯示航班資訊，放心分享。'],
+        ['🔍','查找班表 / 比對','輸入同事員編查看對方已分享的班表，可疊加比對兩人行程，快速找出共同休假或適合換班的日期。'],
+        ['🔄','換班板','整合換班 LINE Bot，在 App 內直接瀏覽丟班和接班需求，支援艙等資格篩選。可直接刊登或刪除自己的需求。'],
+        ['📥','匯入班表','從 eCrew 複製班表文字貼入，快速完成匯入。'],
+        ['⚙️','設定','管理員編、序號、艙等資格、機種資格及 LINE 連結等個人資訊。'],
+      ].map(([icon,title,desc]) => `
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+          <div style="font-size:20px;flex-shrink:0;width:28px;text-align:center;">${icon}</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">${title}</div>
+            <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${desc}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:4px;">
+      <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:8px;">⚠️ 免責聲明</div>
+      <div style="font-size:11px;color:#8e8e93;line-height:1.7;">
+        CCal 為個人自製工具，與中華航空公司無任何官方關聯。本工具持續開發中，功能與資料正確性不作任何保證，所有班務決策請以 eCrew 官方系統及公司規定為準，本工具僅供輔助參考使用。使用即表示了解並接受以上聲明。
+      </div>
+    </div>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
 }
 
 function copyInviteLink(btn) {
