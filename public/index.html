@@ -2691,25 +2691,39 @@ async function fetchSwapBoardSummary() {
 
 // 對有 lineUserId 但缺 ccalUserId 或 linePublicId 的記錄，批次反查 CCal
 async function _enrichSwapEntries(entries) {
-  // 只處理有 lineUserId、且缺 ccalUserId 或缺 linePublicId 的記錄
-  const toEnrich = entries.filter(e =>
-    e.lineUserId && (!e.ccalUserId || !e.linePublicId)
+  // 1. 用 lineUserId 反查 ccalUserId / linePublicId / empId
+  const toEnrichByLine = entries.filter(e =>
+    e.lineUserId && (!e.ccalUserId || !e.linePublicId || !e.empId)
   )
-  if (!toEnrich.length) return
-  // 同一個 lineUserId 只查一次
-  const cache = {}
-  await Promise.all([...new Set(toEnrich.map(e => e.lineUserId))].map(async lid => {
+  const lineCache = {}
+  await Promise.all([...new Set(toEnrichByLine.map(e => e.lineUserId))].map(async lid => {
     try {
       const r = await fetch(`/api/lookup/line/${encodeURIComponent(lid)}`)
-      if (r.ok) cache[lid] = await r.json()
+      if (r.ok) lineCache[lid] = await r.json()
     } catch {}
   }))
-  // 把查到的結果填回去
   for (const e of entries) {
-    const found = e.lineUserId && cache[e.lineUserId]
+    const found = e.lineUserId && lineCache[e.lineUserId]
     if (!found) continue
     if (!e.ccalUserId && found.userId) e.ccalUserId = found.userId
     if (!e.linePublicId && found.linePublicId) e.linePublicId = found.linePublicId
+    if (!e.empId && found.empId) e.empId = found.empId
+  }
+
+  // 2. 有 ccalUserId 但還沒有 empId → 用 /api/profile 補
+  const toEnrichByCode = entries.filter(e =>
+    e.ccalUserId && e.ccalUserId.length <= 12 && !e.empId
+  )
+  const profileCache = {}
+  await Promise.all([...new Set(toEnrichByCode.map(e => e.ccalUserId))].map(async uid => {
+    try {
+      const r = await fetch(`/api/profile/${encodeURIComponent(uid)}`)
+      if (r.ok) profileCache[uid] = await r.json()
+    } catch {}
+  }))
+  for (const e of entries) {
+    const p = e.ccalUserId && profileCache[e.ccalUserId]
+    if (p && !e.empId && p.empId) e.empId = p.empId
   }
 }
 
@@ -2823,7 +2837,7 @@ function _renderSwapBoardModal(tab) {
 
     return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f5;gap:8px;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${e.displayName}</div>
+        <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${e.empId || e.displayName}</div>
         <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
           ${[flightStr, priceStr, noteStr].filter(Boolean).join(' ')}
         </div>
