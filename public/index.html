@@ -1759,7 +1759,7 @@ async function saveSfEmpId() {
   }).catch(() => {})
   document.getElementById('sf-empid-display').textContent = val
   document.getElementById('sf-empid-edit').style.display = 'none'
-  renderEmpIdBadge()
+  updateUserLabel()
 }
 function toggleSfSeniorityEdit() {
   const el = document.getElementById('sf-seniority-edit')
@@ -1771,6 +1771,7 @@ function saveSfSeniority() {
   saveSettings({ ...s, seniority: val })
   document.getElementById('sf-seniority-display').textContent = val || '未設定'
   document.getElementById('sf-seniority-edit').style.display = 'none'
+  updateUserLabel()
 }
 function toggleSfRolePicker() {
   const el = document.getElementById('sf-role-picker')
@@ -1781,6 +1782,7 @@ function selectSfRole(r) {
   saveSettings({ ...s, role: r })
   document.getElementById('sf-role-display').textContent = r
   document.getElementById('sf-role-picker').style.display = 'none'
+  updateUserLabel()
 }
 function toggleSfAircraftPicker() {
   const el = document.getElementById('sf-aircraft-picker')
@@ -1800,6 +1802,7 @@ function toggleSfAircraft(a) {
   }
   saveSettings({ ...s, aircraft: list })
   document.getElementById('sf-aircraft-display').textContent = list.length ? list.join(' ') : '未設定'
+  updateUserLabel()
   document.querySelectorAll('#sf-aircraft-picker button[data-ac]').forEach(b => {
     const active = list.includes(b.dataset.ac)
     b.style.background = active ? '#007aff' : '#e5e5ea'
@@ -3074,7 +3077,13 @@ function updateUserLabel() {
   const el = document.getElementById('user-label')
   if (!el) return
   const empId = localStorage.getItem('cCalEmpId') || ''
-  el.textContent = empId ? `員編 ${empId}` : ''
+  const s = getSettings()
+  const parts = []
+  if (empId) parts.push(`員編 ${empId}`)
+  if (s.seniority) parts.push(`序 ${s.seniority}`)
+  if (s.role) parts.push(s.role)
+  if (s.aircraft && s.aircraft.length) parts.push(s.aircraft.join(' '))
+  el.textContent = parts.join('  ·  ')
 }
 
 // ── 密碼閘門 ─────────────────────────────────────────────────
