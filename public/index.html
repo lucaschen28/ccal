@@ -2706,44 +2706,55 @@ async function goCompare() {
 async function _maybeShowSaveHint(code) {
   const contacts = await _fetchContacts()
   if (contacts.some(c => c.code === code)) return
-  // 在橫幅區插入儲存提示
-  let hint = document.getElementById('save-hint-bar')
-  if (!hint) {
-    hint = document.createElement('div')
-    hint.id = 'save-hint-bar'
-    hint.style.cssText = 'background:#fffbe6;color:#7a5c00;font-size:12px;font-weight:600;text-align:center;padding:6px 12px;display:flex;align-items:center;justify-content:center;gap:8px'
-    const banner = document.getElementById('cmp-banner') || document.getElementById('calendar')
-    banner.parentNode.insertBefore(hint, banner.nextSibling)
-  }
   const profile = await fetch(`/api/profile/${code}`).then(r => r.json()).catch(() => ({}))
   const defaultName = profile.empId || code
-  // 用 DOM 操作代替 innerHTML onclick，避免 Safari inline handler 不觸發的問題
-  hint.innerHTML = ''
-  const label = document.createElement('span')
-  label.textContent = `儲存「${defaultName}」為常用？暱稱：`
+  // 用 modal overlay 取代 hint bar（更可靠，按鈕一定能點）
+  const mc = document.getElementById('modal-content')
+  mc.innerHTML = ''
+  const title = document.createElement('div')
+  title.className = 'task-route'
+  title.style.marginBottom = '14px'
+  title.textContent = '加入常用比對'
+  const desc = document.createElement('div')
+  desc.style.cssText = 'font-size:14px;color:#3c3c43;margin-bottom:14px;'
+  desc.textContent = `要將「${defaultName}」加入常用比對嗎？`
+  const nameRow = document.createElement('div')
+  nameRow.style.cssText = 'margin-bottom:18px;'
+  const nameLabel = document.createElement('div')
+  nameLabel.style.cssText = 'font-size:12px;color:#8e8e93;margin-bottom:6px;'
+  nameLabel.textContent = '暱稱（留空則使用員編）'
   const inp = document.createElement('input')
   inp.id = 'save-hint-name'
   inp.placeholder = defaultName
   inp.maxLength = 12
-  inp.style.cssText = 'width:80px;border:1px solid #c9a800;border-radius:6px;padding:2px 6px;font-size:12px'
-  const saveBtn = document.createElement('button')
-  saveBtn.textContent = '儲存'
-  saveBtn.style.cssText = 'background:#007aff;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer'
-  saveBtn.addEventListener('click', () => _saveContactFromHint(code))
+  inp.style.cssText = 'width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d1d1d6;border-radius:10px;font-size:15px;'
+  nameRow.appendChild(nameLabel)
+  nameRow.appendChild(inp)
+  const btnRow = document.createElement('div')
+  btnRow.style.cssText = 'display:flex;gap:10px;'
   const skipBtn = document.createElement('button')
   skipBtn.textContent = '略過'
-  skipBtn.style.cssText = 'background:none;border:none;color:#8e8e93;font-size:12px;cursor:pointer'
-  skipBtn.addEventListener('click', () => hint.remove())
-  hint.appendChild(label)
-  hint.appendChild(inp)
-  hint.appendChild(saveBtn)
-  hint.appendChild(skipBtn)
+  skipBtn.style.cssText = 'flex:1;padding:12px;border:1.5px solid #d1d1d6;background:#fff;border-radius:12px;font-size:15px;color:#3c3c43;cursor:pointer;'
+  skipBtn.addEventListener('click', () => {
+    document.getElementById('modal-overlay').classList.remove('active')
+  })
+  const saveBtn = document.createElement('button')
+  saveBtn.textContent = '儲存'
+  saveBtn.style.cssText = 'flex:2;padding:12px;background:#007aff;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;'
+  saveBtn.addEventListener('click', () => _saveContactFromHint(code))
+  btnRow.appendChild(skipBtn)
+  btnRow.appendChild(saveBtn)
+  mc.appendChild(title)
+  mc.appendChild(desc)
+  mc.appendChild(nameRow)
+  mc.appendChild(btnRow)
+  document.getElementById('modal-overlay').classList.add('active')
+  setTimeout(() => inp.focus(), 100)
 }
 
 async function _saveContactFromHint(code) {
   const inp = document.getElementById('save-hint-name')
   const name = (inp?.value || '').trim() || inp?.placeholder || code
-  const bar = document.getElementById('save-hint-bar')
   try {
     const res = await fetch(`/api/contacts/${MY_USER_ID}`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -2754,8 +2765,8 @@ async function _saveContactFromHint(code) {
       showToast('儲存失敗：' + (err.error || res.status))
       return
     }
-    if (bar) { bar.innerHTML = `✓ 已加入常用比對「${name}」`; setTimeout(() => bar.remove(), 2500) }
-    showToast('✅ 已儲存「' + name + '」')
+    document.getElementById('modal-overlay').classList.remove('active')
+    showToast('✅ 已加入常用比對「' + name + '」')
     renderQuickCompareBar()
   } catch (e) {
     showToast('儲存失敗：網路錯誤')
