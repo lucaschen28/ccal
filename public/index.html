@@ -2719,13 +2719,27 @@ async function _maybeShowSaveHint(code) {
   }
   const profile = await fetch(`/api/profile/${code}`).then(r => r.json()).catch(() => ({}))
   const defaultName = profile.empId || code
-  hint.innerHTML = `儲存「${defaultName}」為常用？暱稱：
-    <input id="save-hint-name" placeholder="${defaultName}" value="" maxlength="12"
-      style="width:80px;border:1px solid #c9a800;border-radius:6px;padding:2px 6px;font-size:12px">
-    <button onclick="_saveContactFromHint('${code}')"
-      style="background:#007aff;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">儲存</button>
-    <button onclick="document.getElementById('save-hint-bar').remove()"
-      style="background:none;border:none;color:#8e8e93;font-size:12px;cursor:pointer">略過</button>`
+  // 用 DOM 操作代替 innerHTML onclick，避免 Safari inline handler 不觸發的問題
+  hint.innerHTML = ''
+  const label = document.createElement('span')
+  label.textContent = `儲存「${defaultName}」為常用？暱稱：`
+  const inp = document.createElement('input')
+  inp.id = 'save-hint-name'
+  inp.placeholder = defaultName
+  inp.maxLength = 12
+  inp.style.cssText = 'width:80px;border:1px solid #c9a800;border-radius:6px;padding:2px 6px;font-size:12px'
+  const saveBtn = document.createElement('button')
+  saveBtn.textContent = '儲存'
+  saveBtn.style.cssText = 'background:#007aff;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer'
+  saveBtn.addEventListener('click', () => _saveContactFromHint(code))
+  const skipBtn = document.createElement('button')
+  skipBtn.textContent = '略過'
+  skipBtn.style.cssText = 'background:none;border:none;color:#8e8e93;font-size:12px;cursor:pointer'
+  skipBtn.addEventListener('click', () => hint.remove())
+  hint.appendChild(label)
+  hint.appendChild(inp)
+  hint.appendChild(saveBtn)
+  hint.appendChild(skipBtn)
 }
 
 async function _saveContactFromHint(code) {
