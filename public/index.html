@@ -3075,7 +3075,52 @@ function _renderSwapBoardModal(tab) {
 }
 
 function showSwapPreferences() {
-  showToast('我的換班喜好 — 開發中')
+  const KEY = 'cCalSwapPrefs'
+  const getPrefs = () => JSON.parse(localStorage.getItem(KEY) || '[]')
+  const savePrefs = p => localStorage.setItem(KEY, JSON.stringify(p))
+
+  function renderTags() {
+    const prefs = getPrefs()
+    const el = document.getElementById('swap-prefs-tags')
+    if (!el) return
+    if (!prefs.length) {
+      el.innerHTML = '<div style="color:#8e8e93;font-size:13px;padding:4px 0;">尚無換班喜好</div>'
+      return
+    }
+    el.innerHTML = prefs.map((p, i) =>
+      `<span style="display:inline-flex;align-items:center;gap:5px;background:#e8f4ff;color:#1a56db;border-radius:20px;padding:5px 12px;font-size:13px;margin:3px 4px 3px 0;">
+        ${p.replace(/</g,'&lt;')}
+        <button onclick="_swapPrefDel(${i})" style="background:none;border:none;color:#6b7280;font-size:16px;line-height:1;cursor:pointer;padding:0;">×</button>
+      </span>`
+    ).join('')
+  }
+
+  window._swapPrefDel = i => {
+    const p = getPrefs(); p.splice(i, 1); savePrefs(p); renderTags()
+  }
+  window._swapPrefAdd = () => {
+    const inp = document.getElementById('swap-pref-input')
+    const val = (inp.value || '').trim()
+    if (!val) return
+    const p = getPrefs(); p.push(val); savePrefs(p)
+    inp.value = ''; renderTags()
+    inp.focus()
+  }
+
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;">我的換班喜好</div>
+    </div>
+    <div id="swap-prefs-tags" style="min-height:36px;margin-bottom:16px;line-height:2;"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="swap-pref-input" type="text" placeholder="輸入換班喜好…"
+        style="flex:1;padding:10px 12px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:14px;outline:none;-webkit-appearance:none;"
+        onkeydown="if(event.key==='Enter')_swapPrefAdd()">
+      <button onclick="_swapPrefAdd()"
+        style="padding:10px 16px;background:#007aff;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">儲存</button>
+    </div>`
+  document.getElementById('modal-overlay').classList.add('active')
+  renderTags()
 }
 
 function showMySwapSummary() {
