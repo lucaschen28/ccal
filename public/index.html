@@ -2826,6 +2826,17 @@ function _renderSwapBoardModal(tab) {
       return code === MY_USER_ID
     })()
 
+    // 員編 / 艙等資格 / 機種資格 彩色標記（自己的條目 fallback 本地設定）
+    const _myS = getSettings()
+    const _empId = e.empId || (isOwn ? (localStorage.getItem('cCalEmpId') || '') : (e.displayName || ''))
+    const _role = e.role || (isOwn ? (_myS.role || '') : '')
+    const _acList = (e.aircraft && e.aircraft.length) ? e.aircraft : (isOwn ? (_myS.aircraft || []) : [])
+    const badgeHtml = [
+      _empId  ? `<span style="color:#3c3c43;font-weight:600;">${_empId}</span>` : '',
+      _role   ? `<span style="color:#007aff;font-weight:700;">${_role}</span>` : '',
+      _acList.length ? `<span style="color:#ff9500;">${_acList.join(' ')}</span>` : ''
+    ].filter(Boolean).join(' ')
+
     // 右側按鈕
     const lineId = (e.linePublicId || '').trim()
     const lineUrl = lineId ? 'https://line.me/R/ti/p/' + (lineId.startsWith('@') ? lineId : '@' + lineId) : ''
@@ -2842,7 +2853,7 @@ function _renderSwapBoardModal(tab) {
       const delOnclick = `_swapBoardDelete('${e.dateStr}','${e.type}')`
       return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f5;gap:8px;">
         <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji}</div>
+          <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${badgeHtml}</div>
           <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             ${rowTwo}
           </div>
@@ -2865,7 +2876,7 @@ function _renderSwapBoardModal(tab) {
 
     return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f5;gap:8px;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${e.empId || e.displayName}${e.role ? ' ' + e.role : ''}${e.aircraft && e.aircraft.length ? ' ' + e.aircraft.join(' ') : ''}</div>
+        <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${badgeHtml}</div>
         <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
           ${rowTwo}
         </div>
