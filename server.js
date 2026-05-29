@@ -177,6 +177,24 @@ app.get('/api/lookup/emp/:empId', (req, res) => {
   res.status(404).json({ error: '找不到此員編' })
 })
 
+// 以 LINE User ID 反查 CCal 代碼
+app.get('/api/lookup/line/:lineUserId', (req, res) => {
+  const lineUserId = req.params.lineUserId.trim()
+  if (!lineUserId) return res.status(400).json({ error: '無效的 LINE User ID' })
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('_settings.json'))
+    for (const file of files) {
+      try {
+        const settings = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'))
+        if (settings.lineUserId === lineUserId) {
+          return res.json({ userId: file.replace('_settings.json', '') })
+        }
+      } catch {}
+    }
+  } catch {}
+  res.status(404).json({ error: '找不到此 LINE 用戶' })
+})
+
 // 用戶 profile（員編等）
 function profilePath(userId) {
   const fp = userPath(userId)

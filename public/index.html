@@ -2448,13 +2448,17 @@ function showSwapBoardDayDetail(ds, type) {
            </svg>
          </a>`
       : ''
-    // 比對按鈕：只要不是自己就顯示。有 ccalCode → 直接比對；沒有 → 跳出輸入框
+    // 比對按鈕：只要不是自己就顯示
+    // 有 ccalCode → 直接比對；沒有但有 lineUserId → 自動反查；都沒有 → 跳出輸入框
     const _cName = (e.displayName || '此組員').replace(/'/g, "\\'")
     const _cCode = (e.ccalUserId && e.ccalUserId.length <= 12) ? e.ccalUserId : ''
+    const _cLine = (e.lineUserId || '').replace(/'/g, "\\'")
     const _isOwn = _cCode && _cCode === MY_USER_ID
     const _btnOnclick = _cCode
       ? `document.getElementById('modal-overlay').classList.remove('active');toggleCompare('${_cCode}','${_cName}')`
-      : `showSwapCompareInput('${_cName}')`
+      : _cLine
+        ? `document.getElementById('modal-overlay').classList.remove('active');compareByLineId('${_cLine}','${_cName}')`
+        : `showSwapCompareInput('${_cName}')`
     const compareBtn = !_isOwn
       ? `<button onclick="${_btnOnclick}"
            style="margin-left:8px;width:28px;height:28px;border-radius:6px;background:#e8f0fe;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="比對班表">
@@ -2471,6 +2475,24 @@ function showSwapBoardDayDetail(ds, type) {
     <div class="task-route" style="margin-bottom:12px;">${typeLabel}　<span style="font-size:13px;font-weight:400;color:#8e8e93">${entries.length} 筆</span></div>
     ${rows}
   `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+// 換班看板：用 LINE User ID 反查 CCal 代碼，查到就直接比對，查不到才顯示輸入框
+async function compareByLineId(lineUserId, displayName) {
+  showToast('查詢中…', 60000)
+  try {
+    const r = await fetch(`/api/lookup/line/${encodeURIComponent(lineUserId)}`)
+    if (r.ok) {
+      const d = await r.json()
+      showToast('')  // 清掉「查詢中」
+      await toggleCompare(d.userId, displayName)
+      return
+    }
+  } catch {}
+  showToast('')
+  // LINE ID 查不到 → 退而顯示輸入框
+  showSwapCompareInput(displayName)
   document.getElementById('modal-overlay').classList.add('active')
 }
 
