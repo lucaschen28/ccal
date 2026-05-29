@@ -3060,12 +3060,83 @@ function _renderSwapBoardModal(tab) {
     <div style="display:flex;border-bottom:1px solid #e5e5ea;margin:-2px -4px 12px;">
       ${tabBar}
     </div>
-    <button id="swap-refresh-btn" onclick="_swapBoardRefresh('${tab}')"
-      style="float:right;margin-top:-8px;padding:4px 10px;background:#f2f2f7;border:none;border-radius:8px;font-size:12px;color:#007aff;cursor:pointer;overflow:hidden;transition:color .1s;">重新整理</button>
-    <div style="font-size:12px;color:#8e8e93;margin-bottom:8px;">共 ${filtered.length} 筆</div>
+    <div style="display:flex;align-items:center;margin-bottom:8px;gap:6px;">
+      <div style="font-size:12px;color:#8e8e93;flex:1;">共 ${filtered.length} 筆</div>
+      <button onclick="showMySwapSummary()"
+        style="padding:4px 10px;background:#f2f2f7;border:none;border-radius:8px;font-size:12px;color:#3c3c43;cursor:pointer;">複製清單</button>
+      <button id="swap-refresh-btn" onclick="_swapBoardRefresh('${tab}')"
+        style="padding:4px 10px;background:#f2f2f7;border:none;border-radius:8px;font-size:12px;color:#007aff;cursor:pointer;overflow:hidden;transition:color .1s;">重新整理</button>
+    </div>
     ${rows}${emptyMsg}
   `
   document.getElementById('modal-overlay').classList.add('active')
+}
+
+function showMySwapSummary() {
+  // 取出所有自己的需求
+  const all = []
+  for (const [dateStr, day] of Object.entries(swapBoardSummary)) {
+    for (const e of (day.throw  || [])) all.push({ ...e, dateStr, type: 'throw'  })
+    for (const e of (day.accept || [])) all.push({ ...e, dateStr, type: 'accept' })
+  }
+  const own = all
+    .filter(e => (e.ccalUserId && e.ccalUserId.length <= 12 ? e.ccalUserId : '') === MY_USER_ID)
+    .sort((a, b) => a.dateStr.localeCompare(b.dateStr))
+
+  if (!own.length) { showToast('目前沒有刊登中的需求'); return }
+
+  // 組合純文字
+  const s = getSettings()
+  const empId = localStorage.getItem('cCalEmpId') || ''
+  const headerParts = [empId, s.role, ...(s.aircraft || [])].filter(Boolean)
+  let text = headerParts.join(' ') + '\n'
+
+  let curMonth = null
+  for (const e of own) {
+    const sp = e.dateStr.split('-')
+    const month = +sp[1]
+    const day   = +sp[2]
+
+    if (month !== curMonth) {
+      text += '\n── ' + month + '月 ──\n'
+      curMonth = month
+    }
+
+    const priceStr = e.commission > 0 ? e.commission + '圈'
+      : e.commission === -1 ? '無料' : '可議'
+    const noteStr  = e.note ? ' ' + e.note : ''
+
+    if (e.type === 'throw') {
+      const flightStr = (e.flights || []).map(f => f.date + '/' + f.flight).join(' ') || String(day)
+      text += '丟 ' + flightStr + ' ' + priceStr + noteStr + '\n'
+    } else {
+      text += '接 ' + day + '號 ' + priceStr + noteStr + '\n'
+    }
+  }
+
+  const escaped = text.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:15px;font-weight:700;color:#1c1c1e;margin-bottom:12px;">我的換班需求</div>
+    <pre id="swap-summary-text"
+      style="font-family:inherit;font-size:13px;line-height:1.9;color:#1c1c1e;
+             background:#f9f9fb;border-radius:10px;padding:14px;
+             white-space:pre-wrap;word-break:break-all;margin:0 0 12px;">${escaped}</pre>
+    <button id="copy-summary-btn" onclick="copySwapSummary()"
+      style="width:100%;padding:12px;background:#007aff;border:none;border-radius:10px;
+             font-size:14px;font-weight:700;color:#fff;cursor:pointer;">
+      📋 複製
+    </button>
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+function copySwapSummary() {
+  const text = document.getElementById('swap-summary-text')?.textContent || ''
+  const btn  = document.getElementById('copy-summary-btn')
+  navigator.clipboard.writeText(text.trim()).then(() => {
+    btn.textContent = '✅ 已複製'
+    setTimeout(() => { if (btn) btn.textContent = '📋 複製' }, 2000)
+  }).catch(() => showToast('複製失敗，請手動選取文字'))
 }
 
 async function _swapBoardRefresh(tab) {
