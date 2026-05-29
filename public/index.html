@@ -3147,17 +3147,19 @@ function copySwapSummary() {
 function buildSwapRangeCalendarEl(yms, ownEntries) {
   const W = document.getElementById('app').clientWidth
   const [fy, fm] = yms[0].split('-').map(Number)
-  const [ly, lm] = yms[yms.length - 1].split('-').map(Number)
   const multiMonth = yms.length > 1
-  const lastDayOfFirst = new Date(fy, fm, 0).getDate()
 
   // 從 24 日那週的週日開始
   const day24 = new Date(fy, fm - 1, 24)
   const startDay = new Date(day24)
   startDay.setDate(day24.getDate() - day24.getDay())
 
-  // 截到最後一個月的最後一天
-  const endDay = new Date(ly, lm, 0)
+  // 結束：最後一筆需求日期那週的週六（不截到月底，避免空白格）
+  const lastDateStr = ownEntries.reduce((max, e) => e.dateStr > max ? e.dateStr : max, ownEntries[0]?.dateStr || yms[yms.length - 1] + '-01')
+  const lastDate = new Date(lastDateStr + 'T00:00:00')
+  const endDay = new Date(lastDate)
+  endDay.setDate(lastDate.getDate() + (6 - lastDate.getDay()))
+  const ey = endDay.getFullYear(), em = endDay.getMonth() + 1
 
   const t = new Date()
   const todayStr = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`
@@ -3172,8 +3174,9 @@ function buildSwapRangeCalendarEl(yms, ownEntries) {
     const ds = `${cur.getFullYear()}-${String(dM).padStart(2,'0')}-${String(dD).padStart(2,'0')}`
     const isToday = ds === todayStr
 
-    // 日期標籤：首月最後一天 & 次月以後 → M/D，其餘 → D
-    const showMD = multiMonth && (dM !== fm || dD === lastDayOfFirst)
+    // 日期標籤：月底最後一天 或 次月第一天 才顯示 M/D，其餘只顯示 D
+    const lastDayOfCurMonth = new Date(cur.getFullYear(), dM, 0).getDate()
+    const showMD = multiMonth && (dD === 1 || dD === lastDayOfCurMonth)
     const dateLabel = showMD ? `${dM}/${dD}` : String(dD)
 
     const cell = document.createElement('div')
@@ -3257,7 +3260,7 @@ function buildSwapRangeCalendarEl(yms, ownEntries) {
   const s = getSettings()
   const empId = localStorage.getItem('cCalEmpId') || ''
   const hp = [empId, s.role, ...(s.aircraft || [])].filter(Boolean)
-  const rangeLabel = multiMonth ? `${fy}年${fm}月 ～ ${ly}年${lm}月` : `${fy}年${fm}月`
+  const rangeLabel = (em !== fm || ey !== fy) ? `${fy}年${fm}月 ～ ${ey}年${em}月` : `${fy}年${fm}月`
   const hdr = document.createElement('div')
   hdr.style.cssText = 'padding:10px 16px 8px;border-bottom:1px solid #e5e5ea;display:flex;justify-content:space-between;align-items:center;'
   hdr.innerHTML = `<div style="font-size:15px;font-weight:700;color:#1c1c1e;">${rangeLabel}</div>
