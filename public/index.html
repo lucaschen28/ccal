@@ -2691,13 +2691,23 @@ async function _maybeShowSaveHint(code) {
 async function _saveContactFromHint(code) {
   const inp = document.getElementById('save-hint-name')
   const name = (inp?.value || '').trim() || inp?.placeholder || code
-  await fetch(`/api/contacts/${MY_USER_ID}`, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ code, name })
-  }).catch(() => {})
   const bar = document.getElementById('save-hint-bar')
-  if (bar) { bar.innerHTML = `✓ 已儲存「${name}」`; setTimeout(() => bar.remove(), 2000) }
-  renderQuickCompareBar()
+  try {
+    const res = await fetch(`/api/contacts/${MY_USER_ID}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code: code.trim().toUpperCase(), name })
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      showToast('儲存失敗：' + (err.error || res.status))
+      return
+    }
+    if (bar) { bar.innerHTML = `✓ 已加入常用比對「${name}」`; setTimeout(() => bar.remove(), 2500) }
+    showToast('✅ 已儲存「' + name + '」')
+    renderQuickCompareBar()
+  } catch (e) {
+    showToast('儲存失敗：網路錯誤')
+  }
 }
 
 function toggleEmpIdEdit() {

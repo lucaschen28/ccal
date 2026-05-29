@@ -90,7 +90,8 @@ app.get('/api/contacts/:userId', (req, res) => {
 app.post('/api/contacts/:userId', (req, res) => {
   const fp = contactsPath(req.params.userId)
   if (!fp) return res.status(400).json({ error: '無效的 userId' })
-  const { code, name } = req.body
+  const { name } = req.body
+  const code = (req.body.code || '').trim().toUpperCase()  // 統一轉大寫，防止大小寫問題
   if (!code || !/^[A-Z0-9]{4,12}$/.test(code)) return res.status(400).json({ error: '無效代碼' })
   const list = readData(fp)
   const idx = list.findIndex(c => c.code === code)
