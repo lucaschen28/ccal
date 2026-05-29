@@ -1479,7 +1479,10 @@ async function _syncSettingsFromServer() {
       displayName:   sv.displayName   || local.displayName   || '',
       botUrl:        sv.botUrl        || local.botUrl        || '',
       apiSecret:     sv.apiSecret     || local.apiSecret     || '',
-      linePublicId:  sv.linePublicId  || local.linePublicId  || ''
+      linePublicId:  sv.linePublicId  || local.linePublicId  || '',
+      seniority:     sv.seniority     || local.seniority     || '',
+      role:          sv.role          || local.role          || '',
+      aircraft:      sv.aircraft      || local.aircraft      || []
     }
     localStorage.setItem('cCalSettings', JSON.stringify(merged))
   } catch {}
@@ -1501,10 +1504,78 @@ async function showSettingsModal(fromSwap) {
     ? `← <span style="color:#007aff;cursor:pointer;" onclick="showSwapForm()">返回</span>`
     : ''
   const isDesktop = document.body.classList.contains('desktop-mode')
+  const empId = localStorage.getItem('cCalEmpId') || ''
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date" style="margin-bottom:6px;">${backLink}</div>
     <div class="task-route" style="margin-bottom:14px;">設定</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
+
+      <!-- 0. 個人資料 -->
+      <div style="background:#f9f9f9;border-radius:12px;padding:14px;">
+        <!-- 員編 + 序號 -->
+        <div style="display:flex;gap:12px;margin-bottom:14px;">
+          <div style="flex:1;">
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:3px;">我的員編</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span id="sf-empid-display" style="font-size:15px;font-weight:700;color:#1c1c1e;">${empId||'未設定'}</span>
+              <button onclick="toggleSfEmpIdEdit()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;">修改</button>
+            </div>
+            <div id="sf-empid-edit" style="display:none;margin-top:6px;">
+              <div style="display:flex;gap:6px;">
+                <input id="sf-empid-inp" class="sf-input" type="text" inputmode="numeric" placeholder="員工編號" value="${empId}" style="flex:1;margin:0;font-size:14px;">
+                <button onclick="saveSfEmpId()" style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">儲存</button>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:3px;">我的序號</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span id="sf-seniority-display" style="font-size:15px;font-weight:700;color:#1c1c1e;">${s.seniority||'未設定'}</span>
+              <button onclick="toggleSfSeniorityEdit()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;">修改</button>
+            </div>
+            <div id="sf-seniority-edit" style="display:none;margin-top:6px;">
+              <div style="display:flex;gap:6px;">
+                <input id="sf-seniority-inp" class="sf-input" type="text" inputmode="numeric" placeholder="序號" value="${s.seniority||''}" style="flex:1;margin:0;font-size:14px;">
+                <button onclick="saveSfSeniority()" style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;">儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 身份 + 機種 -->
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;">
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:3px;">身份</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span id="sf-role-display" style="font-size:14px;font-weight:700;color:#1c1c1e;">${s.role||'未設定'}</span>
+              <button onclick="toggleSfRolePicker()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;">修改</button>
+            </div>
+            <div id="sf-role-picker" style="display:none;margin-top:8px;">
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${['CM','FF','MF','FY','MY'].map(r => `<button data-role="${r}" onclick="selectSfRole('${r}')"
+                  style="padding:6px 12px;border:none;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;
+                    background:${s.role===r?'#007aff':'#e5e5ea'};color:${s.role===r?'#fff':'#3c3c43'};">${r}</button>`).join('')}
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:3px;">差異機種</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span id="sf-aircraft-display" style="font-size:14px;font-weight:700;color:#1c1c1e;">${(s.aircraft||[]).join(' ')||'未設定'}</span>
+              <button onclick="toggleSfAircraftPicker()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;">修改</button>
+            </div>
+            <div id="sf-aircraft-picker" style="display:none;margin-top:8px;">
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${['321','738','無777','無330','無350'].map(a => {
+                  const sel = (s.aircraft||[]).includes(a)
+                  return `<button data-ac="${a}" onclick="toggleSfAircraft('${a}')"
+                    style="padding:5px 10px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;
+                      background:${sel?'#007aff':'#e5e5ea'};color:${sel?'#fff':'#3c3c43'};">${a}</button>`
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 1. 複製邀請連結 -->
       <button class="sf-save-btn" style="background:#f2f2f7;color:#3a3a3c" onclick="copyInviteLink(this)">📋 複製邀請連結（傳給組員）</button>
@@ -1550,6 +1621,18 @@ async function showSettingsModal(fromSwap) {
         </div>
         <button class="sf-save-btn" style="background:#ff9500;margin-top:4px" onclick="savePIN(${hasPin})">儲存 PIN</button>
         <div id="sf-pin-msg" style="font-size:12px;text-align:center;min-height:16px;margin-top:6px;"></div>
+      </div>
+
+      <!-- 3.5 我的代碼 -->
+      <div style="border-top:1px solid #e5e5ea;padding-top:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:11px;color:#8e8e93;margin-bottom:3px;">我的代碼</div>
+            <div style="font-size:20px;font-weight:800;letter-spacing:4px;color:#007aff;">${MY_USER_ID}</div>
+          </div>
+          <button onclick="navigator.clipboard.writeText('${MY_USER_ID}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製代碼',1500)})"
+            style="padding:9px 16px;background:#e8f0fe;border:1.5px solid #007aff;border-radius:10px;font-size:13px;font-weight:700;color:#007aff;cursor:pointer;">複製代碼</button>
+        </div>
       </div>
 
       <!-- 4. 登出 / 切換帳號 -->
@@ -1645,7 +1728,9 @@ function copyInviteLink(btn) {
 }
 
 function saveSettingsForm() {
+  const s = getSettings()
   saveSettings({
+    ...s,
     lineUserId:   document.getElementById('sf-userid').value.trim(),
     displayName:  document.getElementById('sf-name').value.trim(),
     botUrl:       document.getElementById('sf-boturl').value.trim().replace(/\/$/, ''),
@@ -1655,6 +1740,73 @@ function saveSettingsForm() {
   if (window._settingsFromSwap && window._emptySwapDate) showSwapFormForEmpty(window._emptySwapDate)
   else if (window._settingsFromSwap && window._swapTask) showSwapForm()
   else document.getElementById('modal-overlay').classList.remove('active')
+}
+
+// ── 設定頁個人資料 inline edit helpers ───────────────────────
+function toggleSfEmpIdEdit() {
+  const el = document.getElementById('sf-empid-edit')
+  el.style.display = el.style.display === 'none' ? 'block' : 'none'
+}
+async function saveSfEmpId() {
+  const val = (document.getElementById('sf-empid-inp').value || '').trim()
+  if (!val) return
+  localStorage.setItem('cCalEmpId', val)
+  fetch(`/api/profile/${MY_USER_ID}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ empId: val })
+  }).catch(() => {})
+  document.getElementById('sf-empid-display').textContent = val
+  document.getElementById('sf-empid-edit').style.display = 'none'
+  renderEmpIdBadge()
+}
+function toggleSfSeniorityEdit() {
+  const el = document.getElementById('sf-seniority-edit')
+  el.style.display = el.style.display === 'none' ? 'block' : 'none'
+}
+function saveSfSeniority() {
+  const val = (document.getElementById('sf-seniority-inp').value || '').trim()
+  const s = getSettings()
+  saveSettings({ ...s, seniority: val })
+  document.getElementById('sf-seniority-display').textContent = val || '未設定'
+  document.getElementById('sf-seniority-edit').style.display = 'none'
+}
+function toggleSfRolePicker() {
+  const el = document.getElementById('sf-role-picker')
+  el.style.display = el.style.display === 'none' ? 'block' : 'none'
+}
+function selectSfRole(r) {
+  const s = getSettings()
+  saveSettings({ ...s, role: r })
+  document.getElementById('sf-role-display').textContent = r
+  document.querySelectorAll('#sf-role-picker button[data-role]').forEach(b => {
+    const active = b.dataset.role === r
+    b.style.background = active ? '#007aff' : '#e5e5ea'
+    b.style.color = active ? '#fff' : '#3c3c43'
+  })
+}
+function toggleSfAircraftPicker() {
+  const el = document.getElementById('sf-aircraft-picker')
+  el.style.display = el.style.display === 'none' ? 'block' : 'none'
+}
+function toggleSfAircraft(a) {
+  const s = getSettings()
+  let list = [...(s.aircraft || [])]
+  if (a === '321' || a === '738') {
+    // 321 / 738 互斥
+    const other = a === '321' ? '738' : '321'
+    if (list.includes(a)) { list = list.filter(x => x !== a) }
+    else { list = list.filter(x => x !== other); list.push(a) }
+  } else {
+    if (list.includes(a)) list = list.filter(x => x !== a)
+    else list.push(a)
+  }
+  saveSettings({ ...s, aircraft: list })
+  document.getElementById('sf-aircraft-display').textContent = list.length ? list.join(' ') : '未設定'
+  document.querySelectorAll('#sf-aircraft-picker button[data-ac]').forEach(b => {
+    const active = list.includes(b.dataset.ac)
+    b.style.background = active ? '#007aff' : '#e5e5ea'
+    b.style.color = active ? '#fff' : '#3c3c43'
+  })
 }
 
 // ── Swap form ────────────────────────────────────────────────
@@ -2256,12 +2408,7 @@ function _doImportPdf() {
 
 // ── 查找班表 / 我的代碼 ────────────────────────────────────
 async function showUserCodeModal() {
-  const empId = localStorage.getItem('cCalEmpId') || ''
   const contacts = await _fetchContacts()
-  const s = getSettings()
-  const inviteUrl = (s.botUrl && s.apiSecret)
-    ? location.origin + '/?setup&botUrl=' + encodeURIComponent(s.botUrl) + '&apiSecret=' + encodeURIComponent(s.apiSecret)
-    : ''
 
   const chipsHtml = contacts.length ? `
     <div class="add-section-label" style="margin:12px 0 6px">常用</div>
@@ -2275,38 +2422,11 @@ async function showUserCodeModal() {
   document.getElementById('modal-content').innerHTML = `
     <div class="task-route" style="margin-bottom:14px">查找班表</div>
 
-    <!-- 行一：我的代碼 ＋ 我的員編 -->
-    <div style="display:flex;gap:10px;margin-bottom:12px;">
-      <div style="flex:1;background:#e8f0fe;border-radius:10px;padding:10px 12px;">
-        <div style="font-size:11px;color:#5c7cbe;margin-bottom:3px;">我的代碼</div>
-        <div style="font-size:18px;font-weight:800;letter-spacing:4px;color:#007aff;">${MY_USER_ID}</div>
-      </div>
-      <div style="flex:1;background:#f2f2f7;border-radius:10px;padding:10px 12px;">
-        <div style="font-size:11px;color:#8e8e93;margin-bottom:3px;">我的員編</div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span id="modal-empid-display" style="font-size:15px;font-weight:700;color:#1c1c1e;">${empId||'未設定'}</span>
-          <button onclick="toggleEmpIdEdit()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;">修改</button>
-        </div>
-      </div>
-    </div>
-    <div id="modal-empid-edit" style="display:none;margin-bottom:10px;">
-      <div style="display:flex;gap:6px;align-items:center;">
-        <input id="modal-empid-inp" class="add-field-input" type="text" inputmode="numeric" placeholder="輸入員編"
-          style="flex:1;margin-bottom:0;font-size:14px;" value="${empId}">
-        <button onclick="saveEmpIdFromModal()"
-          style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">儲存</button>
-      </div>
-    </div>
+    <!-- 截圖 -->
+    <button onclick="showScreenshotPicker()"
+      style="width:100%;padding:11px;background:#fff;border:1.5px solid #ff9500;border-radius:10px;font-size:13px;font-weight:600;color:#ff9500;cursor:pointer;margin-bottom:14px;">📸 截圖班表分享</button>
 
-    <!-- 行二：兩個操作按鈕 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
-      <button onclick="navigator.clipboard.writeText('${MY_USER_ID}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製代碼',1500)})"
-        style="padding:9px 4px;background:#fff;border:1.5px solid #007aff;border-radius:10px;font-size:12px;font-weight:600;color:#007aff;cursor:pointer;">複製代碼</button>
-      <button onclick="showScreenshotPicker()"
-        style="padding:9px 4px;background:#fff;border:1.5px solid #ff9500;border-radius:10px;font-size:12px;font-weight:600;color:#ff9500;cursor:pointer;line-height:1.2;">截圖班表分享</button>
-    </div>
-
-    <!-- 行三：查找班表 -->
+    <!-- 查找班表 -->
     <div style="margin-bottom:4px;">
       <div style="font-size:12px;font-weight:600;color:#8e8e93;margin-bottom:6px;">查找班表</div>
       <div style="display:flex;gap:6px;">
@@ -2318,7 +2438,7 @@ async function showUserCodeModal() {
       <div id="view-code-err" style="color:#ff3b30;font-size:12px;margin-top:4px;min-height:14px;"></div>
     </div>
 
-    <!-- 行四：常用 -->
+    <!-- 常用 -->
     ${chipsHtml}
   `
   document.getElementById('modal-overlay').classList.add('active')
