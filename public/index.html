@@ -2474,27 +2474,52 @@ function showSwapBoardDayDetail(ds, type) {
   document.getElementById('modal-overlay').classList.add('active')
 }
 
-// 換班看板：沒有 CCal 代碼時，顯示邀請加入提示
+// 換班看板：沒有 CCal 代碼時，顯示員編/代碼輸入框
 function showSwapCompareInput(displayName) {
-  const s = getSettings()
-  const inviteUrl = (s.botUrl && s.apiSecret)
-    ? location.origin + '/?setup&botUrl=' + encodeURIComponent(s.botUrl) + '&apiSecret=' + encodeURIComponent(s.apiSecret)
-    : null
+  const _dn = displayName.replace(/'/g, "\\'")
   document.getElementById('modal-content').innerHTML = `
-    <div class="task-date" style="margin-bottom:6px;">邀請加入班表系統</div>
-    <div style="font-size:14px;color:#3c3c43;margin-bottom:16px;">
-      「${displayName}」尚未加入班表系統，無法直接比對班表。<br>
-      <span style="font-size:13px;color:#8e8e93;">傳送邀請連結給對方，加入後即可一鍵比對。</span>
+    <div class="task-date" style="margin-bottom:6px;">比對班表</div>
+    <div style="font-size:14px;color:#3c3c43;margin-bottom:14px;">
+      輸入「${displayName}」的<b>員編</b>或 CCal 代碼
     </div>
-    ${inviteUrl
-      ? `<button id="swap-invite-btn"
-           onclick="copySwapInvite(this,'${inviteUrl.replace(/'/g,"\\'")}','${displayName.replace(/'/g,"\\'")}')"
-           style="width:100%;padding:12px;background:#007aff;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">
-           📋 複製邀請連結
-         </button>`
-      : `<div style="color:#ff3b30;font-size:13px;">請先在設定頁面填寫 Bot URL 與 API Secret</div>`
-    }
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <input id="swap-compare-code-inp" placeholder="員編（如 644392）或代碼" maxlength="12"
+        style="flex:1;padding:10px 12px;border:1px solid #d1d1d6;border-radius:10px;font-size:15px;"
+        oninput="this.value=this.value.replace(/[^A-Za-z0-9]/g,'')"
+        onkeydown="if(event.key==='Enter')doSwapCompare('${_dn}')">
+      <button onclick="doSwapCompare('${_dn}')"
+        style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:15px;font-weight:700;cursor:pointer;">
+        比對
+      </button>
+    </div>
+    <div id="swap-compare-err" style="font-size:13px;color:#8e8e93;min-height:18px;">先找員編，找不到再用代碼</div>
   `
+  document.getElementById('swap-compare-code-inp')?.focus()
+}
+
+async function doSwapCompare(displayName) {
+  const inp = document.getElementById('swap-compare-code-inp')
+  const raw = (inp?.value || '').trim()
+  const errEl = document.getElementById('swap-compare-err')
+  if (!raw) { if (errEl) errEl.textContent = '請輸入員編或代碼'; return }
+  if (errEl) { errEl.style.color = '#8e8e93'; errEl.textContent = '查詢中…' }
+
+  // 先嘗試員編查詢
+  let resolvedCode = null
+  try {
+    const r = await fetch(`/api/lookup/emp/${encodeURIComponent(raw)}`)
+    if (r.ok) {
+      const d = await r.json()
+      resolvedCode = d.userId  // 找到了，拿到 CCal 代碼
+    }
+  } catch {}
+
+  // 員編查無此人 → 把輸入值本身當 CCal 代碼試
+  if (!resolvedCode) resolvedCode = raw.toUpperCase()
+
+  document.getElementById('modal-overlay').classList.remove('active')
+  // toggleCompare 裡的 quickCompare 如果也找不到，會顯示 toast
+  await toggleCompare(resolvedCode, displayName)
 }
 
 function copySwapInvite(btn, url, displayName) {
