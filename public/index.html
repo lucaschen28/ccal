@@ -1795,6 +1795,7 @@ async function submitSwap() {
   const body = {
     type: window._swapType,
     userId: s.lineUserId,
+    ccalCode: MY_USER_ID,
     displayName: s.displayName || '組員',
     linePublicId: s.linePublicId || '',
     commission: window._swapComm,
