@@ -234,6 +234,7 @@
     #ptr-indicator.refreshing { transform:translateX(-50%) translateY(8px); animation:ptr-spin 0.8s linear infinite; }
     @keyframes ptr-spin { to { rotate: 360deg; } }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </head>
 <body>
 
@@ -364,8 +365,8 @@
       <button class="fab-icon" tabindex="-1">⚙️</button>
     </div>
     <div class="fab-item" onclick="closeFab();showUserCodeModal()">
-      <span class="fab-label">我的代碼</span>
-      <button class="fab-icon" tabindex="-1">👥</button>
+      <span class="fab-label">查找班表</span>
+      <button class="fab-icon" tabindex="-1">🔍</button>
     </div>
     <div class="fab-item" onclick="closeFab();openImportPdf()">
       <span class="fab-label">匯入班表</span>
@@ -2252,49 +2253,73 @@ function _doImportPdf() {
   input.click()
 }
 
-// ── 我的代碼 / 看別人班表 ────────────────────────────────────
+// ── 查找班表 / 我的代碼 ────────────────────────────────────
 async function showUserCodeModal() {
-  const shareUrl = location.origin + location.pathname + '?view=' + MY_USER_ID
-  // 先載入聯絡人
+  const empId = localStorage.getItem('cCalEmpId') || ''
   const contacts = await _fetchContacts()
+  const s = getSettings()
+  const inviteUrl = (s.botUrl && s.apiSecret)
+    ? location.origin + '/?setup&botUrl=' + encodeURIComponent(s.botUrl) + '&apiSecret=' + encodeURIComponent(s.apiSecret)
+    : ''
+
   const chipsHtml = contacts.length ? `
-    <div class="add-section-label" style="margin:14px 0 6px">常用</div>
+    <div class="add-section-label" style="margin:12px 0 6px">常用</div>
     <div id="contact-chips">${contacts.map(c => `
       <button class="contact-chip" onclick="quickCompare('${c.code}','${(c.name||c.code).replace(/'/g,"\\'")}')">
         ${c.name || c.code}
         <span class="chip-del" onclick="event.stopPropagation();deleteContact('${c.code}')">✕</span>
       </button>`).join('')}
     </div>` : ''
+
   document.getElementById('modal-content').innerHTML = `
-    <div class="task-route" style="margin-bottom:14px">我的代碼</div>
-    <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#007aff;background:#e8f0fe;border-radius:12px;padding:14px 0;margin-bottom:4px">${MY_USER_ID}</div>
-      <div style="font-size:12px;color:#8e8e93;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:6px">
-        員編：<span id="modal-empid-display" style="font-weight:600;color:#1c1c1e">${localStorage.getItem('cCalEmpId')||'（未設定）'}</span>
-        <button onclick="toggleEmpIdEdit()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0">修改</button>
+    <div class="task-route" style="margin-bottom:14px">查找班表</div>
+
+    <!-- 行一：我的代碼 ＋ 我的員編 -->
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;background:#e8f0fe;border-radius:10px;padding:10px 12px;">
+        <div style="font-size:11px;color:#5c7cbe;margin-bottom:3px;">我的代碼</div>
+        <div style="font-size:18px;font-weight:800;letter-spacing:4px;color:#007aff;">${MY_USER_ID}</div>
       </div>
-      <div id="modal-empid-edit" style="display:none;margin-bottom:10px;display:none">
-        <div style="display:flex;gap:6px;align-items:center;justify-content:center">
-          <input id="modal-empid-inp" class="add-field-input" type="text" inputmode="numeric" placeholder="輸入員編"
-            style="width:120px;margin-bottom:0;text-align:center;font-size:14px" value="${localStorage.getItem('cCalEmpId')||''}">
-          <button onclick="saveEmpIdFromModal()"
-            style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">儲存</button>
+      <div style="flex:1;background:#f2f2f7;border-radius:10px;padding:10px 12px;">
+        <div style="font-size:11px;color:#8e8e93;margin-bottom:3px;">我的員編</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span id="modal-empid-display" style="font-size:15px;font-weight:700;color:#1c1c1e;">${empId||'未設定'}</span>
+          <button onclick="toggleEmpIdEdit()" style="background:none;border:none;color:#007aff;font-size:12px;cursor:pointer;padding:0;flex-shrink:0;">修改</button>
         </div>
       </div>
+    </div>
+    <div id="modal-empid-edit" style="display:none;margin-bottom:10px;">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="modal-empid-inp" class="add-field-input" type="text" inputmode="numeric" placeholder="輸入員編"
+          style="flex:1;margin-bottom:0;font-size:14px;" value="${empId}">
+        <button onclick="saveEmpIdFromModal()"
+          style="background:#007aff;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">儲存</button>
+      </div>
+    </div>
+
+    <!-- 行二：三個操作按鈕 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
       <button onclick="navigator.clipboard.writeText('${MY_USER_ID}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製代碼',1500)})"
-        style="background:none;border:1.5px solid #007aff;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;color:#007aff;cursor:pointer">複製代碼</button>
-      &nbsp;
-      <button onclick="navigator.clipboard.writeText('${shareUrl}').then(()=>{this.textContent='已複製 ✓';setTimeout(()=>this.textContent='複製分享連結',1500)})"
-        style="background:none;border:1.5px solid #8e8e93;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;color:#8e8e93;cursor:pointer">複製分享連結</button>
+        style="padding:9px 4px;background:#fff;border:1.5px solid #007aff;border-radius:10px;font-size:12px;font-weight:600;color:#007aff;cursor:pointer;">複製代碼</button>
+      <button onclick="copyInviteLink(this)"
+        style="padding:9px 4px;background:#fff;border:1.5px solid #34c759;border-radius:10px;font-size:12px;font-weight:600;color:#34c759;cursor:pointer;line-height:1.2;">複製邀請連結</button>
+      <button onclick="showScreenshotPicker()"
+        style="padding:9px 4px;background:#fff;border:1.5px solid #ff9500;border-radius:10px;font-size:12px;font-weight:600;color:#ff9500;cursor:pointer;line-height:1.2;">截圖班表分享</button>
     </div>
-    <div class="add-section-label" style="margin-bottom:8px">看別人的班表</div>
-    <div style="display:flex;gap:8px">
-      <input id="view-code-input" class="add-field-input" maxlength="12" placeholder="代碼 或 員編"
-        style="flex:1;margin-bottom:0;text-transform:uppercase;letter-spacing:2px;font-weight:700;font-size:16px;text-align:center">
-      <button onclick="goViewOther()" style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 14px;font-size:14px;font-weight:700;cursor:pointer">查看</button>
-      <button onclick="goCompare()" style="background:#fff;color:#007aff;border:1.5px solid #007aff;border-radius:10px;padding:0 14px;font-size:14px;font-weight:700;cursor:pointer">比對</button>
+
+    <!-- 行三：查找班表 -->
+    <div style="margin-bottom:4px;">
+      <div style="font-size:12px;font-weight:600;color:#8e8e93;margin-bottom:6px;">查找班表</div>
+      <div style="display:flex;gap:6px;">
+        <input id="view-code-input" class="add-field-input" maxlength="12" placeholder="員編 或 代碼"
+          style="flex:1;margin-bottom:0;font-size:14px;">
+        <button onclick="goViewOther()" style="background:#007aff;color:#fff;border:none;border-radius:10px;padding:0 12px;font-size:13px;font-weight:700;cursor:pointer;">查找</button>
+        <button onclick="goCompare()" style="background:#fff;color:#007aff;border:1.5px solid #007aff;border-radius:10px;padding:0 12px;font-size:13px;font-weight:700;cursor:pointer;">比對</button>
+      </div>
+      <div id="view-code-err" style="color:#ff3b30;font-size:12px;margin-top:4px;min-height:14px;"></div>
     </div>
-    <div id="view-code-err" style="color:#ff3b30;font-size:12px;margin-top:6px;min-height:16px"></div>
+
+    <!-- 行四：常用 -->
     ${chipsHtml}
   `
   document.getElementById('modal-overlay').classList.add('active')
@@ -2302,6 +2327,73 @@ async function showUserCodeModal() {
     const inp = document.getElementById('view-code-input')
     if (inp) inp.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase() })
   }, 50)
+}
+
+// ── 截圖班表分享 ────────────────────────────────────────────
+function showScreenshotPicker() {
+  const now = new Date()
+  const m0 = now.getMonth()    // 當月 index
+  const y0 = now.getFullYear()
+  const m1 = m0 === 11 ? 0 : m0 + 1
+  const y1 = m0 === 11 ? y0 + 1 : y0
+  document.getElementById('modal-content').innerHTML = `
+    <div class="task-route" style="margin-bottom:14px;">截圖班表分享</div>
+    <div style="font-size:14px;color:#3c3c43;margin-bottom:18px;">選擇要截圖的月份：</div>
+    <div style="display:flex;gap:12px;margin-bottom:8px;">
+      <button id="ss-btn-cur"
+        style="flex:1;padding:16px;background:#e8f0fe;border:2px solid #007aff;border-radius:14px;font-size:18px;font-weight:800;color:#007aff;cursor:pointer;">
+        ${y0} 年 ${m0+1} 月
+      </button>
+      <button id="ss-btn-nxt"
+        style="flex:1;padding:16px;background:#f2f2f7;border:2px solid #d1d1d6;border-radius:14px;font-size:18px;font-weight:800;color:#3c3c43;cursor:pointer;">
+        ${y1} 年 ${m1+1} 月
+      </button>
+    </div>
+    <div style="font-size:12px;color:#8e8e93;text-align:center;">截圖後可直接傳 LINE 或存照片</div>
+  `
+  document.getElementById('ss-btn-cur').addEventListener('click', () => captureSchedule(y0, m0))
+  document.getElementById('ss-btn-nxt').addEventListener('click', () => captureSchedule(y1, m1))
+}
+
+async function captureSchedule(year, month) {
+  document.getElementById('modal-overlay').classList.remove('active')
+  // 若不是目標月份，先切過去
+  const origYear = currentYear, origMonth = currentMonth
+  if (year !== currentYear || month !== currentMonth) {
+    currentYear = year; currentMonth = month; renderCalendar()
+  }
+  showToast('截圖中…', 10000)
+  await new Promise(r => setTimeout(r, 300))  // 等 render 完
+  try {
+    if (typeof html2canvas === 'undefined') { showToast('截圖工具未載入，請重新整理後再試'); return }
+    // 截取 header + weekday + calendar 區域
+    const appEl = document.getElementById('app')
+    const canvas = await html2canvas(appEl, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    })
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'))
+    const file = new File([blob], `CCal_${year}_${String(month+1).padStart(2,'0')}.png`, { type: 'image/png' })
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: `CCal ${year}年${month+1}月班表` })
+    } else {
+      // 不支援原生分享 → 直接下載
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = file.name
+      a.click()
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') showToast('截圖失敗：' + e.message)
+  } finally {
+    showToast('')
+    // 還原月份
+    if (year !== origYear || month !== origMonth) {
+      currentYear = origYear; currentMonth = origMonth; renderCalendar()
+    }
+  }
 }
 
 async function quickCompare(code, name) {
