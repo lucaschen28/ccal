@@ -388,6 +388,7 @@ let scheduleData = []
 let tasks = []
 let compareList = []   // [{ userId, data, tasks }, ...]  最多 2 人
 let swapBoardMode = false
+let _screenshotMode = false   // 截圖中：私人行程改為圓點，不顯示標題
 let swapBoardSummary = {}  // { 'YYYY-MM-DD': { throw:[...], accept:[...] } }
 let currentYear = new Date().getFullYear()
 let currentMonth = new Date().getMonth()
@@ -899,8 +900,8 @@ function renderCalendar() {
       target.appendChild(pill)
     }
 
-    if (compareList.length || swapBoardMode) {
-      // 比對模式 / 換班需求模式：私人行程用淡紫圓點在日期數字上，不佔層
+    if (compareList.length || swapBoardMode || _screenshotMode) {
+      // 比對模式 / 換班需求模式 / 截圖模式：私人行程用淡紫圓點在日期數字上，不佔層
       if (_privateNF.length > 0) {
         dn.classList.add('has-private')
         dn.addEventListener('click', e => {
@@ -2347,7 +2348,8 @@ function showScreenshotPicker() {
         ${y1} 年 ${m1+1} 月
       </button>
     </div>
-    <div style="font-size:12px;color:#8e8e93;text-align:center;">截圖後可直接傳 LINE 或存照片</div>
+    <div style="font-size:12px;color:#8e8e93;text-align:center;margin-bottom:6px;">截圖後可直接傳 LINE 或存照片</div>
+    <div style="font-size:12px;color:#8e8e93;text-align:center;">🔒 不用擔心，你的私人行程我會替你遮擋起來</div>
   `
   document.getElementById('ss-btn-cur').addEventListener('click', () => captureSchedule(y0, m0))
   document.getElementById('ss-btn-nxt').addEventListener('click', () => captureSchedule(y1, m1))
@@ -2358,8 +2360,11 @@ async function captureSchedule(year, month) {
   // 若不是目標月份，先切過去
   const origYear = currentYear, origMonth = currentMonth
   if (year !== currentYear || month !== currentMonth) {
-    currentYear = year; currentMonth = month; renderCalendar()
+    currentYear = year; currentMonth = month
   }
+  // 截圖模式：私人行程改為圓點，重新 render
+  _screenshotMode = true
+  renderCalendar()
   // 截圖前隱藏常用比對列
   const qcBar = document.getElementById('quick-compare-bar')
   const qcWasVisible = qcBar && qcBar.style.display !== 'none'
@@ -2390,13 +2395,14 @@ async function captureSchedule(year, month) {
   } catch (e) {
     if (e.name !== 'AbortError') showToast('截圖失敗：' + e.message)
   } finally {
-    // 還原常用比對列
+    // 還原截圖模式旗標 + 常用比對列 + 月份
+    _screenshotMode = false
     if (qcWasVisible) qcBar.style.display = ''
     showToast('')
-    // 還原月份
     if (year !== origYear || month !== origMonth) {
-      currentYear = origYear; currentMonth = origMonth; renderCalendar()
+      currentYear = origYear; currentMonth = origMonth
     }
+    renderCalendar()  // 一定還原一次，確保畫面回到正常狀態
   }
 }
 
