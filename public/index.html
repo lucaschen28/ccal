@@ -1591,10 +1591,11 @@ async function showSettingsModal(fromSwap) {
         <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:10px;">我的個人設定</div>
         <div class="sf-group">
           <div class="sf-label">LINE User ID</div>
+          <div style="font-size:11px;color:#8e8e93;margin-bottom:6px;">用於換班資訊傳遞，不填寫不影響班表系統的使用</div>
           <input class="sf-input" id="sf-userid" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="${s.lineUserId||''}" autocomplete="off" spellcheck="false">
           <a href="https://line.me/R/oaMessage/@691qdwyq/?%E6%88%91%E7%9A%84ID" target="_blank"
-            style="display:block;margin-top:6px;font-size:12px;color:#007aff;text-decoration:none;">
-            💬 一鍵開啟 Bot，點送出即可取得 ID
+            style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;padding:12px;background:#06C755;border-radius:10px;font-size:14px;font-weight:700;color:#fff;text-decoration:none;text-align:center;">
+            💬 一鍵開啟 Bot 取得 LINE User ID
           </a>
         </div>
         <div class="sf-group">
