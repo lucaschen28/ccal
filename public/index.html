@@ -3381,24 +3381,44 @@ async function captureSwapCard() {
     const s = getSettings()
     const empId = localStorage.getItem('cCalEmpId') || ''
     const hp = [empId, s.role, ...(s.aircraft || [])].filter(Boolean)
-    let cardHtml = `<div style="font-weight:700;font-size:14px;color:#1c1c1e;margin-bottom:12px;">${hp.join(' ')}</div>`
+    const prefs = JSON.parse(localStorage.getItem('cCalSwapPrefs') || '[]')
+
+    // 左欄：換班清單
+    let listHtml = ''
     let curMo = null
     for (const e of own) {
       const sp = e.dateStr.split('-')
       const mo = +sp[1], dy = +sp[2]
       if (mo !== curMo) {
-        cardHtml += `<div style="text-align:center;font-size:11px;color:#8e8e93;border-top:1px solid #e5e5ea;margin:8px 0 6px;padding-top:6px;">${mo}月</div>`
+        const sep = curMo === null ? 'border-top:none;margin-top:0;padding-top:0;' : ''
+        listHtml += `<div style="font-size:11px;color:#8e8e93;border-top:1px solid #e5e5ea;margin:8px 0 5px;padding-top:6px;${sep}">${mo}月</div>`
         curMo = mo
       }
       const price = e.commission > 0 ? e.commission + '圈' : e.commission === -1 ? '無料' : '可議'
       const note = e.note ? ' ' + e.note : ''
       if (e.type === 'throw') {
         const fs = (e.flights || []).map(f => f.date + '/' + f.flight).join(' ') || String(dy)
-        cardHtml += `<div style="font-size:13px;line-height:1.9;">丟 ${fs} <span style="color:#ff3b30;font-weight:700;">${price}</span>${note}</div>`
+        listHtml += `<div style="font-size:13px;line-height:1.9;">丟 ${fs} <span style="color:#ff3b30;font-weight:700;">${price}</span>${note}</div>`
       } else {
-        cardHtml += `<div style="font-size:13px;line-height:1.9;">接 ${dy}號 <span style="color:#ff3b30;font-weight:700;">${price}</span>${note}</div>`
+        listHtml += `<div style="font-size:13px;line-height:1.9;">接 ${dy}號 <span style="color:#ff3b30;font-weight:700;">${price}</span>${note}</div>`
       }
     }
+
+    // 右欄：換班喜好（有才顯示）
+    const prefColHtml = prefs.length ? `
+      <div style="width:1px;background:#e5e5ea;margin:0 14px;align-self:stretch;"></div>
+      <div style="flex:0 0 auto;max-width:38%;">
+        <div style="font-size:11px;color:#8e8e93;margin-bottom:6px;font-weight:500;">換班喜好</div>
+        ${prefs.map(p => `<div style="font-size:12px;line-height:1.8;color:#1c1c1e;">・${p.replace(/</g,'&lt;')}</div>`).join('')}
+      </div>` : ''
+
+    const cardHtml = `
+      <div style="font-weight:700;font-size:14px;color:#1c1c1e;margin-bottom:10px;">${hp.join(' ')}</div>
+      <div style="display:flex;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">${listHtml}</div>
+        ${prefColHtml}
+      </div>`
+
     const cardEl = document.createElement('div')
     cardEl.style.cssText = `position:fixed;left:-9999px;top:0;width:${W}px;background:#fff;padding:16px;box-sizing:border-box;font-family:-apple-system,sans-serif;`
     cardEl.innerHTML = cardHtml
