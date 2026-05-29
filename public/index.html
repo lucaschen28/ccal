@@ -369,7 +369,7 @@
       <button class="fab-icon" tabindex="-1">🔍</button>
     </div>
     <div class="fab-item" onclick="closeFab();showSwapBoardModal()">
-      <span class="fab-label">換班板</span>
+      <span class="fab-label">換班小幫手</span>
       <button class="fab-icon" tabindex="-1">🔄</button>
     </div>
     <div class="fab-item" onclick="closeFab();openImportPdf()">
@@ -1262,7 +1262,7 @@ async function showDetail(task) {
 
   const todayStr2 = new Date().toISOString().slice(0,10)
   if (task.startDate >= todayStr2) {
-    html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班板（丟班）</button>`
+    html += `<button class="open-swap-btn" onclick="showSwapForm()">✈️ 發布到換班小幫手（丟班）</button>`
   }
   const isManual = task.legs.every(l => l.manually_added)
   if (isManual) {
@@ -1603,7 +1603,7 @@ async function showSettingsModal(fromSwap) {
           </a>
         </div>
         <div class="sf-group">
-          <div class="sf-label">顯示名稱（換班板上的署名）</div>
+          <div class="sf-label">顯示名稱（換班小幫手上的署名）</div>
           <input class="sf-input" id="sf-name" placeholder="例：員編或暱稱" value="${s.displayName || localStorage.getItem('cCalEmpId') || ''}">
         </div>
         <div class="sf-group">
@@ -1735,7 +1735,7 @@ function showAboutModal() {
 
     <p style="font-size:14px;color:#3c3c43;line-height:1.7;margin-bottom:16px;">
       嗨，我是 Lucas，也是華航的一名組員。<br><br>
-      排班多年，試過各種行事曆工具，始終找不到一個真正符合空服員習慣的東西——可以輕鬆看班、跟同事比對班表、截圖傳家人、還能連上換班板。於是自己動手寫了 CCal。
+      排班多年，試過各種行事曆工具，始終找不到一個真正符合空服員習慣的東西——可以輕鬆看班、跟同事比對班表、截圖傳家人、還能連上換班小幫手。於是自己動手寫了 CCal。
     </p>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
@@ -1743,7 +1743,7 @@ function showAboutModal() {
       <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;font-size:13px;color:#15803d;line-height:1.7;">
         完全理解大家的顧慮。CCal 的設計原則是：<strong>能少用就少用。</strong><br><br>
         ・班表資料存在你自己的手機本地，不會上傳伺服器<br>
-        ・員編與基本資訊，只有在「換班板刊登需求」與「查找比對班表」時才會用到，<strong>不會挪作其他用途</strong><br>
+        ・員編與基本資訊，只有在「換班小幫手刊登需求」與「查找比對班表」時才會用到，<strong>不會挪作其他用途</strong><br>
         ・所有資料僅用於 CCal 功能本身的運作，不會對外提供、分析或商業使用<br>
         ・隨時可以一鍵刪除所有本地資料，不留任何痕跡
       </div>
@@ -1755,7 +1755,7 @@ function showAboutModal() {
         ['📅','班表行事曆','將 eCrew 班表匯入後以月曆格式顯示，支援多天跨越班次的條狀呈現，並可標記個人私人行程。'],
         ['📸','截圖分享','一鍵截圖當月班表。開啟隱私模式後，截圖中的私人行程自動隱藏，只顯示航班資訊，放心分享。'],
         ['🔍','查找班表 / 比對','輸入同事員編查看對方已分享的班表，可疊加比對兩人行程，快速找出共同休假或適合換班的日期。'],
-        ['🔄','換班板','整合換班 LINE Bot，在 App 內直接瀏覽丟班和接班需求，支援艙等資格篩選。可直接刊登或刪除自己的需求。'],
+        ['🔄','換班小幫手','整合換班 LINE Bot，在 App 內直接瀏覽丟班和接班需求，支援艙等資格篩選。可直接刊登或刪除自己的需求。'],
         ['📥','匯入班表','從 eCrew 複製班表文字貼入，快速完成匯入。'],
         ['⚙️','設定','管理員編、序號、艙等資格、機種資格及 LINE 連結等個人資訊。'],
       ].map(([icon,title,desc]) => `
@@ -1936,7 +1936,7 @@ function showLineUserIdPrompt(onSaved) {
       </div>
       <div style="background:#f0fdf4;border-radius:10px;padding:12px 14px;margin-bottom:20px;text-align:left;">
         <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:5px;">✅ 不受影響的功能</div>
-        <div style="font-size:12px;color:#15803d;line-height:1.6;">瀏覽換班板 · 比對班表 · 查找他人班表<br>截圖分享 · 匯入班表</div>
+        <div style="font-size:12px;color:#15803d;line-height:1.6;">瀏覽換班小幫手 · 比對班表 · 查找他人班表<br>截圖分享 · 匯入班表</div>
       </div>
 
       <div style="text-align:left;font-size:13px;font-weight:600;color:#1c1c1e;margin-bottom:6px;">填入 LINE User ID</div>
@@ -2006,7 +2006,7 @@ function showSwapForm() {
     <div class="task-date" style="margin-bottom:6px;">
       ← <span style="color:#007aff;cursor:pointer;" onclick="showDetail(window._swapTask)">返回</span>
     </div>
-    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:15px;font-weight:700;color:#ff6b00">✈️ 丟班</span></div>
+    <div class="task-route" style="margin-bottom:4px;">發布到換班小幫手　<span style="font-size:15px;font-weight:700;color:#ff6b00">✈️ 丟班</span></div>
     <div class="swap-flight-info">${dateLabel}　${task.legs.filter(l=>l.flight_number).map(l=>'CI '+padFN(l.flight_number)).join(' / ')}</div>
     <div class="comm-label">出價</div>
     <div class="comm-grid" id="comm-grid">
@@ -2033,7 +2033,7 @@ function showEmptyDayDetail(ds) {
   document.getElementById('modal-content').innerHTML = `
     <div class="task-date" style="margin-bottom:12px;">${dateLabel}</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
-      <button class="open-swap-btn" onclick="showSwapFormForEmpty('${ds}')">✈️ 發布到換班板（接班）</button>
+      <button class="open-swap-btn" onclick="showSwapFormForEmpty('${ds}')">✈️ 發布到換班小幫手（接班）</button>
       <button class="open-add-day-btn" onclick="showAddForm('${ds}')">＋ 新增</button>
     </div>
   `
@@ -2072,7 +2072,7 @@ function showSwapFormForEmpty(ds) {
     <div class="task-date" style="margin-bottom:6px;">
       ← <span style="color:#007aff;cursor:pointer;" onclick="showEmptyDayDetail('${ds}')">返回</span>
     </div>
-    <div class="task-route" style="margin-bottom:4px;">發布到換班板　<span style="font-size:15px;font-weight:700;color:#34c759">🙋 接班</span></div>
+    <div class="task-route" style="margin-bottom:4px;">發布到換班小幫手　<span style="font-size:15px;font-weight:700;color:#34c759">🙋 接班</span></div>
     <div class="swap-flight-info">${dateLabel}</div>
     <div class="comm-label">出價</div>
     <div class="comm-grid" id="comm-grid">
@@ -2162,7 +2162,7 @@ async function submitSwap() {
       document.getElementById('modal-content').innerHTML = `
         <div style="text-align:center;padding:24px 0;">
           <div style="font-size:44px;margin-bottom:12px;">✅</div>
-          <div style="font-size:17px;font-weight:700;margin-bottom:6px;">已發布到換班板！</div>
+          <div style="font-size:17px;font-weight:700;margin-bottom:6px;">已發布到換班小幫手！</div>
           <div style="font-size:13px;color:#8e8e93;">${data.action==='updated'?'（更新原有需求，重新計算30小時）':''}</div>
           ${noteConfirm}
         </div>
@@ -2908,7 +2908,7 @@ async function _enrichSwapEntries(entries) {
   }
 }
 
-// ── 換班板清單 modal ──────────────────────────────────────────
+// ── 換班小幫手清單 modal ──────────────────────────────────────────
 async function showSwapBoardModal(tab) {
   tab = tab || '全部'
   const s = getSettings()
