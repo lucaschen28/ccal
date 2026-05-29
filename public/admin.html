@@ -53,6 +53,8 @@
     .stat-box { flex: 1; background: #f2f2f7; border-radius: 10px; padding: 12px; text-align: center; }
     .stat-num { font-size: 28px; font-weight: 700; color: #007aff; }
     .stat-label { font-size: 11px; color: #8e8e93; margin-top: 2px; }
+    .trend-wrap { margin-top: 8px; }
+    .trend-hint { font-size: 10px; color: #c7c7cc; text-align: center; padding: 6px 0; }
 
     .empty-hint { text-align: center; color: #8e8e93; font-size: 14px; padding: 20px 0; }
     .loading { text-align: center; color: #8e8e93; font-size: 14px; padding: 20px 0; }
@@ -86,10 +88,12 @@
       <div class="stat-box">
         <div class="stat-num" id="stat-users">—</div>
         <div class="stat-label">使用中用戶</div>
+        <div class="trend-wrap" id="trend-users"></div>
       </div>
       <div class="stat-box">
         <div class="stat-num" id="stat-entries">—</div>
         <div class="stat-label">班表總筆數</div>
+        <div class="trend-wrap" id="trend-entries"></div>
       </div>
     </div>
   </div>
@@ -159,10 +163,61 @@ function doLogout() {
   document.getElementById('login-btn').textContent = '進入'
 }
 
+function saveSnapshot(userCount, entryCount) {
+  const today = new Date().toISOString().slice(0, 10)
+  const snaps = JSON.parse(localStorage.getItem('ccalAdminSnaps') || '[]')
+  const idx = snaps.findIndex(s => s.d === today)
+  const entry = { d: today, u: userCount, e: entryCount }
+  if (idx >= 0) snaps[idx] = entry; else snaps.push(entry)
+  snaps.sort((a, b) => a.d.localeCompare(b.d))
+  while (snaps.length > 14) snaps.shift()
+  localStorage.setItem('ccalAdminSnaps', JSON.stringify(snaps))
+  return snaps
+}
+
+function renderTrendChart(containerId, snaps, key, color) {
+  const el = document.getElementById(containerId)
+  if (!el) return
+  if (snaps.length < 2) {
+    el.innerHTML = '<div class="trend-hint">資料累積中（每天開啟記一次）</div>'
+    return
+  }
+  const vals = snaps.map(s => s[key])
+  const maxV = Math.max(...vals, 1)
+  const minV = Math.min(...vals)
+  const W = 200, H = 44, PAD = 6
+  const barW = Math.max(4, Math.floor((W - PAD * 2) / snaps.length) - 2)
+  const step = (W - PAD * 2) / (snaps.length - 1)
+
+  const bars = snaps.map((s, i) => {
+    const ratio = maxV === minV ? 0.6 : (s[key] - minV) / (maxV - minV)
+    const h = Math.max(4, Math.round(ratio * (H - 10) + 6))
+    const x = PAD + i * step - barW / 2
+    const y = H - h
+    return `<rect x="${x.toFixed(1)}" y="${y}" width="${barW}" height="${h}" rx="2" fill="${color}" opacity="0.75">
+      <title>${s.d.slice(5)}：${s[key]}</title></rect>`
+  }).join('')
+
+  const firstLabel = snaps[0].d.slice(5)
+  const lastLabel  = snaps[snaps.length - 1].d.slice(5)
+  const maxLabel   = maxV
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H + 16}" style="width:100%;height:auto;display:block;margin-top:4px;">
+      <text x="${PAD}" y="${H + 13}" font-size="9" fill="#c7c7cc">${firstLabel}</text>
+      <text x="${W - PAD}" y="${H + 13}" font-size="9" fill="#c7c7cc" text-anchor="end">${lastLabel}</text>
+      <text x="${W / 2}" y="9" font-size="9" fill="#c7c7cc" text-anchor="middle">最高 ${maxLabel}</text>
+      ${bars}
+    </svg>`
+}
+
 function renderUsers(users) {
   const total = users.reduce((s, u) => s + u.count, 0)
   document.getElementById('stat-users').textContent = users.length
   document.getElementById('stat-entries').textContent = total
+  const snaps = saveSnapshot(users.length, total)
+  renderTrendChart('trend-users',   snaps, 'u', '#007aff')
+  renderTrendChart('trend-entries', snaps, 'e', '#34c759')
 
   if (!users.length) {
     document.getElementById('user-list').innerHTML = '<div class="empty-hint">尚無使用者資料</div>'
