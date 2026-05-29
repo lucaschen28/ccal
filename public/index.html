@@ -1735,7 +1735,7 @@ function showAboutModal() {
 
     <p style="font-size:14px;color:#3c3c43;line-height:1.7;margin-bottom:16px;">
       嗨，我是 Lucas，也是華航的一名組員。<br><br>
-      排班多年，試過各種行事曆工具，始終找不到一個真正符合空服員習慣的東西——可以輕鬆看班、跟同事比對班表、截圖傳家人、還能直接處理換班需求。於是自己動手寫了 CCal。
+      換班多年，試過各種行事曆工具，始終找不到一個真正符合空服員習慣的東西——可以輕鬆看班、跟同事比對班表、截圖傳家人、還能直接處理換班需求。於是自己動手寫了 CCal。
     </p>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
@@ -1751,28 +1751,60 @@ function showAboutModal() {
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:14px;">
       <div style="font-size:14px;font-weight:700;color:#1c1c1e;margin-bottom:12px;">📋 功能介紹</div>
-      ${[
-        {icon:'📅', title:'班表行事曆', desc:'將 eCrew 班表匯入後以月曆格式顯示，支援多天跨越班次的條狀呈現，並可標記個人私人行程。'},
-        {icon:'📸', title:'截圖分享',   desc:'一鍵截圖當月班表，隱私模式下私人行程自動隱藏，只留航班資訊，放心傳給家人。'},
-        {icon:'🔍', title:'查找班表 / 比對', desc:'輸入同事員編查看對方已分享的班表，可疊加比對兩人行程，快速找出共同休假或適合換班的日期。'},
-        {icon:'🔄', title:'換班小幫手', desc:'整合換班 LINE Bot，在 App 內直接瀏覽丟班和接班需求，支援艙等資格篩選（CM 僅看 CM 需求）。可刊登、刪除自己的需求，並截圖換班卡直接分享給對方。', sub:[
-          {icon:'💬', title:'我的換班喜好', desc:'儲存個人換班條件（如「喜過夜班」「不待命」），截圖時自動附在換班卡右側，讓對方一眼了解你的喜好。'},
-        ]},
-        {icon:'📥', title:'匯入班表', desc:'從 eCrew 複製班表文字貼入，快速完成匯入。'},
-        {icon:'⚙️', title:'設定',     desc:'管理員編、序號、艙等資格、機種資格及 LINE User ID 等個人資訊。'},
-      ].map(f => `
-        <div style="display:flex;gap:10px;margin-bottom:${f.sub?'6px':'12px'};">
+
+      ${/* ── 班表行事曆 ── */[{
+        icon:'📅', title:'班表行事曆',
+        desc:'將 eCrew 班表匯入後以月曆格式顯示，支援多天跨越班次的條狀呈現，並可標記個人私人行程。',
+        sub:[
+          {icon:'📸', title:'截圖分享',
+           desc:'一鍵截圖當月班表，隱私模式下私人行程自動隱藏，只留航班資訊，放心傳給家人。'},
+          {icon:'⚡', title:'常用比對（月曆正下方）',
+           desc:'月曆下方設有快速比對列，將常常比對的同事加入清單後，輕點名字即可立即疊加對方班表，不需每次重新輸入員編。支援多人同時疊加，每人以不同顏色區分。另有 ✈️ 換班需求按鈕，直接在月曆上標示丟接班日期。加入方式：透過「查找班表」找到對方後，點右上角加入按鈕即可存入清單。'},
+        ]
+      }].map(f => `
+        <div style="display:flex;gap:10px;margin-bottom:6px;">
           <div style="font-size:20px;flex-shrink:0;width:28px;text-align:center;">${f.icon}</div>
           <div style="flex:1;">
             <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">${f.title}</div>
             <div style="font-size:12px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
-            ${(f.sub||[]).map(s => `
-              <div style="margin-top:8px;margin-left:4px;padding-left:12px;border-left:2px solid #d1e9ff;background:linear-gradient(to right,#f0f8ff,#fff);border-radius:0 6px 6px 0;padding-top:6px;padding-bottom:6px;padding-right:8px;">
+            ${f.sub.map(s => `
+              <div style="margin-top:8px;margin-left:4px;padding-left:12px;border-left:2px solid #d1e9ff;background:linear-gradient(to right,#f0f8ff,#fff);border-radius:0 6px 6px 0;padding:6px 8px;">
                 <div style="font-size:12px;font-weight:700;color:#3b82f6;margin-bottom:2px;">${s.icon} ${s.title}</div>
                 <div style="font-size:11px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
               </div>`).join('')}
           </div>
         </div>`).join('')}
+
+      ${/* ── 功能列 ── */''}<div style="margin-top:14px;display:flex;gap:10px;margin-bottom:6px;">
+        <div style="font-size:20px;flex-shrink:0;width:28px;text-align:center;">➕</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:#1c1c1e;margin-bottom:2px;">功能列</div>
+          <div style="font-size:12px;color:#8e8e93;line-height:1.6;">點擊右下角 ＋ 展開，App 所有主要功能都在這裡。</div>
+          ${[
+            {icon:'⚙️', title:'設定',
+             desc:'管理員編、艙等資格、機種資格及 LINE User ID 等個人資訊。'},
+            {icon:'🔍', title:'查找班表',
+             desc:'輸入同事員編查看對方已分享的班表，可疊加比對兩人行程，快速找出共同休假或適合換班的日期。'},
+            {icon:'🔄', title:'換班小幫手',
+             desc:'整合換班 LINE Bot，在 App 內直接瀏覽丟班和接班需求，支援艙等資格篩選（CM 僅看 CM 需求）。可刊登、刪除自己的需求，並截圖換班卡直接分享給對方。',
+             sub:[{icon:'💬', title:'我的換班喜好',
+                   desc:'儲存個人換班條件（如「喜過夜班」「不待命」），截圖換班卡時自動附在右側，讓對方一眼了解你的喜好。'}]},
+            {icon:'📥', title:'匯入班表',
+             desc:'從 eCrew 複製班表文字貼入，快速完成匯入。'},
+            {icon:'ℹ️', title:'關於 CCal',
+             desc:'即本頁面，包含功能說明、版本資訊與意見回饋。'},
+          ].map(f => `
+            <div style="margin-top:8px;margin-left:4px;padding-left:12px;border-left:2px solid #e5e5ea;background:linear-gradient(to right,#f9f9f9,#fff);border-radius:0 6px 6px 0;padding:6px 8px;">
+              <div style="font-size:12px;font-weight:700;color:#3c3c43;margin-bottom:2px;">${f.icon} ${f.title}</div>
+              <div style="font-size:11px;color:#8e8e93;line-height:1.6;">${f.desc}</div>
+              ${(f.sub||[]).map(s => `
+                <div style="margin-top:6px;margin-left:8px;padding-left:10px;border-left:2px solid #d1e9ff;background:linear-gradient(to right,#f0f8ff,#f9f9f9);border-radius:0 4px 4px 0;padding:4px 8px;">
+                  <div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:1px;">${s.icon} ${s.title}</div>
+                  <div style="font-size:10px;color:#8e8e93;line-height:1.6;">${s.desc}</div>
+                </div>`).join('')}
+            </div>`).join('')}
+        </div>
+      </div>
     </div>
 
     <div style="border-top:1px solid #e5e5ea;padding-top:14px;margin-bottom:4px;">
