@@ -3181,6 +3181,7 @@ function buildSwapRangeCalendarEl(yms, ownEntries) {
 
     const cell = document.createElement('div')
     cell.className = ['day-cell', colCls[col], isToday ? 'today' : ''].filter(Boolean).join(' ')
+    cell.style.height = 'auto'  // 讓格子可依內容撐高
 
     const wrap = document.createElement('div'); wrap.className = 'day-num-wrap'
     const dn   = document.createElement('div'); dn.className = 'day-num'; dn.textContent = dateLabel
@@ -3194,7 +3195,10 @@ function buildSwapRangeCalendarEl(yms, ownEntries) {
     if (privNF.length) dn.classList.add('has-private')
     wrap.appendChild(dn); cell.appendChild(wrap)
 
-    const layer = document.createElement('div'); layer.className = 'cell-layer-work'
+    // 第二層：班號 + 非飛航事件（min-height 確保空日子也保留高度）
+    const layer = document.createElement('div')
+    layer.className = 'cell-layer-work'
+    layer.style.minHeight = '20px'
     cell.appendChild(layer)
 
     // 飛航任務
@@ -3240,7 +3244,9 @@ function buildSwapRangeCalendarEl(yms, ownEntries) {
       layer.appendChild(pill)
     })
 
-    // 換班需求（固定最後一層，班表之下，大字置中，紅框無填色）
+    // 第三層：換班需求（獨立 div，永遠固定在第三層位置）
+    const swapLayer = document.createElement('div')
+    swapLayer.style.minHeight = '20px'
     ownEntries.filter(e => e.dateStr === ds).forEach(e => {
       const pill = document.createElement('div')
       pill.className = 'event-pill'
@@ -3249,8 +3255,9 @@ function buildSwapRangeCalendarEl(yms, ownEntries) {
       const typeChar = e.type === 'throw' ? '丟' : '接'
       const numStr = e.commission > 0 ? String(e.commission) : e.commission === -1 ? '無' : '議'
       pill.innerHTML = `<span style="color:${typeColor};font-weight:700;">${typeChar}</span><span style="color:#ff3b30;font-weight:700;">${numStr}</span>`
-      layer.appendChild(pill)
+      swapLayer.appendChild(pill)
     })
+    cell.appendChild(swapLayer)
 
     cellEls.push(cell)
     cur.setDate(cur.getDate() + 1)
