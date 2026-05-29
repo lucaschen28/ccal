@@ -2362,6 +2362,10 @@ async function captureSchedule(year, month) {
   if (year !== currentYear || month !== currentMonth) {
     currentYear = year; currentMonth = month; renderCalendar()
   }
+  // 截圖前隱藏常用比對列
+  const qcBar = document.getElementById('quick-compare-bar')
+  const qcWasVisible = qcBar && qcBar.style.display !== 'none'
+  if (qcWasVisible) qcBar.style.display = 'none'
   showToast('截圖中…', 10000)
   await new Promise(r => setTimeout(r, 300))  // 等 render 完
   try {
@@ -2388,6 +2392,8 @@ async function captureSchedule(year, month) {
   } catch (e) {
     if (e.name !== 'AbortError') showToast('截圖失敗：' + e.message)
   } finally {
+    // 還原常用比對列
+    if (qcWasVisible) qcBar.style.display = ''
     showToast('')
     // 還原月份
     if (year !== origYear || month !== origMonth) {
