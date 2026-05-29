@@ -368,6 +368,10 @@
       <span class="fab-label">查找班表</span>
       <button class="fab-icon" tabindex="-1">🔍</button>
     </div>
+    <div class="fab-item" onclick="closeFab();showSwapBoardModal()">
+      <span class="fab-label">換班板</span>
+      <button class="fab-icon" tabindex="-1">🔄</button>
+    </div>
     <div class="fab-item" onclick="closeFab();openImportPdf()">
       <span class="fab-label">匯入班表</span>
       <button class="fab-icon" id="fab-import-icon" tabindex="-1">📥</button>
@@ -2706,6 +2710,163 @@ async function _enrichSwapEntries(entries) {
     if (!found) continue
     if (!e.ccalUserId && found.userId) e.ccalUserId = found.userId
     if (!e.linePublicId && found.linePublicId) e.linePublicId = found.linePublicId
+  }
+}
+
+// ── 換班板清單 modal ──────────────────────────────────────────
+async function showSwapBoardModal(tab) {
+  tab = tab || '全部'
+  const s = getSettings()
+  if (!s.botUrl || !s.apiSecret) {
+    showToast('請先在設定中填入 Bot URL 和 API Secret')
+    return
+  }
+  // 若尚未載入，先 fetch
+  if (!Object.keys(swapBoardSummary).length) {
+    document.getElementById('modal-content').innerHTML = `<div style="text-align:center;padding:40px 0;color:#8e8e93;">載入中…</div>`
+    document.getElementById('modal-overlay').classList.add('active')
+    await fetchSwapBoardSummary()
+  }
+  _renderSwapBoardModal(tab)
+}
+
+function _renderSwapBoardModal(tab) {
+  // 平鋪所有 entry，依日期排序
+  const all = []
+  for (const [dateStr, day] of Object.entries(swapBoardSummary)) {
+    for (const e of (day.throw || [])) all.push({ ...e, dateStr, type: 'throw' })
+    for (const e of (day.accept || [])) all.push({ ...e, dateStr, type: 'accept' })
+  }
+  all.sort((a, b) => a.dateStr.localeCompare(b.dateStr) || b.commission - a.commission)
+
+  const tabs = ['全部', '丟班', '接班', '我的清單']
+  const tabBar = tabs.map(t => `
+    <button onclick="_renderSwapBoardModal('${t}')"
+      style="flex:1;padding:7px 0;border:none;border-bottom:2px solid ${t===tab?'#007aff':'transparent'};
+        background:none;font-size:13px;font-weight:${t===tab?'700':'500'};
+        color:${t===tab?'#007aff':'#8e8e93'};cursor:pointer;">${t}</button>`
+  ).join('')
+
+  const filtered = all.filter(e => {
+    if (tab === '丟班') return e.type === 'throw'
+    if (tab === '接班') return e.type === 'accept'
+    if (tab === '我的清單') {
+      const code = e.ccalUserId && e.ccalUserId.length <= 12 ? e.ccalUserId : ''
+      return code === MY_USER_ID
+    }
+    return true
+  })
+
+  const wd = ['日','一','二','三','四','五','六']
+  const EXPIRE_MS = 30 * 60 * 60 * 1000
+  const FRESH_MS  =  3 * 60 * 60 * 1000
+
+  const rows = filtered.map(e => {
+    const d = new Date(e.dateStr + 'T12:00:00')
+    const sp = e.dateStr.split('-')
+    const dateLabel = `${+sp[1]}/${+sp[2]}（${wd[d.getDay()]}）`
+    const typeEmoji = e.type === 'throw' ? '✈️' : '🙋'
+    const flightStr = e.type === 'throw'
+      ? (e.flights||[]).map(f => f.flight).join(' ') || ''
+      : (e.flightType || '')
+    const priceStr = e.commission > 0 ? `${e.commission}圈` : e.commission === -1 ? '無料' : '可議'
+    const noteStr = e.note ? `・${e.note}` : ''
+
+    // 新鮮度
+    const now = Date.now()
+    const age = e.time ? now - e.time : null
+    const fresh = age !== null
+      ? (age < FRESH_MS ? '🟢' : (age > EXPIRE_MS - FRESH_MS ? '🔴' : ''))
+      : ''
+
+    const isOwn = (() => {
+      const code = e.ccalUserId && e.ccalUserId.length <= 12 ? e.ccalUserId : ''
+      return code === MY_USER_ID
+    })()
+
+    // 右側按鈕
+    const lineId = (e.linePublicId || '').trim()
+    const lineUrl = lineId ? 'https://line.me/R/ti/p/' + (lineId.startsWith('@') ? lineId : '@' + lineId) : ''
+    const lineBtn = lineUrl
+      ? `<a href="${lineUrl}" target="_blank" style="margin-left:6px;text-decoration:none;flex-shrink:0;">
+           <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24">
+             <rect width="24" height="24" rx="6" fill="#06C755"/>
+             <path d="M20 10.9C20 7.1 16.4 4 12 4S4 7.1 4 10.9c0 3.4 3 6.3 7.1 6.8.3.1.7.2.8.5.1.3 0 .7-.1 1l-.1.7c0 .2-.2.9.8.5s5.4-3.2 7.4-5.4c1.3-1.5 2.1-3.1 2.1-5.1z" fill="white"/>
+           </svg>
+         </a>`
+      : ''
+
+    if (isOwn) {
+      const delOnclick = `_swapBoardDelete('${e.dateStr}','${e.type}')`
+      return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f5;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji}</div>
+          <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${[flightStr, priceStr, noteStr].filter(Boolean).join(' ')}
+          </div>
+        </div>
+        <button onclick="${delOnclick}"
+          style="flex-shrink:0;padding:6px 12px;background:#fff;border:1.5px solid #ff3b30;border-radius:8px;font-size:12px;font-weight:700;color:#ff3b30;cursor:pointer;">刪除</button>
+      </div>`
+    }
+
+    const _cName = (e.displayName || '此組員').replace(/'/g, "\\'")
+    const _cCode = (e.ccalUserId && e.ccalUserId.length <= 12) ? e.ccalUserId : ''
+    const _cLine = (e.lineUserId || '').replace(/'/g, "\\'")
+    const _btnOnclick = _cCode
+      ? `document.getElementById('modal-overlay').classList.remove('active');toggleCompare('${_cCode}','${_cName}')`
+      : _cLine
+        ? `document.getElementById('modal-overlay').classList.remove('active');compareByLineId('${_cLine}','${_cName}')`
+        : `showSwapCompareInput('${_cName}')`
+    const compareBtn = `<button onclick="${_btnOnclick}"
+      style="flex-shrink:0;width:28px;height:28px;border-radius:6px;background:#e8f0fe;border:none;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;" title="比對班表">📅</button>`
+
+    return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f5;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#8e8e93;margin-bottom:2px;">${fresh} ${dateLabel} ${typeEmoji} ${e.displayName}</div>
+        <div style="font-size:14px;color:#1c1c1e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${[flightStr, priceStr, noteStr].filter(Boolean).join(' ')}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;flex-shrink:0;">${compareBtn}${lineBtn}</div>
+    </div>`
+  }).join('')
+
+  const emptyMsg = filtered.length === 0
+    ? `<div style="text-align:center;padding:40px 0;color:#8e8e93;font-size:14px;">目前沒有${tab === '我的清單' ? '你發布的' : ''}需求</div>`
+    : ''
+
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;border-bottom:1px solid #e5e5ea;margin:-2px -4px 12px;">
+      ${tabBar}
+    </div>
+    <button onclick="fetchSwapBoardSummary().then(()=>_renderSwapBoardModal('${tab}'))"
+      style="float:right;margin-top:-8px;padding:4px 10px;background:#f2f2f7;border:none;border-radius:8px;font-size:12px;color:#007aff;cursor:pointer;">重新整理</button>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:8px;">共 ${filtered.length} 筆</div>
+    ${rows}${emptyMsg}
+  `
+  document.getElementById('modal-overlay').classList.add('active')
+}
+
+async function _swapBoardDelete(dateStr, type) {
+  if (!confirm(`確定要刪除這筆${type==='throw'?'丟班':'接班'}需求嗎？`)) return
+  const s = getSettings()
+  try {
+    const res = await fetch(s.botUrl + '/api/delete-shift', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'X-CCal-Secret': s.apiSecret },
+      body: JSON.stringify({ type, dateStr, ccalCode: MY_USER_ID, lineUserId: s.lineUserId || '' })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      showToast('✅ 已刪除')
+      await fetchSwapBoardSummary()
+      _renderSwapBoardModal('我的清單')
+    } else {
+      showToast('刪除失敗：' + (data.error || '未知錯誤'))
+    }
+  } catch {
+    showToast('連線失敗，請稍後再試')
   }
 }
 
