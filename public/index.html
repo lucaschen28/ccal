@@ -2810,7 +2810,11 @@ function _renderSwapBoardModal(tab) {
     const flightStr = e.type === 'throw'
       ? (e.flights||[]).map(f => `${f.date}/${f.flight}`).join(' ') || String(day)
       : `${day}號`
-    const priceStr = e.commission > 0 ? `${e.commission}圈` : e.commission === -1 ? '無料' : '可議'
+    const priceStr = e.commission > 0
+      ? `<span style="color:#ff3b30;font-weight:700;">${e.commission}圈</span>`
+      : e.commission === -1
+      ? `<span style="color:#ff3b30;font-weight:700;">無料</span>`
+      : `<span style="color:#ff3b30;font-weight:700;">可議</span>`
     const noteStr = e.note ? e.note : ''
     const rowTwo = `${typePrefix} ${flightStr} ${priceStr}${noteStr ? ' ' + noteStr : ''}`
 
@@ -2951,8 +2955,10 @@ function showSwapBoardDayDetail(ds, type) {
   const typeLabel = type === 'throw' ? '✈️ 丟班' : '🙋 接班'
   const rows = entries.map(e => {
     const priceStr = e.commission > 0
-      ? `<span style="color:#e00">${e.commission}</span>圈`
-      : e.commission === -1 ? '無料' : '可議'
+      ? `<span style="color:#ff3b30;font-weight:700;">${e.commission}圈</span>`
+      : e.commission === -1
+      ? `<span style="color:#ff3b30;font-weight:700;">無料</span>`
+      : `<span style="color:#ff3b30;font-weight:700;">可議</span>`
     const noteStr = e.note ? `（${e.note}）` : ''
     const flightStr = (e.flights||[]).length ? e.flights.map(f => f.date+'/'+f.flight).join(' ') : ''
     const typeWord = type === 'throw' ? '丟' : '接'
