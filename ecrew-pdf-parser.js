@@ -89,6 +89,29 @@ function parsePDFText(text) {
     // 只有指標（S / R / S,R）→ 跳過
     if (/^[SR,]+$/.test(firstLine)) continue
 
+    // ── 待命（S1~S8 現場待命 / HS1~HS8 居家待命）─────────────
+    const standbyMatch = firstLine.match(/^(HS[1-8]|S[1-8])(?:\s|$)/)
+    if (standbyMatch) {
+      const sbCode = standbyMatch[1]
+      const allSbText = body.join(' ')
+      const sbTimes = extractTimes(allSbText)
+      const sbEntry = {
+        id:             `ecrew_${date}_${sbCode}`,
+        type:           'standby',
+        code:           sbCode,
+        date,
+        ecrew_imported: true
+      }
+      if (sbTimes.length >= 2) {
+        sbEntry.start_time = sbTimes[0].t
+        sbEntry.end_time   = sbTimes[sbTimes.length - 1].t
+      } else if (sbTimes.length === 1) {
+        sbEntry.start_time = sbTimes[0].t
+      }
+      entries.push(sbEntry)
+      continue
+    }
+
     // ── 受訓 ──────────────────────────────────────────────────
     const TRAINING_CODES = ['CM', 'SEP', 'CRM', 'LT', 'OE', 'RECUR']
     const trainingCode = body.find(l => TRAINING_CODES.includes(l.trim()))
