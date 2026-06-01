@@ -4258,7 +4258,7 @@ function _pbsFlightRow(bid, idx) {
 function _pbsRdoRow(bid, idx) {
   const days = bid.pairing === '1RDO' ? 1 : 2
   return `
-    <div id="pbs-rdo-${idx}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+    <div id="pbs-rdo-${idx}" data-days="${days}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;margin-bottom:8px;">
         <span style="font-size:12px;font-weight:700;color:#8e8e93;">RDO ${idx+1}</span>
         <div style="margin-left:auto;display:flex;gap:4px;">
