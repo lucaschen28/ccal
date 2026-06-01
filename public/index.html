@@ -369,6 +369,10 @@
       <span class="fab-label">換班小幫手</span>
       <button class="fab-icon" tabindex="-1">🔄</button>
     </div>
+    <div class="fab-item" onclick="closeFab();showPbsModal()">
+      <span class="fab-label">選班幫幫忙</span>
+      <button class="fab-icon" tabindex="-1">📊</button>
+    </div>
     <div class="fab-item" onclick="closeFab();openImportPdf()">
       <span class="fab-label">匯入班表</span>
       <button class="fab-icon" id="fab-import-icon" tabindex="-1">📥</button>
@@ -4157,6 +4161,246 @@ function closeFab() {
   document.addEventListener('mousemove', e => onDragMove(e.clientX, e.clientY, null))
   document.addEventListener('mouseup',  () => onDragEnd(null))
 })()
+
+// ── PBS 選班幫幫忙 ────────────────────────────────────────────
+function showPbsModal() {
+  const now = new Date()
+  let y = now.getFullYear(), m = now.getMonth() + 2
+  if (m > 12) { m = 1; y++ }
+  const monthStr = `${y}-${String(m).padStart(2,'0')}`
+  document.getElementById('modal-content').innerHTML = '<div style="text-align:center;color:#8e8e93;padding:30px">載入中…</div>'
+  document.getElementById('modal-overlay').classList.add('active')
+  fetch(`/api/pbs/${MY_USER_ID}/bid/${monthStr}`)
+    .then(r => r.json()).then(ex => _pbsRenderForm(monthStr, ex))
+    .catch(() => _pbsRenderForm(monthStr, null))
+}
+
+function _pbsRenderForm(monthStr, existing) {
+  const [y, m] = monthStr.split('-')
+  const label = `${y}年${parseInt(m)}月`
+  const cc   = existing?.cabinClass || ''
+  const sen  = existing?.seniority  || ''
+  const bids = existing?.bids || []
+  window._pbsCC = cc
+
+  const clsBtns = ['CM','FF','MF','FY','MY'].map(c => `
+    <button onclick="_pbsSetCC('${c}')" id="pbs-cls-${c}"
+      style="padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;
+             border:1.5px solid ${cc===c?'#007aff':'#d1d1d6'};
+             background:${cc===c?'#007aff':'#fff'};color:${cc===c?'#fff':'#3c3c43'};">${c}</button>`).join('')
+
+  const bidRows = bids.length
+    ? bids.map((b,i) => _pbsBidRow(b,i)).join('')
+    : _pbsBidRow({order:1,date:'',pairing:'',type:'flight'}, 0)
+
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">📊 選班幫幫忙</div>
+    <div style="font-size:13px;color:#8e8e93;margin-bottom:14px;">${label} 第一次選班</div>
+
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">艙等</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${clsBtns}</div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">本月資深序號（PBS 點數排出來的）</div>
+      <input id="pbs-seniority" type="number" inputmode="numeric" placeholder="例：650" value="${sen}"
+        style="width:100%;padding:10px 12px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;">
+    </div>
+
+    <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:8px;">志願（班次代碼 + 日期）</div>
+    <div id="pbs-bids-list">${bidRows}</div>
+    <button onclick="_pbsAddBid()"
+      style="width:100%;padding:10px;border:1.5px dashed #d1d1d6;border-radius:10px;
+             background:#fff;font-size:13px;color:#007aff;cursor:pointer;margin-bottom:14px;">＋ 新增志願</button>
+
+    <div id="pbs-err" style="color:#ff3b30;font-size:13px;min-height:18px;margin-bottom:6px;"></div>
+    <button onclick="_pbsSubmit('${monthStr}')"
+      style="width:100%;padding:13px;background:#007aff;color:#fff;border:none;border-radius:12px;
+             font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">送出志願</button>
+    ${existing ? `<button onclick="_pbsShowPred('${monthStr}')"
+      style="width:100%;padding:11px;background:#f2f2f7;color:#007aff;border:none;border-radius:12px;
+             font-size:14px;font-weight:600;cursor:pointer;">查看預測排名</button>` : ''}`
+}
+
+function _pbsBidRow(bid, idx) {
+  const t0 = bid.type || 'flight'
+  return `
+    <div id="pbs-bid-${idx}" data-bidtype="${t0}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:700;color:#8e8e93;">志願 ${idx+1}</span>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          ${['flight','rdo'].map(t => `
+            <button onclick="_pbsBidType(${idx},'${t}')" id="pbs-bt-${idx}-${t}"
+              style="padding:3px 10px;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;
+                     border:1.5px solid ${t0===t?'#007aff':'#d1d1d6'};
+                     background:${t0===t?'#007aff':'#fff'};color:${t0===t?'#fff':'#3c3c43'};">
+              ${t==='flight'?'班次':'RDO'}</button>`).join('')}
+        </div>
+        <button onclick="document.getElementById('pbs-bid-${idx}').remove()"
+          style="background:none;border:none;color:#c7c7cc;font-size:18px;cursor:pointer;padding:0;">×</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input type="date" id="pbs-bd-${idx}" value="${bid.date||''}"
+          style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;">
+        <input type="text" id="pbs-bp-${idx}" placeholder="${t0==='rdo'?'1RDO / 2RDO':'053A'}"
+          value="${bid.pairing||''}"
+          style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+    </div>`
+}
+
+window._pbsCC = ''
+function _pbsSetCC(cls) {
+  window._pbsCC = cls
+  ;['CM','FF','MF','FY','MY'].forEach(c => {
+    const b = document.getElementById('pbs-cls-'+c); if (!b) return
+    const on = c === cls
+    b.style.background = on?'#007aff':'#fff'; b.style.color = on?'#fff':'#3c3c43'
+    b.style.borderColor = on?'#007aff':'#d1d1d6'
+  })
+}
+function _pbsBidType(idx, type) {
+  ;['flight','rdo'].forEach(t => {
+    const b = document.getElementById(`pbs-bt-${idx}-${t}`); if (!b) return
+    const on = t === type
+    b.style.background = on?'#007aff':'#fff'; b.style.color = on?'#fff':'#3c3c43'
+    b.style.borderColor = on?'#007aff':'#d1d1d6'
+  })
+  const row = document.getElementById(`pbs-bid-${idx}`)
+  if (row) row.dataset.bidtype = type
+  const p = document.getElementById(`pbs-bp-${idx}`)
+  if (p) p.placeholder = type==='rdo' ? '1RDO / 2RDO' : '053A'
+}
+function _pbsAddBid() {
+  const list = document.getElementById('pbs-bids-list'); if (!list) return
+  if (list.children.length >= 4) { document.getElementById('pbs-err').textContent='最多4個志願'; return }
+  // 找下一個未使用的 idx
+  let idx = 0
+  while (document.getElementById(`pbs-bid-${idx}`)) idx++
+  list.insertAdjacentHTML('beforeend', _pbsBidRow({order:idx+1,date:'',pairing:'',type:'flight'}, idx))
+}
+function _pbsGetBids() {
+  // 掃描所有存在的 bid 行（不依賴連續 idx）
+  const rows = document.querySelectorAll('[id^="pbs-bid-"]')
+  return [...rows].map((row, order) => {
+    const idx  = row.id.replace('pbs-bid-','')
+    const date = document.getElementById(`pbs-bd-${idx}`)?.value.trim() || ''
+    const pair = (document.getElementById(`pbs-bp-${idx}`)?.value.trim() || '').toUpperCase()
+    const type = row.dataset.bidtype || 'flight'
+    return date && pair ? { order: order+1, date, pairing: pair, type } : null
+  }).filter(Boolean)
+}
+async function _pbsSubmit(monthStr) {
+  const cc = window._pbsCC
+  const sen = parseInt(document.getElementById('pbs-seniority')?.value || '0')
+  const bids = _pbsGetBids()
+  const err = document.getElementById('pbs-err')
+  if (!cc)           { err.textContent='請選擇艙等'; return }
+  if (!sen || sen<1) { err.textContent='請輸入資深序號'; return }
+  if (!bids.length)  { err.textContent='請至少填一個志願'; return }
+  err.textContent = ''
+  try {
+    await fetch(`/api/pbs/${MY_USER_ID}/bid`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ month:monthStr, round:1, cabinClass:cc, seniority:sen, bids })
+    })
+    _pbsShowPred(monthStr)
+  } catch { err.textContent='送出失敗，請重試' }
+}
+async function _pbsShowPred(monthStr) {
+  document.getElementById('modal-content').innerHTML='<div style="text-align:center;color:#8e8e93;padding:30px">計算中…</div>'
+  try {
+    const data = await fetch(`/api/pbs/prediction/${monthStr}?userId=${MY_USER_ID}`).then(r=>r.json())
+    _pbsRenderPred(monthStr, data)
+  } catch { document.getElementById('modal-content').innerHTML='<div style="color:#ff3b30;padding:20px">載入失敗</div>' }
+}
+function _pbsRenderPred(monthStr, data) {
+  const [y, m] = monthStr.split('-')
+  const label = `${y}年${parseInt(m)}月`
+  const hi = { hot:'🔴', warm:'🟡', cool:'🟢' }
+  const dtL = { holiday:'🏮假日', weekend:'📅週末', weekday:'📋平日' }
+
+  if (!data.hasBid) {
+    document.getElementById('modal-content').innerHTML=`
+      <div style="font-size:16px;font-weight:700;margin-bottom:16px;">📊 選班幫幫忙</div>
+      <div style="color:#8e8e93;text-align:center;padding:20px;">尚未填寫志願</div>
+      <button onclick="showPbsModal()" style="width:100%;padding:12px;background:#007aff;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;">填寫志願</button>`
+    return
+  }
+  const { cabinClass, seniority } = data.myBid
+  const isCM = cabinClass === 'CM'
+
+  const rows = data.predictions.map(p => {
+    const rank = p.myRank>0 ? `你目前排第 <strong>${p.myRank}</strong> 名` : '（排名計算中）'
+    const cnt  = isCM
+      ? `共 ${p.cmCount} 個 CM 投了這班`
+      : `F ${p.fCount} 人・Y ${p.yCount} 人（共 ${p.total} 人）`
+    const hist = p.historicalCutoff !== null
+      ? `<div style="font-size:12px;color:#ff9500;margin-top:3px;">⚠️ 上次同班截止在第 ${p.historicalCutoff} 名</div>` : ''
+    return `
+      <div style="background:#f9f9f9;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="font-size:15px;font-weight:700;">${p.pairing}</span>
+          <span style="font-size:12px;color:#8e8e93;">${p.date.slice(5).replace('-','/')}</span>
+          <span style="font-size:11px;color:#8e8e93;">${dtL[p.dateType]||''}</span>
+          <span style="margin-left:auto;font-size:16px;">${hi[p.heat]||''}</span>
+        </div>
+        <div style="font-size:14px;margin-bottom:2px;">${rank}</div>
+        <div style="font-size:12px;color:#8e8e93;">${cnt}</div>${hist}
+      </div>`
+  }).join('')
+
+  const acc = Math.min(Math.round(data.totalParticipants / 5 * 100), 99)
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">📊 選班幫幫忙</div>
+    <div style="font-size:13px;color:#8e8e93;margin-bottom:4px;">${label}・${cabinClass}・序號 ${seniority}</div>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:14px;">
+      <strong style="color:#007aff;">${data.totalParticipants}</strong> 人登記・準確度約
+      <strong style="color:${acc>=60?'#34c759':'#ff9500'};">${acc}%</strong>
+    </div>
+    ${rows}
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button onclick="showPbsModal()" style="flex:1;padding:11px;background:#f2f2f7;color:#007aff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">修改志願</button>
+      <button onclick="_pbsShowAvail('${monthStr}')" style="flex:1;padding:11px;background:#f2f2f7;color:#1c1c1e;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">剩餘名額</button>
+    </div>`
+}
+async function _pbsShowAvail(monthStr) {
+  document.getElementById('modal-content').innerHTML='<div style="text-align:center;color:#8e8e93;padding:30px">查詢中…</div>'
+  try {
+    const data = await fetch(`/api/pbs/availability/${monthStr}`).then(r=>r.json())
+    _pbsRenderAvail(monthStr, data)
+  } catch { document.getElementById('modal-content').innerHTML='<div style="color:#ff3b30;padding:20px">載入失敗</div>' }
+}
+function _pbsRenderAvail(monthStr, data) {
+  const [y, m] = monthStr.split('-')
+  const back = `<button onclick="_pbsShowPred('${monthStr}')" style="background:none;border:none;color:#007aff;font-size:14px;cursor:pointer;padding:0 0 12px;">← 回預測</button>`
+  if (!data.hasResult) {
+    document.getElementById('modal-content').innerHTML=`${back}
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px;">剩餘名額</div>
+      <div style="background:#fff9e6;border-radius:12px;padding:14px;font-size:14px;color:#856404;line-height:1.6;">
+        第一階段結果尚未上傳。<br>結果公布後，請通知管理者上傳 PDF。</div>`
+    return
+  }
+  const by = { CM:[], F:[], Y:[] }
+  data.slots.forEach(s => { if (by[s.group]) by[s.group].push(s) })
+  const renderG = (lbl, slots) => {
+    if (!slots.length) return ''
+    const rows = [...slots].sort((a,b)=>a.date.localeCompare(b.date)).map(s => `
+      <div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f5;gap:8px;font-size:13px;">
+        <span style="flex:0 0 60px;font-weight:700;">${s.pairing}</span>
+        <span style="flex:0 0 55px;color:#8e8e93;">${s.date.slice(5).replace('-','/')}</span>
+        <span style="flex:1;color:#8e8e93;">${s.approved} 人已選</span>
+        <span style="color:${s.full?'#ff3b30':'#34c759'};font-weight:600;">${s.full?'🔴 滿':'🟢 尚有'}</span>
+      </div>`).join('')
+    return `<div style="font-size:12px;font-weight:700;color:#8e8e93;margin:12px 0 4px;">${lbl}</div>${rows}`
+  }
+  document.getElementById('modal-content').innerHTML=`${back}
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">剩餘名額</div>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:12px;">${y}年${parseInt(m)}月 第一階段結果</div>
+    ${renderG('CM', by.CM)}${renderG('F 組員 (FF/MF)', by.F)}${renderG('Y 組員 (FY/MY)', by.Y)}
+    ${!by.CM.length&&!by.F.length&&!by.Y.length?'<div style="color:#8e8e93;text-align:center;padding:20px;">尚無資料</div>':''}`
+}
 
 // ── Pull-to-refresh ───────────────────────────────────────────
 ;(function() {

@@ -6,6 +6,7 @@ const multer = require('multer')
 const ecrewParser = require('./ecrew-pdf-parser')
 const parseECrewPDF = ecrewParser
 const { linkLayovers } = ecrewParser
+const pbsParser = require('./pbs-result-parser')
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
@@ -393,6 +394,167 @@ app.post('/api/admin/config', adminAuth, (req, res) => {
   const { botUrl, apiSecret } = req.body
   fs.writeFileSync(GLOBAL_CONFIG_PATH, JSON.stringify({ botUrl: botUrl || '', apiSecret: apiSecret || '' }, null, 2))
   res.json({ ok: true })
+})
+
+// ── PBS 選班幫幫忙 ───────────────────────────────────────────
+const PBS_DIR = path.join(__dirname, 'data', 'pbs')
+fs.mkdirSync(path.join(PBS_DIR, 'bids'), { recursive: true })
+fs.mkdirSync(path.join(PBS_DIR, 'results'), { recursive: true })
+
+function readJSON(fp, fallback = null) {
+  try { return JSON.parse(fs.readFileSync(fp, 'utf8')) } catch { return fallback }
+}
+
+function pbsBidPath(userId, month) {
+  if (!userPath(userId)) return null
+  if (!/^\d{4}-\d{2}$/.test(month)) return null
+  const dir = path.join(PBS_DIR, 'bids', month)
+  fs.mkdirSync(dir, { recursive: true })
+  return path.join(dir, `${userId}.json`)
+}
+
+function pbsResultPath(month, round) {
+  return path.join(PBS_DIR, 'results', `${month}_r${round}.json`)
+}
+
+// 取得自己的志願
+app.get('/api/pbs/:userId/bid/:month', (req, res) => {
+  const fp = pbsBidPath(req.params.userId, req.params.month)
+  if (!fp) return res.status(400).json({ error: '無效參數' })
+  res.json(readJSON(fp, null))
+})
+
+// 送出/更新志願
+app.post('/api/pbs/:userId/bid', (req, res) => {
+  const { month, round = 1, cabinClass, seniority, bids } = req.body
+  if (!month || !cabinClass || !seniority || !Array.isArray(bids))
+    return res.status(400).json({ error: '缺少必要欄位' })
+  const fp = pbsBidPath(req.params.userId, month)
+  if (!fp) return res.status(400).json({ error: '無效的 userId' })
+  const data = {
+    userId: req.params.userId, month, round: parseInt(round),
+    cabinClass, seniority: parseInt(seniority), bids,
+    submittedAt: new Date().toISOString()
+  }
+  fs.writeFileSync(fp, JSON.stringify(data, null, 2))
+  res.json({ ok: true })
+})
+
+// 取得預測排名
+app.get('/api/pbs/prediction/:month', (req, res) => {
+  const { userId } = req.query
+  const { month } = req.params
+  if (!userId) return res.status(400).json({ error: '需要 userId' })
+
+  const myFp = pbsBidPath(userId, month)
+  const myBid = myFp ? readJSON(myFp, null) : null
+  if (!myBid) return res.json({ hasBid: false })
+
+  // 讀取本月所有人志願
+  const bidDir = path.join(PBS_DIR, 'bids', month)
+  let allBids = []
+  try {
+    allBids = fs.readdirSync(bidDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => readJSON(path.join(bidDir, f), null))
+      .filter(Boolean)
+  } catch {}
+
+  const { getGroup, getDateType } = pbsParser
+  const myGroup = getGroup(myBid.cabinClass)
+
+  // 讀取歷史結果（第一階段）
+  const histResult = readJSON(pbsResultPath(month, 1), null)
+
+  const predictions = myBid.bids.map(bid => {
+    const { date, pairing } = bid
+
+    // 找同 pairing+date 的競爭者（CM 獨立；F/Y 合池但分開計數）
+    const competitors = allBids
+      .filter(b => {
+        const g = getGroup(b.cabinClass)
+        if (myGroup === 'CM') return g === 'CM'
+        return g === 'F' || g === 'Y'
+      })
+      .filter(b => b.bids.some(bb => bb.date === date && bb.pairing === pairing))
+      .sort((a, b) => a.seniority - b.seniority)
+
+    const myRank = competitors.findIndex(b => b.userId === userId) + 1
+    const fCount  = competitors.filter(b => getGroup(b.cabinClass) === 'F').length
+    const yCount  = competitors.filter(b => getGroup(b.cabinClass) === 'Y').length
+    const cmCount = competitors.filter(b => getGroup(b.cabinClass) === 'CM').length
+    const total   = myGroup === 'CM' ? cmCount : fCount + yCount
+
+    // 歷史截止名額（從上傳的結果算）
+    let historicalCutoff = null
+    if (histResult && histResult.entries) {
+      const passed = histResult.entries.filter(e =>
+        e.date === date && e.pairing === pairing &&
+        getGroup(e.cabinClass) === myGroup && e.result === 'V'
+      ).length
+      const hasReject = histResult.entries.some(e =>
+        e.date === date && e.pairing === pairing &&
+        getGroup(e.cabinClass) === myGroup && e.reason === '點數排序'
+      )
+      if (hasReject) historicalCutoff = passed
+    }
+
+    return { order: bid.order, date, pairing, myRank, myGroup,
+             total, fCount, yCount, cmCount,
+             dateType: getDateType(date), historicalCutoff }
+  })
+
+  // 熱度燈號（跟本月其他志願相對比較）
+  const maxTotal = Math.max(...predictions.map(p => p.total), 1)
+  const result = predictions.map(p => ({
+    ...p,
+    heat: p.total >= maxTotal * 0.65 ? 'hot' :
+          p.total >= maxTotal * 0.35 ? 'warm' : 'cool'
+  }))
+
+  res.json({
+    hasBid: true,
+    myBid: { cabinClass: myBid.cabinClass, seniority: myBid.seniority, round: myBid.round },
+    totalParticipants: allBids.length,
+    predictions: result
+  })
+})
+
+// 上傳第一階段結果 PDF（管理員）
+app.post('/api/pbs/result/:month/:round', adminAuth, upload.single('pdf'), async (req, res) => {
+  const { month, round } = req.params
+  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: '無效月份' })
+  if (!req.file) return res.status(400).json({ error: '未收到 PDF' })
+  try {
+    const entries = await pbsParser.parsePBSResultPDF(req.file.buffer)
+    const data = { month, round: parseInt(round), uploadedAt: new Date().toISOString(), entries }
+    fs.writeFileSync(pbsResultPath(month, round), JSON.stringify(data, null, 2))
+    res.json({ ok: true, parsed: entries.length })
+  } catch (err) {
+    res.status(500).json({ error: 'PDF 解析失敗：' + err.message })
+  }
+})
+
+// 查詢第二階段剩餘名額
+app.get('/api/pbs/availability/:month', (req, res) => {
+  const result = readJSON(pbsResultPath(req.params.month, 1), null)
+  if (!result) return res.json({ hasResult: false })
+
+  const { getGroup, getDateType } = pbsParser
+  const slots = {}
+  for (const e of result.entries) {
+    const group = getGroup(e.cabinClass)
+    if (!group) continue
+    const key = `${e.pairing}|${e.date}|${group}`
+    if (!slots[key]) slots[key] = {
+      pairing: e.pairing, date: e.date, group,
+      approved: 0, full: false, dateType: getDateType(e.date)
+    }
+    if (e.result === 'V') slots[key].approved++
+    if (e.result === 'X' && e.reason === '點數排序') slots[key].full = true
+  }
+
+  res.json({ hasResult: true, slots: Object.values(slots) })
 })
 
 app.listen(PORT, () => {
