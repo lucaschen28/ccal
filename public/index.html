@@ -4238,15 +4238,23 @@ function _pbsRenderForm(monthStr, existing) {
              font-size:14px;font-weight:600;cursor:pointer;">查看預測排名</button>` : ''}`
 }
 
+const PBS_AC_TYPES = ['330','359','35C','32Q','32C','777','738']
+
 function _pbsFlightRow(bid, idx) {
+  const selAc = bid.aircraft || ''
+  const acBtns = PBS_AC_TYPES.map(ac => `
+    <button onclick="_pbsFlAc(${idx},'${ac}')" id="pbs-flac-${idx}-${ac}"
+      style="padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;
+             border:1.5px solid ${selAc===ac?'#007aff':'#d1d1d6'};
+             background:${selAc===ac?'#007aff':'#fff'};color:${selAc===ac?'#fff':'#3c3c43'};">${ac}</button>`).join('')
   return `
-    <div id="pbs-fl-${idx}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+    <div id="pbs-fl-${idx}" data-aircraft="${selAc}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;margin-bottom:8px;">
         <span style="font-size:12px;font-weight:700;color:#8e8e93;">班次 ${idx+1}</span>
         <button onclick="document.getElementById('pbs-fl-${idx}').remove();_pbsRefreshAddBtns()"
           style="margin-left:auto;background:none;border:none;color:#c7c7cc;font-size:18px;cursor:pointer;padding:0;">×</button>
       </div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
         <input type="date" id="pbs-fld-${idx}" value="${bid.date || (window._pbsMonthStr+'-01')}"
           min="${window._pbsMonthStr}-01" max="${window._pbsMonthLast}"
           style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;">
@@ -4254,7 +4262,24 @@ function _pbsFlightRow(bid, idx) {
           value="${bid.pairing||''}" maxlength="10"
           style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#8e8e93;margin-right:2px;">機型（選填）</span>
+        ${acBtns}
+      </div>
     </div>`
+}
+
+function _pbsFlAc(idx, ac) {
+  const row = document.getElementById(`pbs-fl-${idx}`)
+  const cur = row?.dataset.aircraft
+  const next = cur === ac ? '' : ac  // 再點一次取消選取
+  if (row) row.dataset.aircraft = next
+  PBS_AC_TYPES.forEach(t => {
+    const b = document.getElementById(`pbs-flac-${idx}-${t}`); if (!b) return
+    const on = t === next
+    b.style.background = on?'#007aff':'#fff'; b.style.color = on?'#fff':'#3c3c43'
+    b.style.borderColor = on?'#007aff':'#d1d1d6'
+  })
 }
 
 function _pbsRdoRow(bid, idx) {
@@ -4328,7 +4353,8 @@ function _pbsGetBids() {
     const idx  = row.id.replace('pbs-fl-','')
     const date = document.getElementById(`pbs-fld-${idx}`)?.value.trim() || ''
     const pair = (document.getElementById(`pbs-flp-${idx}`)?.value.trim() || '').toUpperCase()
-    if (date && pair) bids.push({ order: order++, date, pairing: pair, type: 'flight' })
+    const ac   = row.dataset.aircraft || ''
+    if (date && pair) bids.push({ order: order++, date, pairing: pair, type: 'flight', ...(ac && { aircraft: ac }) })
   })
   document.getElementById('pbs-rdos-list')?.querySelectorAll('[id^="pbs-rdo-"]').forEach(row => {
     const idx  = row.id.replace('pbs-rdo-','')
