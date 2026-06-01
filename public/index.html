@@ -4176,6 +4176,7 @@ function showPbsModal() {
 }
 
 function _pbsRenderForm(monthStr, existing) {
+  window._pbsMonthStr = monthStr
   const [y, m] = monthStr.split('-')
   const label = `${y}年${parseInt(m)}月`
   const cc  = existing?.cabinClass || ''
@@ -4201,7 +4202,7 @@ function _pbsRenderForm(monthStr, existing) {
     </div>
 
     <div style="margin-bottom:14px;">
-      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">本月資深序號（PBS 點數排出來的）</div>
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">點數排序（PBS 本月排出來的序號）</div>
       <input id="pbs-seniority" type="number" inputmode="numeric" placeholder="例：650" value="${sen}"
         style="width:100%;padding:10px 12px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;">
     </div>
@@ -4244,7 +4245,8 @@ function _pbsFlightRow(bid, idx) {
           style="margin-left:auto;background:none;border:none;color:#c7c7cc;font-size:18px;cursor:pointer;padding:0;">×</button>
       </div>
       <div style="display:flex;gap:8px;">
-        <input type="date" id="pbs-fld-${idx}" value="${bid.date||''}"
+        <input type="date" id="pbs-fld-${idx}" value="${bid.date || (window._pbsMonthStr+'-01')}"
+          min="${window._pbsMonthStr}-01" max="${window._pbsMonthStr}-31"
           style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;">
         <input type="text" id="pbs-flp-${idx}" placeholder="053A"
           value="${bid.pairing||''}" maxlength="10"
@@ -4269,7 +4271,8 @@ function _pbsRdoRow(bid, idx) {
         <button onclick="document.getElementById('pbs-rdo-${idx}').remove();_pbsRefreshAddBtns()"
           style="margin-left:8px;background:none;border:none;color:#c7c7cc;font-size:18px;cursor:pointer;padding:0;">×</button>
       </div>
-      <input type="date" id="pbs-rdo-date-${idx}" value="${bid.date||''}"
+      <input type="date" id="pbs-rdo-date-${idx}" value="${bid.date || (window._pbsMonthStr+'-01')}"
+        min="${window._pbsMonthStr}-01" max="${window._pbsMonthStr}-31"
         style="width:100%;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
     </div>`
 }
