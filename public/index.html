@@ -4178,9 +4178,11 @@ function showPbsModal() {
 function _pbsRenderForm(monthStr, existing) {
   const [y, m] = monthStr.split('-')
   const label = `${y}年${parseInt(m)}月`
-  const cc   = existing?.cabinClass || ''
-  const sen  = existing?.seniority  || ''
-  const bids = existing?.bids || []
+  const cc  = existing?.cabinClass || ''
+  const sen = existing?.seniority  || ''
+  const allBids = existing?.bids || []
+  const flightBids = allBids.filter(b => b.type === 'flight')
+  const rdoBids    = allBids.filter(b => b.type === 'rdo')
   window._pbsCC = cc
 
   const clsBtns = ['CM','FF','MF','FY','MY'].map(c => `
@@ -4188,10 +4190,6 @@ function _pbsRenderForm(monthStr, existing) {
       style="padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;
              border:1.5px solid ${cc===c?'#007aff':'#d1d1d6'};
              background:${cc===c?'#007aff':'#fff'};color:${cc===c?'#fff':'#3c3c43'};">${c}</button>`).join('')
-
-  const bidRows = bids.length
-    ? bids.map((b,i) => _pbsBidRow(b,i)).join('')
-    : _pbsBidRow({order:1,date:'',pairing:'',type:'flight'}, 0)
 
   document.getElementById('modal-content').innerHTML = `
     <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">📊 選班幫幫忙</div>
@@ -4208,11 +4206,25 @@ function _pbsRenderForm(monthStr, existing) {
         style="width:100%;padding:10px 12px;border:1.5px solid #e5e5ea;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;">
     </div>
 
-    <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:8px;">志願（班次代碼 + 日期）</div>
-    <div id="pbs-bids-list">${bidRows}</div>
-    <button onclick="_pbsAddBid()"
-      style="width:100%;padding:10px;border:1.5px dashed #d1d1d6;border-radius:10px;
-             background:#fff;font-size:13px;color:#007aff;cursor:pointer;margin-bottom:14px;">＋ 新增志願</button>
+    <!-- 班次志願（最多 2 班） -->
+    <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:8px;">✈️ 班次志願（最多 2 班）</div>
+    <div id="pbs-flights-list">
+      ${flightBids.map((b,i) => _pbsFlightRow(b, i)).join('')}
+    </div>
+    <button id="pbs-add-fl" onclick="_pbsAddFlight()"
+      style="width:100%;padding:9px;border:1.5px dashed #d1d1d6;border-radius:10px;
+             background:#fff;font-size:13px;color:#007aff;cursor:pointer;margin-bottom:14px;
+             ${flightBids.length >= 2 ? 'display:none;' : ''}">＋ 新增班次</button>
+
+    <!-- RDO 志願（最多 2 組，每組 1~2 天） -->
+    <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:8px;">🛋️ RDO 志願（最多 2 組）</div>
+    <div id="pbs-rdos-list">
+      ${rdoBids.map((b,i) => _pbsRdoRow(b, i)).join('')}
+    </div>
+    <button id="pbs-add-rd" onclick="_pbsAddRdo()"
+      style="width:100%;padding:9px;border:1.5px dashed #d1d1d6;border-radius:10px;
+             background:#fff;font-size:13px;color:#007aff;cursor:pointer;margin-bottom:14px;
+             ${rdoBids.length >= 2 ? 'display:none;' : ''}">＋ 新增 RDO</button>
 
     <div id="pbs-err" style="color:#ff3b30;font-size:13px;min-height:18px;margin-bottom:6px;"></div>
     <button onclick="_pbsSubmit('${monthStr}')"
@@ -4223,30 +4235,42 @@ function _pbsRenderForm(monthStr, existing) {
              font-size:14px;font-weight:600;cursor:pointer;">查看預測排名</button>` : ''}`
 }
 
-function _pbsBidRow(bid, idx) {
-  const t0 = bid.type || 'flight'
+function _pbsFlightRow(bid, idx) {
   return `
-    <div id="pbs-bid-${idx}" data-bidtype="${t0}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <span style="font-size:12px;font-weight:700;color:#8e8e93;">志願 ${idx+1}</span>
-        <div style="margin-left:auto;display:flex;gap:4px;">
-          ${['flight','rdo'].map(t => `
-            <button onclick="_pbsBidType(${idx},'${t}')" id="pbs-bt-${idx}-${t}"
-              style="padding:3px 10px;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;
-                     border:1.5px solid ${t0===t?'#007aff':'#d1d1d6'};
-                     background:${t0===t?'#007aff':'#fff'};color:${t0===t?'#fff':'#3c3c43'};">
-              ${t==='flight'?'班次':'RDO'}</button>`).join('')}
-        </div>
-        <button onclick="document.getElementById('pbs-bid-${idx}').remove()"
-          style="background:none;border:none;color:#c7c7cc;font-size:18px;cursor:pointer;padding:0;">×</button>
+    <div id="pbs-fl-${idx}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:700;color:#8e8e93;">班次 ${idx+1}</span>
+        <button onclick="document.getElementById('pbs-fl-${idx}').remove();_pbsRefreshAddBtns()"
+          style="margin-left:auto;background:none;border:none;color:#c7c7cc;font-size:18px;cursor:pointer;padding:0;">×</button>
       </div>
       <div style="display:flex;gap:8px;">
-        <input type="date" id="pbs-bd-${idx}" value="${bid.date||''}"
+        <input type="date" id="pbs-fld-${idx}" value="${bid.date||''}"
           style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;">
-        <input type="text" id="pbs-bp-${idx}" placeholder="${t0==='rdo'?'1RDO / 2RDO':'053A'}"
-          value="${bid.pairing||''}"
+        <input type="text" id="pbs-flp-${idx}" placeholder="053A"
+          value="${bid.pairing||''}" maxlength="10"
           style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
+    </div>`
+}
+
+function _pbsRdoRow(bid, idx) {
+  const days = bid.pairing === '1RDO' ? 1 : 2
+  return `
+    <div id="pbs-rdo-${idx}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:700;color:#8e8e93;">RDO ${idx+1}</span>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          ${[1,2].map(d => `
+            <button onclick="_pbsRdoDays(${idx},${d})" id="pbs-rdo-days-${idx}-${d}"
+              style="padding:3px 12px;border-radius:14px;font-size:12px;font-weight:600;cursor:pointer;
+                     border:1.5px solid ${days===d?'#007aff':'#d1d1d6'};
+                     background:${days===d?'#007aff':'#fff'};color:${days===d?'#fff':'#3c3c43'};">${d}天</button>`).join('')}
+        </div>
+        <button onclick="document.getElementById('pbs-rdo-${idx}').remove();_pbsRefreshAddBtns()"
+          style="margin-left:8px;background:none;border:none;color:#c7c7cc;font-size:18px;cursor:pointer;padding:0;">×</button>
+      </div>
+      <input type="date" id="pbs-rdo-date-${idx}" value="${bid.date||''}"
+        style="width:100%;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box;">
     </div>`
 }
 
@@ -4260,36 +4284,54 @@ function _pbsSetCC(cls) {
     b.style.borderColor = on?'#007aff':'#d1d1d6'
   })
 }
-function _pbsBidType(idx, type) {
-  ;['flight','rdo'].forEach(t => {
-    const b = document.getElementById(`pbs-bt-${idx}-${t}`); if (!b) return
-    const on = t === type
+function _pbsRdoDays(idx, days) {
+  ;[1,2].forEach(d => {
+    const b = document.getElementById(`pbs-rdo-days-${idx}-${d}`); if (!b) return
+    const on = d === days
     b.style.background = on?'#007aff':'#fff'; b.style.color = on?'#fff':'#3c3c43'
     b.style.borderColor = on?'#007aff':'#d1d1d6'
   })
-  const row = document.getElementById(`pbs-bid-${idx}`)
-  if (row) row.dataset.bidtype = type
-  const p = document.getElementById(`pbs-bp-${idx}`)
-  if (p) p.placeholder = type==='rdo' ? '1RDO / 2RDO' : '053A'
+  const row = document.getElementById(`pbs-rdo-${idx}`)
+  if (row) row.dataset.days = days
 }
-function _pbsAddBid() {
-  const list = document.getElementById('pbs-bids-list'); if (!list) return
-  if (list.children.length >= 4) { document.getElementById('pbs-err').textContent='最多4個志願'; return }
-  // 找下一個未使用的 idx
-  let idx = 0
-  while (document.getElementById(`pbs-bid-${idx}`)) idx++
-  list.insertAdjacentHTML('beforeend', _pbsBidRow({order:idx+1,date:'',pairing:'',type:'flight'}, idx))
+function _pbsAddFlight() {
+  const list = document.getElementById('pbs-flights-list'); if (!list) return
+  if (list.children.length >= 2) return
+  let idx = 0; while (document.getElementById(`pbs-fl-${idx}`)) idx++
+  list.insertAdjacentHTML('beforeend', _pbsFlightRow({date:'',pairing:''}, idx))
+  _pbsRefreshAddBtns()
+}
+function _pbsAddRdo() {
+  const list = document.getElementById('pbs-rdos-list'); if (!list) return
+  if (list.children.length >= 2) return
+  let idx = 0; while (document.getElementById(`pbs-rdo-${idx}`)) idx++
+  list.insertAdjacentHTML('beforeend', _pbsRdoRow({date:'',pairing:'2RDO'}, idx))
+  _pbsRefreshAddBtns()
+}
+function _pbsRefreshAddBtns() {
+  const fl = document.getElementById('pbs-flights-list')
+  const rd = document.getElementById('pbs-rdos-list')
+  const fBtn = document.getElementById('pbs-add-fl')
+  const rBtn = document.getElementById('pbs-add-rd')
+  if (fBtn) fBtn.style.display = fl && fl.children.length >= 2 ? 'none' : ''
+  if (rBtn) rBtn.style.display = rd && rd.children.length >= 2 ? 'none' : ''
 }
 function _pbsGetBids() {
-  // 掃描所有存在的 bid 行（不依賴連續 idx）
-  const rows = document.querySelectorAll('[id^="pbs-bid-"]')
-  return [...rows].map((row, order) => {
-    const idx  = row.id.replace('pbs-bid-','')
-    const date = document.getElementById(`pbs-bd-${idx}`)?.value.trim() || ''
-    const pair = (document.getElementById(`pbs-bp-${idx}`)?.value.trim() || '').toUpperCase()
-    const type = row.dataset.bidtype || 'flight'
-    return date && pair ? { order: order+1, date, pairing: pair, type } : null
-  }).filter(Boolean)
+  const bids = []
+  let order = 1
+  document.getElementById('pbs-flights-list')?.querySelectorAll('[id^="pbs-fl-"]').forEach(row => {
+    const idx  = row.id.replace('pbs-fl-','')
+    const date = document.getElementById(`pbs-fld-${idx}`)?.value.trim() || ''
+    const pair = (document.getElementById(`pbs-flp-${idx}`)?.value.trim() || '').toUpperCase()
+    if (date && pair) bids.push({ order: order++, date, pairing: pair, type: 'flight' })
+  })
+  document.getElementById('pbs-rdos-list')?.querySelectorAll('[id^="pbs-rdo-"]').forEach(row => {
+    const idx  = row.id.replace('pbs-rdo-','')
+    const date = document.getElementById(`pbs-rdo-date-${idx}`)?.value.trim() || ''
+    const days = parseInt(row.dataset.days || '2')
+    if (date) bids.push({ order: order++, date, pairing: `${days}RDO`, type: 'rdo' })
+  })
+  return bids
 }
 async function _pbsSubmit(monthStr) {
   const cc = window._pbsCC
