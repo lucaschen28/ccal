@@ -4701,34 +4701,112 @@ async function _pbsShowAvail(monthStr) {
 }
 function _pbsRenderAvail(monthStr, data) {
   const [y, m] = monthStr.split('-')
-  const back = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
-    <button onclick="_pbsShowMonthPage('${monthStr}')" style="background:none;border:none;font-size:26px;color:#007aff;cursor:pointer;padding:0;line-height:1;margin-right:2px;">‹</button>
-    <span style="font-size:15px;font-weight:700;">剩餘名額</span>
-    <span style="font-size:12px;color:#8e8e93;margin-left:4px;">${y}年${parseInt(m)}月</span>
-  </div>`
+  const header = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:16px;">
+      <button onclick="_pbsShowMonthPage('${monthStr}')" style="background:none;border:none;font-size:26px;color:#007aff;cursor:pointer;padding:0;line-height:1;margin-right:2px;">‹</button>
+      <span style="font-size:15px;font-weight:700;">剩餘名額</span>
+      <span style="font-size:12px;color:#8e8e93;margin-left:4px;">${y}年${parseInt(m)}月</span>
+    </div>`
+
   if (!data.hasResult) {
-    document.getElementById('modal-content').innerHTML=`${back}
+    document.getElementById('modal-content').innerHTML = `${header}
       <div style="background:#fff9e6;border-radius:12px;padding:14px;font-size:14px;color:#856404;line-height:1.6;">
         第一階段結果尚未上傳。<br>結果公布後，請通知管理者上傳 PDF。</div>`
     return
   }
-  const by = { CM:[], F:[], Y:[] }
-  data.slots.forEach(s => { if (by[s.group]) by[s.group].push(s) })
-  const renderG = (lbl, slots) => {
-    if (!slots.length) return ''
-    const rows = [...slots].sort((a,b)=>a.date.localeCompare(b.date)).map(s => `
-      <div style="display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f5;gap:8px;font-size:13px;">
-        <span style="flex:0 0 60px;font-weight:700;">${s.pairing}</span>
-        <span style="flex:0 0 55px;color:#8e8e93;">${s.date.slice(5).replace('-','/')}</span>
-        <span style="flex:1;color:#8e8e93;">${s.approved} 人已選</span>
-        <span style="color:${s.full?'#ff3b30':'#34c759'};font-weight:600;">${s.full?'🔴 滿':'🟢 尚有'}</span>
-      </div>`).join('')
-    return `<div style="font-size:12px;font-weight:700;color:#8e8e93;margin:12px 0 4px;">${lbl}</div>${rows}`
+
+  window._availSlots = data.slots
+  window._availMonthStr = monthStr
+
+  const selStyle = `width:100%;padding:11px 12px;border:1.5px solid #e5e5ea;border-radius:10px;
+    font-size:15px;outline:none;background:#fff;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c7c7cc' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;`
+
+  document.getElementById('modal-content').innerHTML = `${header}
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">艙等</div>
+      <select id="avail-group" onchange="_availFilterGroup()" style="${selStyle}">
+        <option value="">請選擇</option>
+        <option value="CM">CM（座艙長）</option>
+        <option value="F">F 組員（FF / MF）</option>
+        <option value="Y">Y 組員（FY / MY）</option>
+      </select>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">日期 ＋ 班次</div>
+      <select id="avail-slot" onchange="_availShow()" style="${selStyle}" disabled>
+        <option value="">請先選擇艙等</option>
+      </select>
+    </div>
+    <div id="avail-result"></div>`
+}
+
+function _availFilterGroup() {
+  const group = document.getElementById('avail-group').value
+  const slotSel = document.getElementById('avail-slot')
+  document.getElementById('avail-result').innerHTML = ''
+  slotSel.innerHTML = ''
+
+  if (!group) {
+    slotSel.innerHTML = '<option value="">請先選擇艙等</option>'
+    slotSel.disabled = true
+    return
   }
-  document.getElementById('modal-content').innerHTML=`${back}
-    <div style="font-size:12px;color:#8e8e93;margin-bottom:12px;">第一階段結果</div>
-    ${renderG('CM', by.CM)}${renderG('F 組員 (FF/MF)', by.F)}${renderG('Y 組員 (FY/MY)', by.Y)}
-    ${!by.CM.length&&!by.F.length&&!by.Y.length?'<div style="color:#8e8e93;text-align:center;padding:20px;">尚無資料</div>':''}`
+
+  const filtered = (window._availSlots || [])
+    .filter(s => s.group === group)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+
+  if (!filtered.length) {
+    slotSel.innerHTML = '<option value="">（無資料）</option>'
+    slotSel.disabled = true
+    return
+  }
+
+  slotSel.disabled = false
+  const placeholder = document.createElement('option')
+  placeholder.value = ''; placeholder.textContent = '請選擇日期 ＋ 班次'
+  slotSel.appendChild(placeholder)
+
+  for (const s of filtered) {
+    const opt = document.createElement('option')
+    opt.value = `${s.pairing}||${s.date}`
+    const dateLabel = s.date.slice(5).replace('-', '/')
+    const isRdo = s.pairing.includes('RDO')
+    opt.textContent = `${dateLabel}　${isRdo ? '🛋 ' : '✈️ '}${s.pairing}`
+    slotSel.appendChild(opt)
+  }
+}
+
+function _availShow() {
+  const val = document.getElementById('avail-slot').value
+  const group = document.getElementById('avail-group').value
+  const resultDiv = document.getElementById('avail-result')
+  if (!val) { resultDiv.innerHTML = ''; return }
+
+  const [pairing, date] = val.split('||')
+  const s = (window._availSlots || []).find(x => x.pairing === pairing && x.date === date && x.group === group)
+  if (!s) { resultDiv.innerHTML = ''; return }
+
+  const dtLabel = { holiday:'🏮 假日', weekend:'📅 週末', weekday:'📋 平日' }
+  const isRdo = pairing.includes('RDO')
+  const icon = isRdo ? '🛋' : '✈️'
+
+  resultDiv.innerHTML = `
+    <div style="background:#f9f9f9;border-radius:14px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:18px;font-weight:700;">${icon} ${pairing}</span>
+        <span style="font-size:13px;color:#8e8e93;">${date.slice(5).replace('-','/')}</span>
+        <span style="font-size:12px;color:#8e8e93;">${dtLabel[s.dateType]||''}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:14px;">已選人數：<strong style="font-size:18px;">${s.approved}</strong> 人</div>
+        <div style="font-size:14px;font-weight:700;color:${s.full?'#ff3b30':'#34c759'};">
+          ${s.full ? '🔴 額滿' : '🟢 尚有名額'}
+        </div>
+      </div>
+    </div>`
 }
 
 // ── Pull-to-refresh ───────────────────────────────────────────
