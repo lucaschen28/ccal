@@ -8,7 +8,7 @@ const parseECrewPDF = ecrewParser
 const { linkLayovers } = ecrewParser
 const pbsParser = require('./pbs-result-parser')
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } })
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -617,6 +617,15 @@ app.get('/api/pbs/availability/:month', (req, res) => {
   }
 
   res.json({ hasResult: true, slots: Object.values(slots) })
+})
+
+// Multer 錯誤 handler（檔案過大等）
+app.use((err, req, res, next) => {
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: `檔案超過上限（最大 25MB），此檔案 ${(err.field||'')} 太大` })
+  }
+  console.error('[Server Error]', err)
+  res.status(500).json({ error: err.message || '伺服器錯誤' })
 })
 
 app.listen(PORT, () => {
