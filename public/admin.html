@@ -113,6 +113,31 @@
     <div class="save-msg" id="cfg-save-msg"></div>
   </div>
 
+  <!-- PBS 結果上傳 -->
+  <div class="card">
+    <div class="card-title">📊 PBS 選班結果上傳</div>
+    <div class="sf-group">
+      <div class="sf-label">月份</div>
+      <input class="sf-input" id="pbs-month" type="month" value="2026-07">
+    </div>
+    <div class="sf-group">
+      <div class="sf-label">階段</div>
+      <div style="display:flex;gap:8px;">
+        <button id="pbs-r1" onclick="pbsSetRound(1)"
+          style="flex:1;padding:9px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid #007aff;background:#007aff;color:#fff;">第 1 階段</button>
+        <button id="pbs-r2" onclick="pbsSetRound(2)"
+          style="flex:1;padding:9px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid #d1d1d6;background:#fff;color:#3c3c43;">第 2 階段</button>
+      </div>
+    </div>
+    <div class="sf-group">
+      <div class="sf-label">PDF 檔案</div>
+      <input type="file" id="pbs-pdf" accept=".pdf"
+        style="width:100%;padding:10px 12px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;background:#fff;">
+    </div>
+    <button class="save-btn" onclick="uploadPbsResult()" id="pbs-upload-btn">上傳並解析</button>
+    <div id="pbs-upload-msg" style="text-align:center;font-size:13px;margin-top:8px;min-height:18px;"></div>
+  </div>
+
   <!-- 使用者列表 -->
   <div class="card">
     <div class="card-title">使用者列表</div>
@@ -280,6 +305,51 @@ async function saveConfig() {
     }
   } catch {}
   btn.disabled = false; btn.textContent = '儲存設定'
+}
+
+// PBS 結果上傳
+let _pbsRound = 1
+function pbsSetRound(r) {
+  _pbsRound = r
+  ;[1,2].forEach(n => {
+    const b = document.getElementById(`pbs-r${n}`)
+    if (!b) return
+    const on = n === r
+    b.style.background = on ? '#007aff' : '#fff'
+    b.style.color = on ? '#fff' : '#3c3c43'
+    b.style.borderColor = on ? '#007aff' : '#d1d1d6'
+  })
+}
+async function uploadPbsResult() {
+  const month = document.getElementById('pbs-month').value
+  const file  = document.getElementById('pbs-pdf').files[0]
+  const msg   = document.getElementById('pbs-upload-msg')
+  const btn   = document.getElementById('pbs-upload-btn')
+  if (!month) { msg.style.color='#ff3b30'; msg.textContent='請選月份'; return }
+  if (!file)  { msg.style.color='#ff3b30'; msg.textContent='請選 PDF 檔案'; return }
+  btn.disabled = true; btn.textContent = '解析中…'
+  msg.textContent = ''
+  const fd = new FormData()
+  fd.append('pdf', file)
+  try {
+    const res = await fetch(`/api/pbs/result/${month}/${_pbsRound}`, {
+      method: 'POST',
+      headers: { 'x-admin-password': _adminPw },
+      body: fd
+    })
+    const data = await res.json()
+    if (res.ok) {
+      msg.style.color = '#34c759'
+      msg.textContent = `✓ 上傳成功，解析到 ${data.parsed} 筆紀錄`
+    } else {
+      msg.style.color = '#ff3b30'
+      msg.textContent = `失敗：${data.error || '未知錯誤'}`
+    }
+  } catch {
+    msg.style.color = '#ff3b30'
+    msg.textContent = '連線失敗'
+  }
+  btn.disabled = false; btn.textContent = '上傳並解析'
 }
 
 function fmtDate(iso) {
