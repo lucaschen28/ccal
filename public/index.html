@@ -4238,7 +4238,19 @@ function _pbsRenderForm(monthStr, existing) {
              font-size:14px;font-weight:600;cursor:pointer;">查看預測排名</button>` : ''}`
 }
 
-const PBS_AC_TYPES = ['330','359','35C','35D','32Q','32C','777','738']
+const PBS_AC_TYPES = ['32Q','330','350','738','777']
+
+// 雙 CM 班號（班號數字部分）
+const PBS_DOUBLE_CM = new Set([4,8,12,24,32,36,61,81])
+
+// F/Y 名額規則（含CM）
+const PBS_CREW_QUOTA = {
+  '32Q': { '區域駐防':6, '區域來回':7 },
+  '330': { '區域駐防':11, '區域來回':12, '越洋':12 },
+  '350': { '區域駐防':12, '區域來回':12, '越洋':12, '超長程':12 },
+  '738': { '區域駐防':5, '區域來回':6 },
+  '777': { '區域駐防':15, '區域來回':15, '越洋':16, '超長程':16 },
+}
 
 function _pbsFlightRow(bid, idx) {
   const selAc = bid.aircraft || ''
@@ -4411,11 +4423,13 @@ function _pbsRenderPred(monthStr, data) {
       : `F ${p.fCount} 人・Y ${p.yCount} 人（共 ${p.total} 人）`
     const hist = p.historicalCutoff !== null
       ? `<div style="font-size:12px;color:#ff9500;margin-top:3px;">⚠️ 上次同班截止在第 ${p.historicalCutoff} 名</div>` : ''
-    // CM 名額說明
+    // CM 名額說明（雙CM班號判斷）
+    const flightNum = parseInt(p.pairing.match(/^(\d+)/)?.[1] || '0')
+    const isDoubleCM = isCM && PBS_DOUBLE_CM.has(flightNum)
     const cmQuota = isCM ? `
-      <div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
-        <span style="font-size:12px;color:#3c3c43;">名額：<strong>1</strong> 個 CM</span>
-        <span style="font-size:11px;color:#8e8e93;">・越洋航班可能有 2 個，實際以排班為準</span>
+      <div style="margin-top:5px;font-size:12px;color:#3c3c43;">
+        名額：<strong style="color:${isDoubleCM?'#34c759':'inherit'};">${isDoubleCM?'2':'1'}</strong> 個 CM
+        ${isDoubleCM ? '<span style="color:#34c759;"> ✓ 雙CM班</span>' : '<span style="color:#8e8e93;">・越洋班可能有 2 個，實際以排班為準</span>'}
       </div>` : ''
     return `
       <div style="background:#f9f9f9;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
@@ -4433,7 +4447,10 @@ function _pbsRenderPred(monthStr, data) {
 
   const acc = Math.min(Math.round(data.totalParticipants / 5 * 100), 99)
   document.getElementById('modal-content').innerHTML = `
-    <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">📊 選班幫幫忙</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <div style="font-size:16px;font-weight:700;color:#1c1c1e;">📊 選班幫幫忙</div>
+      <button onclick="_pbsShowQuotaInfo()" style="margin-left:auto;padding:4px 10px;background:#f2f2f7;border:none;border-radius:10px;font-size:12px;color:#007aff;cursor:pointer;font-weight:600;">名額說明</button>
+    </div>
     <div style="font-size:13px;color:#8e8e93;margin-bottom:4px;">${label}・${cabinClass}・序號 ${seniority}</div>
     <div style="font-size:12px;color:#8e8e93;margin-bottom:14px;">
       <strong style="color:#007aff;">${data.totalParticipants}</strong> 人登記・準確度約
@@ -4445,6 +4462,43 @@ function _pbsRenderPred(monthStr, data) {
       <button onclick="_pbsShowAvail('${monthStr}')" style="flex:1;padding:11px;background:#f2f2f7;color:#1c1c1e;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">剩餘名額</button>
     </div>`
 }
+function _pbsShowQuotaInfo() {
+  const tableRows = `
+    <tr style="background:#f2f2f7;">
+      <td style="padding:6px 8px;font-weight:700;font-size:12px;">機型</td>
+      <td style="padding:6px 8px;font-size:12px;text-align:center;">區域駐防</td>
+      <td style="padding:6px 8px;font-size:12px;text-align:center;">區域來回</td>
+      <td style="padding:6px 8px;font-size:12px;text-align:center;">越洋</td>
+      <td style="padding:6px 8px;font-size:12px;text-align:center;">超長程</td>
+    </tr>
+    ${[['32Q','6','7','—','—'],['330','11','12','12','—'],['350','12','12','12','12'],['738','5','6','—','—'],['777','15','15','16','16']].map(([ac,...vals])=>`
+    <tr style="border-top:1px solid #f0f0f5;">
+      <td style="padding:6px 8px;font-weight:700;font-size:12px;color:#007aff;">${ac}</td>
+      ${vals.map(v=>`<td style="padding:6px 8px;font-size:13px;text-align:center;color:${v==='—'?'#c7c7cc':'#1c1c1e'};">${v}</td>`).join('')}
+    </tr>`).join('')}`
+
+  const ov = document.createElement('div')
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;'
+  ov.innerHTML = `
+    <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;padding:20px 16px 36px;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;margin-bottom:12px;">
+        <span style="font-size:15px;font-weight:700;">F/Y 組員名額說明</span>
+        <button onclick="this.closest('div[style*=fixed]').remove()"
+          style="margin-left:auto;background:none;border:none;font-size:22px;color:#8e8e93;cursor:pointer;padding:0;">×</button>
+      </div>
+      <div style="font-size:12px;color:#8e8e93;margin-bottom:10px;">以下名額<strong>含 CM</strong>，A330 松山羽田班駐防多 1 名（共 12）</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e5ea;border-radius:10px;overflow:hidden;">
+        ${tableRows}
+      </table>
+      <div style="margin-top:12px;font-size:12px;color:#8e8e93;line-height:1.7;">
+        <strong style="color:#1c1c1e;">雙 CM 班號</strong>（本月）：4・8・12・24・32・36・61・81<br>
+        Y 組員名額上限 = 總名額 × 約 60%（剩餘由 F 補足）
+      </div>
+    </div>`
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove() })
+  document.body.appendChild(ov)
+}
+
 async function _pbsShowAvail(monthStr) {
   document.getElementById('modal-content').innerHTML='<div style="text-align:center;color:#8e8e93;padding:30px">查詢中…</div>'
   try {

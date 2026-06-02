@@ -12,7 +12,9 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 const app = express()
 const PORT = process.env.PORT || 3000
+// DATA_DIR 指向班表目錄；PBS_DIR 與 schedules 同層（同一個 volume）
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data', 'schedules')
+const _BASE_DIR = path.dirname(DATA_DIR)  // e.g. /data 或 ./data
 
 // 確保資料夾存在
 fs.mkdirSync(DATA_DIR, { recursive: true })
@@ -397,7 +399,7 @@ app.post('/api/admin/config', adminAuth, (req, res) => {
 })
 
 // ── PBS 選班幫幫忙 ───────────────────────────────────────────
-const PBS_DIR = path.join(__dirname, 'data', 'pbs')
+const PBS_DIR = path.join(_BASE_DIR, 'pbs')
 fs.mkdirSync(path.join(PBS_DIR, 'bids'), { recursive: true })
 fs.mkdirSync(path.join(PBS_DIR, 'results'), { recursive: true })
 
