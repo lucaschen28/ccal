@@ -608,12 +608,27 @@ app.get('/api/pbs/availability/:month', (req, res) => {
     const group = getGroup(e.cabinClass)
     if (!group) continue
     const key = `${e.pairing}|${e.date}|${group}`
-    if (!slots[key]) slots[key] = {
-      pairing: e.pairing, date: e.date, group,
-      approved: 0, full: false, dateType: getDateType(e.date)
+    if (!slots[key]) {
+      // CM 名額：雙CM班 2 個，其他 1 個
+      let quota = null
+      if (group === 'CM') {
+        const pairNum = parseInt((e.pairing.match(/^(\d+)/) || [])[1] || '0')
+        quota = PBS_DOUBLE_CM_SET.has(pairNum) ? 2 : 1
+      }
+      slots[key] = {
+        pairing: e.pairing, date: e.date, group, quota,
+        approved: 0, full: false, dateType: getDateType(e.date)
+      }
     }
     if (e.result === 'V') slots[key].approved++
     if (e.result === 'X' && e.reason === '點數排序') slots[key].full = true
+  }
+
+  // CM：依名額判斷是否額滿（不依賴有沒有人被退件）
+  for (const s of Object.values(slots)) {
+    if (s.group === 'CM' && s.quota !== null) {
+      s.full = s.approved >= s.quota
+    }
   }
 
   res.json({ hasResult: true, slots: Object.values(slots) })

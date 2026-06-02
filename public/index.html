@@ -4801,7 +4801,10 @@ function _availShow() {
         <span style="font-size:12px;color:#8e8e93;">${dtLabel[s.dateType]||''}</span>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:14px;">已選人數：<strong style="font-size:18px;">${s.approved}</strong> 人</div>
+        <div style="font-size:14px;">
+          已選：<strong style="font-size:18px;">${s.approved}</strong> 人
+          ${s.quota != null ? `<span style="font-size:12px;color:#8e8e93;">／ 共 ${s.quota} 名</span>` : ''}
+        </div>
         <div style="font-size:14px;font-weight:700;color:${s.full?'#ff3b30':'#34c759'};">
           ${s.full ? '🔴 額滿' : '🟢 尚有名額'}
         </div>
