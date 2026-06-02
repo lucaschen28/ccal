@@ -4729,8 +4729,7 @@ function _pbsRenderAvail(monthStr, data) {
       <select id="avail-group" onchange="_availFilterGroup()" style="${selStyle}">
         <option value="">請選擇</option>
         <option value="CM">CM（座艙長）</option>
-        <option value="F">F 組員（FF / MF）</option>
-        <option value="Y">Y 組員（FY / MY）</option>
+        <option value="FY">一般組員（FF / MF / FY / MY）</option>
       </select>
     </div>
     <div style="margin-bottom:14px;">
@@ -4754,22 +4753,30 @@ function _availFilterGroup() {
     return
   }
 
-  const filtered = (window._availSlots || [])
-    .filter(s => s.group === group)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+  const slots = window._availSlots || []
+  // FY = F + Y 合併，去重以 pairing+date 為 key
+  let keys
+  if (group === 'FY') {
+    const seen = new Set()
+    keys = slots
+      .filter(s => s.group === 'F' || s.group === 'Y')
+      .filter(s => { const k = `${s.pairing}||${s.date}`; if (seen.has(k)) return false; seen.add(k); return true })
+      .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+  } else {
+    keys = slots
+      .filter(s => s.group === group)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+  }
 
-  if (!filtered.length) {
+  if (!keys.length) {
     slotSel.innerHTML = '<option value="">（無資料）</option>'
     slotSel.disabled = true
     return
   }
 
   slotSel.disabled = false
-  const placeholder = document.createElement('option')
-  placeholder.value = ''; placeholder.textContent = '請選擇日期 ＋ 班次'
-  slotSel.appendChild(placeholder)
-
-  for (const s of filtered) {
+  slotSel.innerHTML = '<option value="">請選擇日期 ＋ 班次</option>'
+  for (const s of keys) {
     const opt = document.createElement('option')
     opt.value = `${s.pairing}||${s.date}`
     const dateLabel = s.date.slice(5).replace('-', '/')
@@ -4786,30 +4793,53 @@ function _availShow() {
   if (!val) { resultDiv.innerHTML = ''; return }
 
   const [pairing, date] = val.split('||')
-  const s = (window._availSlots || []).find(x => x.pairing === pairing && x.date === date && x.group === group)
-  if (!s) { resultDiv.innerHTML = ''; return }
-
+  const slots = window._availSlots || []
   const dtLabel = { holiday:'🏮 假日', weekend:'📅 週末', weekday:'📋 平日' }
   const isRdo = pairing.includes('RDO')
   const icon = isRdo ? '🛋' : '✈️'
 
-  resultDiv.innerHTML = `
-    <div style="background:#f9f9f9;border-radius:14px;padding:14px 16px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <span style="font-size:18px;font-weight:700;">${icon} ${pairing}</span>
-        <span style="font-size:13px;color:#8e8e93;">${date.slice(5).replace('-','/')}</span>
-        <span style="font-size:12px;color:#8e8e93;">${dtLabel[s.dateType]||''}</span>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:14px;">
-          已選：<strong style="font-size:18px;">${s.approved}</strong> 人
-          ${s.quota != null ? `<span style="font-size:12px;color:#8e8e93;">／ 共 ${s.quota} 名</span>` : ''}
+  if (group === 'CM') {
+    const s = slots.find(x => x.pairing === pairing && x.date === date && x.group === 'CM')
+    if (!s) { resultDiv.innerHTML = ''; return }
+    resultDiv.innerHTML = `
+      <div style="background:#f9f9f9;border-radius:14px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:18px;font-weight:700;">${icon} ${pairing}</span>
+          <span style="font-size:13px;color:#8e8e93;">${date.slice(5).replace('-','/')}</span>
+          <span style="font-size:12px;color:#8e8e93;">${dtLabel[s.dateType]||''}</span>
         </div>
-        <div style="font-size:14px;font-weight:700;color:${s.full?'#ff3b30':'#34c759'};">
-          ${s.full ? '🔴 額滿' : '🟢 尚有名額'}
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:14px;">已選：<strong style="font-size:18px;">${s.approved}</strong> 人
+            <span style="font-size:12px;color:#8e8e93;">／ 共 ${s.quota} 名</span>
+          </div>
+          <div style="font-size:14px;font-weight:700;color:${s.full?'#ff3b30':'#34c759'};">
+            ${s.full ? '🔴 額滿' : '🟢 尚有名額'}</div>
         </div>
-      </div>
-    </div>`
+      </div>`
+  } else {
+    // F/Y 合併顯示
+    const sF = slots.find(x => x.pairing === pairing && x.date === date && x.group === 'F')
+    const sY = slots.find(x => x.pairing === pairing && x.date === date && x.group === 'Y')
+    const totalApproved = (sF?.approved || 0) + (sY?.approved || 0)
+    const isFull = sF?.full || sY?.full || false
+    const dateType = sF?.dateType || sY?.dateType || 'weekday'
+    resultDiv.innerHTML = `
+      <div style="background:#f9f9f9;border-radius:14px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:18px;font-weight:700;">${icon} ${pairing}</span>
+          <span style="font-size:13px;color:#8e8e93;">${date.slice(5).replace('-','/')}</span>
+          <span style="font-size:12px;color:#8e8e93;">${dtLabel[dateType]||''}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:14px;">合計已選：<strong style="font-size:18px;">${totalApproved}</strong> 人</div>
+          <div style="font-size:14px;font-weight:700;color:${isFull?'#ff3b30':'#34c759'};">
+            ${isFull ? '🔴 額滿' : '🟢 尚有名額'}</div>
+        </div>
+        <div style="font-size:12px;color:#8e8e93;">
+          F 組員 ${sF?.approved||0} 人・Y 組員 ${sY?.approved||0} 人
+        </div>
+      </div>`
+  }
 }
 
 // ── Pull-to-refresh ───────────────────────────────────────────
