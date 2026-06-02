@@ -337,17 +337,19 @@ async function uploadPbsResult() {
       headers: { 'x-admin-password': _adminPw },
       body: fd
     })
-    const data = await res.json()
-    if (res.ok) {
+    const text = await res.text()
+    let data
+    try { data = JSON.parse(text) } catch { data = null }
+    if (res.ok && data?.ok) {
       msg.style.color = '#34c759'
       msg.textContent = `✓ 上傳成功，解析到 ${data.parsed} 筆紀錄`
     } else {
       msg.style.color = '#ff3b30'
-      msg.textContent = `失敗：${data.error || '未知錯誤'}`
+      msg.textContent = `失敗 HTTP ${res.status}：${data?.error || text.slice(0,80) || '未知錯誤'}`
     }
-  } catch {
+  } catch (e) {
     msg.style.color = '#ff3b30'
-    msg.textContent = '連線失敗'
+    msg.textContent = `連線失敗：${e.message}`
   }
   btn.disabled = false; btn.textContent = '上傳並解析'
 }
