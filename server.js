@@ -579,18 +579,18 @@ app.get('/api/pbs/prediction/:month', (req, res) => {
   })
 })
 
-// 上傳第一階段結果 PDF（管理員）
-app.post('/api/pbs/result/:month/:round', adminAuth, upload.single('pdf'), async (req, res) => {
-  const { month, round } = req.params
-  if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: '無效月份' })
+// 上傳第一階段結果 PDF（管理員，月份由 PDF 自動偵測）
+app.post('/api/pbs/result/upload', adminAuth, upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未收到 PDF' })
   try {
-    console.log(`[PBS] 開始解析 ${month} 第 ${round} 階段，檔案大小 ${req.file.size} bytes`)
+    console.log(`[PBS] 開始解析，檔案大小 ${req.file.size} bytes`)
     const entries = await pbsParser.parsePBSResultPDF(req.file.buffer)
-    console.log(`[PBS] 解析完成，共 ${entries.length} 筆`)
-    const data = { month, round: parseInt(round), uploadedAt: new Date().toISOString(), entries }
-    fs.writeFileSync(pbsResultPath(month, round), JSON.stringify(data, null, 2))
-    res.json({ ok: true, parsed: entries.length })
+    const month = pbsParser.detectMonth(entries)
+    if (!month) return res.status(400).json({ error: '無法從 PDF 偵測月份，請確認檔案正確' })
+    console.log(`[PBS] 解析完成，共 ${entries.length} 筆，月份 ${month}`)
+    const data = { month, round: 1, uploadedAt: new Date().toISOString(), entries }
+    fs.writeFileSync(pbsResultPath(month, 1), JSON.stringify(data, null, 2))
+    res.json({ ok: true, parsed: entries.length, month })
   } catch (err) {
     console.error('[PBS] 解析失敗:', err)
     res.status(500).json({ error: 'PDF 解析失敗：' + err.message })
