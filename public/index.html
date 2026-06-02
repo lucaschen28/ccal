@@ -4164,15 +4164,90 @@ function closeFab() {
 
 // ── PBS 選班幫幫忙 ────────────────────────────────────────────
 function showPbsModal() {
-  const now = new Date()
-  let y = now.getFullYear(), m = now.getMonth() + 2
-  if (m > 12) { m = 1; y++ }
-  const monthStr = `${y}-${String(m).padStart(2,'0')}`
-  document.getElementById('modal-content').innerHTML = '<div style="text-align:center;color:#8e8e93;padding:30px">載入中…</div>'
   document.getElementById('modal-overlay').classList.add('active')
-  fetch(`/api/pbs/${MY_USER_ID}/bid/${monthStr}`)
-    .then(r => r.json()).then(ex => _pbsRenderForm(monthStr, ex))
-    .catch(() => _pbsRenderForm(monthStr, null))
+  _pbsShowMonthPicker()
+}
+
+function _pbsShowMonthPicker() {
+  const now = new Date()
+  const curY = now.getFullYear(), curM = now.getMonth() + 1
+  const curStr = `${curY}-${String(curM).padStart(2,'0')}`
+  let nxtM = curM + 1, nxtY = curY
+  if (nxtM > 12) { nxtM = 1; nxtY++ }
+  const nxtStr = `${nxtY}-${String(nxtM).padStart(2,'0')}`
+
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:17px;font-weight:700;margin-bottom:20px;">📊 選班幫幫忙</div>
+    <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:10px;">選擇月份</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="_pbsShowMonthPage('${curStr}')"
+        style="background:#f2f2f7;border:none;border-radius:14px;padding:16px 18px;text-align:left;cursor:pointer;width:100%;">
+        <div style="font-size:17px;font-weight:700;color:#1c1c1e;">${curY}年${curM}月</div>
+        <div style="font-size:12px;color:#8e8e93;margin-top:3px;">歷史資料 ／ 查詢結果</div>
+      </button>
+      <button onclick="_pbsShowMonthPage('${nxtStr}')"
+        style="background:#007aff;border:none;border-radius:14px;padding:16px 18px;text-align:left;cursor:pointer;width:100%;">
+        <div style="font-size:17px;font-weight:700;color:#fff;">${nxtY}年${nxtM}月</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px;">填選志願 ／ 預測排名</div>
+      </button>
+    </div>`
+}
+
+async function _pbsShowMonthPage(monthStr) {
+  const [y, m] = monthStr.split('-')
+  const label = `${y}年${parseInt(m)}月`
+  document.getElementById('modal-content').innerHTML =
+    '<div style="text-align:center;color:#8e8e93;padding:30px">載入中…</div>'
+
+  let hasBid = false, hasResult = false
+  try {
+    const bid = await fetch(`/api/pbs/${MY_USER_ID}/bid/${monthStr}`).then(r=>r.json())
+    hasBid = !!(bid && bid.bids && bid.bids.length > 0)
+  } catch {}
+  try {
+    const av = await fetch(`/api/pbs/availability/${monthStr}`).then(r=>r.json())
+    hasResult = !!av.hasResult
+  } catch {}
+
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">
+      <button onclick="_pbsShowMonthPicker()"
+        style="background:none;border:none;font-size:26px;color:#007aff;cursor:pointer;padding:0;line-height:1;margin-right:2px;">‹</button>
+      <span style="font-size:17px;font-weight:700;">${label}</span>
+    </div>
+
+    <!-- 第一階段 -->
+    <div style="background:#f9f9f9;border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:#8e8e93;letter-spacing:.5px;margin-bottom:12px;">第一階段選班・3~5 日</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="_pbsGoForm('${monthStr}')"
+          style="flex:1;padding:11px;background:#007aff;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+          ✏️ ${hasBid?'修改':'填寫'}志願</button>
+        ${hasBid ? `<button onclick="_pbsShowPred('${monthStr}')"
+          style="flex:1;padding:11px;background:#fff;color:#1c1c1e;border:1.5px solid #e5e5ea;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+          📊 預測排名</button>` : ''}
+      </div>
+    </div>
+
+    <!-- 第二階段 -->
+    <div style="background:#f9f9f9;border-radius:14px;padding:14px 16px;">
+      <div style="font-size:11px;font-weight:700;color:#8e8e93;letter-spacing:.5px;margin-bottom:12px;">第二階段選班・11~13 日</div>
+      ${hasResult
+        ? `<button onclick="_pbsShowAvail('${monthStr}')"
+            style="width:100%;padding:11px;background:#fff;color:#1c1c1e;border:1.5px solid #e5e5ea;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+            🔍 查看剩餘名額</button>`
+        : `<div style="text-align:center;font-size:13px;color:#c7c7cc;padding:6px 0;">等待第一階段結果公布後開放</div>`
+      }
+    </div>`
+}
+
+async function _pbsGoForm(monthStr) {
+  document.getElementById('modal-content').innerHTML =
+    '<div style="text-align:center;color:#8e8e93;padding:30px">載入中…</div>'
+  try {
+    const ex = await fetch(`/api/pbs/${MY_USER_ID}/bid/${monthStr}`).then(r=>r.json())
+    _pbsRenderForm(monthStr, ex)
+  } catch { _pbsRenderForm(monthStr, null) }
 }
 
 function _pbsRenderForm(monthStr, existing) {
@@ -4195,8 +4270,14 @@ function _pbsRenderForm(monthStr, existing) {
              background:${cc===c?'#007aff':'#fff'};color:${cc===c?'#fff':'#3c3c43'};">${c}</button>`).join('')
 
   document.getElementById('modal-content').innerHTML = `
-    <div style="font-size:16px;font-weight:700;color:#1c1c1e;margin-bottom:4px;">📊 選班幫幫忙</div>
-    <div style="font-size:13px;color:#8e8e93;margin-bottom:14px;">${label} 第一次選班</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <button onclick="_pbsShowMonthPage('${monthStr}')"
+        style="background:none;border:none;font-size:26px;color:#007aff;cursor:pointer;padding:0;line-height:1;margin-right:2px;">‹</button>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1c1c1e;">第一階段選班</div>
+        <div style="font-size:12px;color:#8e8e93;">${label}</div>
+      </div>
+    </div>
 
     <div style="margin-bottom:12px;">
       <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">艙等</div>
@@ -4232,10 +4313,7 @@ function _pbsRenderForm(monthStr, existing) {
     <div id="pbs-err" style="color:#ff3b30;font-size:13px;min-height:18px;margin-bottom:6px;"></div>
     <button onclick="_pbsSubmit('${monthStr}')"
       style="width:100%;padding:13px;background:#007aff;color:#fff;border:none;border-radius:12px;
-             font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px;">送出志願</button>
-    ${existing ? `<button onclick="_pbsShowPred('${monthStr}')"
-      style="width:100%;padding:11px;background:#f2f2f7;color:#007aff;border:none;border-radius:12px;
-             font-size:14px;font-weight:600;cursor:pointer;">查看預測排名</button>` : ''}`
+             font-size:15px;font-weight:700;cursor:pointer;">送出志願</button>`
 }
 
 const PBS_AC_TYPES = ['32Q','330','350','738','777']
@@ -4521,18 +4599,20 @@ function _pbsRenderPred(monthStr, data) {
 
   const acc = Math.min(Math.round(data.totalParticipants / 5 * 100), 99)
   document.getElementById('modal-content').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-      <div style="font-size:16px;font-weight:700;color:#1c1c1e;">📊 選班幫幫忙</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <button onclick="_pbsShowMonthPage('${monthStr}')"
+        style="background:none;border:none;font-size:26px;color:#007aff;cursor:pointer;padding:0;line-height:1;margin-right:2px;">‹</button>
+      <div style="font-size:15px;font-weight:700;color:#1c1c1e;">預測排名</div>
       <button onclick="_pbsShowQuotaInfo()" style="margin-left:auto;padding:4px 10px;background:#f2f2f7;border:none;border-radius:10px;font-size:12px;color:#007aff;cursor:pointer;font-weight:600;">名額說明</button>
     </div>
-    <div style="font-size:13px;color:#8e8e93;margin-bottom:4px;">${label}・${cabinClass}・序號 ${seniority}</div>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:4px;">${label}・${cabinClass}・序號 ${seniority}</div>
     <div style="font-size:12px;color:#8e8e93;margin-bottom:14px;">
       <strong style="color:#007aff;">${data.totalParticipants}</strong> 人登記・準確度約
       <strong style="color:${acc>=60?'#34c759':'#ff9500'};">${acc}%</strong>
     </div>
     ${rows}
     <div style="display:flex;gap:8px;margin-top:6px;">
-      <button onclick="showPbsModal()" style="flex:1;padding:11px;background:#f2f2f7;color:#007aff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">修改志願</button>
+      <button onclick="_pbsGoForm('${monthStr}')" style="flex:1;padding:11px;background:#f2f2f7;color:#007aff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">修改志願</button>
       <button onclick="_pbsShowAvail('${monthStr}')" style="flex:1;padding:11px;background:#f2f2f7;color:#1c1c1e;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">剩餘名額</button>
     </div>`
 }
@@ -4621,10 +4701,13 @@ async function _pbsShowAvail(monthStr) {
 }
 function _pbsRenderAvail(monthStr, data) {
   const [y, m] = monthStr.split('-')
-  const back = `<button onclick="_pbsShowPred('${monthStr}')" style="background:none;border:none;color:#007aff;font-size:14px;cursor:pointer;padding:0 0 12px;">← 回預測</button>`
+  const back = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
+    <button onclick="_pbsShowMonthPage('${monthStr}')" style="background:none;border:none;font-size:26px;color:#007aff;cursor:pointer;padding:0;line-height:1;margin-right:2px;">‹</button>
+    <span style="font-size:15px;font-weight:700;">剩餘名額</span>
+    <span style="font-size:12px;color:#8e8e93;margin-left:4px;">${y}年${parseInt(m)}月</span>
+  </div>`
   if (!data.hasResult) {
     document.getElementById('modal-content').innerHTML=`${back}
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px;">剩餘名額</div>
       <div style="background:#fff9e6;border-radius:12px;padding:14px;font-size:14px;color:#856404;line-height:1.6;">
         第一階段結果尚未上傳。<br>結果公布後，請通知管理者上傳 PDF。</div>`
     return
@@ -4643,8 +4726,7 @@ function _pbsRenderAvail(monthStr, data) {
     return `<div style="font-size:12px;font-weight:700;color:#8e8e93;margin:12px 0 4px;">${lbl}</div>${rows}`
   }
   document.getElementById('modal-content').innerHTML=`${back}
-    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">剩餘名額</div>
-    <div style="font-size:12px;color:#8e8e93;margin-bottom:12px;">${y}年${parseInt(m)}月 第一階段結果</div>
+    <div style="font-size:12px;color:#8e8e93;margin-bottom:12px;">第一階段結果</div>
     ${renderG('CM', by.CM)}${renderG('F 組員 (FF/MF)', by.F)}${renderG('Y 組員 (FY/MY)', by.Y)}
     ${!by.CM.length&&!by.F.length&&!by.Y.length?'<div style="color:#8e8e93;text-align:center;padding:20px;">尚無資料</div>':''}`
 }
