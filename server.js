@@ -609,14 +609,15 @@ app.get('/api/pbs/availability/:month', (req, res) => {
     if (!group) continue
     const key = `${e.pairing}|${e.date}|${group}`
     if (!slots[key]) {
-      // CM 名額：雙CM班 2 個，其他 1 個
+      const isRdo = e.pairing.includes('RDO')
+      // CM 飛行班：雙CM 2 名，其他 1 名；CM RDO：名額不固定，用退件判斷
       let quota = null
-      if (group === 'CM') {
+      if (group === 'CM' && !isRdo) {
         const pairNum = parseInt((e.pairing.match(/^(\d+)/) || [])[1] || '0')
         quota = PBS_DOUBLE_CM_SET.has(pairNum) ? 2 : 1
       }
       slots[key] = {
-        pairing: e.pairing, date: e.date, group, quota,
+        pairing: e.pairing, date: e.date, group, quota, isRdo,
         approved: 0, full: false, dateType: getDateType(e.date)
       }
     }
@@ -624,9 +625,9 @@ app.get('/api/pbs/availability/:month', (req, res) => {
     if (e.result === 'X' && e.reason === '點數排序') slots[key].full = true
   }
 
-  // CM：依名額判斷是否額滿（不依賴有沒有人被退件）
+  // CM 飛行班：依名額判斷是否額滿（RDO 維持退件判斷）
   for (const s of Object.values(slots)) {
-    if (s.group === 'CM' && s.quota !== null) {
+    if (s.group === 'CM' && !s.isRdo && s.quota !== null) {
       s.full = s.approved >= s.quota
     }
   }

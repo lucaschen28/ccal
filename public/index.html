@@ -4732,67 +4732,91 @@ function _pbsRenderAvail(monthStr, data) {
         <option value="FY">一般組員（FF / MF / FY / MY）</option>
       </select>
     </div>
-    <div style="margin-bottom:14px;">
-      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">日期 ＋ 班次</div>
-      <select id="avail-slot" onchange="_availShow()" style="${selStyle}" disabled>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">日期</div>
+      <select id="avail-date" onchange="_availFilterDate()" style="${selStyle}" disabled>
         <option value="">請先選擇艙等</option>
+      </select>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">班號 / RDO</div>
+      <select id="avail-slot" onchange="_availShow()" style="${selStyle}" disabled>
+        <option value="">請先選擇日期</option>
       </select>
     </div>
     <div id="avail-result"></div>`
 }
 
+function _availGetFiltered(group) {
+  const slots = window._availSlots || []
+  if (group === 'FY') {
+    const seen = new Set()
+    return slots
+      .filter(s => s.group === 'F' || s.group === 'Y')
+      .filter(s => { const k = `${s.pairing}||${s.date}`; if (seen.has(k)) return false; seen.add(k); return true })
+      .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+  }
+  return slots.filter(s => s.group === group)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+}
+
 function _availFilterGroup() {
   const group = document.getElementById('avail-group').value
+  const dateSel = document.getElementById('avail-date')
+  const slotSel = document.getElementById('avail-slot')
+  document.getElementById('avail-result').innerHTML = ''
+  dateSel.innerHTML = ''; slotSel.innerHTML = ''
+  dateSel.disabled = true; slotSel.disabled = true
+
+  if (!group) { dateSel.innerHTML = '<option value="">請先選擇艙等</option>'; return }
+
+  const filtered = _availGetFiltered(group)
+  if (!filtered.length) { dateSel.innerHTML = '<option value="">（無資料）</option>'; return }
+
+  // 取出不重複日期
+  const dates = [...new Set(filtered.map(s => s.date))].sort()
+  dateSel.disabled = false
+  dateSel.innerHTML = '<option value="">請選擇日期</option>'
+  for (const d of dates) {
+    const opt = document.createElement('option')
+    opt.value = d
+    const dtLabel = { holiday:'🏮', weekend:'📅', weekday:'📋' }
+    const slot0 = filtered.find(s => s.date === d)
+    opt.textContent = `${d.slice(5).replace('-','/')} ${dtLabel[slot0?.dateType]||''}`
+    dateSel.appendChild(opt)
+  }
+  slotSel.innerHTML = '<option value="">請先選擇日期</option>'
+}
+
+function _availFilterDate() {
+  const group = document.getElementById('avail-group').value
+  const date  = document.getElementById('avail-date').value
   const slotSel = document.getElementById('avail-slot')
   document.getElementById('avail-result').innerHTML = ''
   slotSel.innerHTML = ''
 
-  if (!group) {
-    slotSel.innerHTML = '<option value="">請先選擇艙等</option>'
-    slotSel.disabled = true
-    return
-  }
+  if (!date) { slotSel.innerHTML = '<option value="">請先選擇日期</option>'; slotSel.disabled = true; return }
 
-  const slots = window._availSlots || []
-  // FY = F + Y 合併，去重以 pairing+date 為 key
-  let keys
-  if (group === 'FY') {
-    const seen = new Set()
-    keys = slots
-      .filter(s => s.group === 'F' || s.group === 'Y')
-      .filter(s => { const k = `${s.pairing}||${s.date}`; if (seen.has(k)) return false; seen.add(k); return true })
-      .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
-  } else {
-    keys = slots
-      .filter(s => s.group === group)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
-  }
-
-  if (!keys.length) {
-    slotSel.innerHTML = '<option value="">（無資料）</option>'
-    slotSel.disabled = true
-    return
-  }
+  const filtered = _availGetFiltered(group).filter(s => s.date === date)
+  if (!filtered.length) { slotSel.innerHTML = '<option value="">（無資料）</option>'; slotSel.disabled = true; return }
 
   slotSel.disabled = false
-  slotSel.innerHTML = '<option value="">請選擇日期 ＋ 班次</option>'
-  for (const s of keys) {
+  slotSel.innerHTML = '<option value="">請選擇班號 / RDO</option>'
+  for (const s of filtered) {
     const opt = document.createElement('option')
-    opt.value = `${s.pairing}||${s.date}`
-    const dateLabel = s.date.slice(5).replace('-', '/')
+    opt.value = s.pairing
     const isRdo = s.pairing.includes('RDO')
-    opt.textContent = `${dateLabel}　${isRdo ? '🛋 ' : '✈️ '}${s.pairing}`
+    opt.textContent = `${isRdo ? '🛋 ' : '✈️ '}${s.pairing}`
     slotSel.appendChild(opt)
   }
 }
 
 function _availShow() {
-  const val = document.getElementById('avail-slot').value
-  const group = document.getElementById('avail-group').value
+  const pairing = document.getElementById('avail-slot').value
+  const date    = document.getElementById('avail-date').value
+  const group   = document.getElementById('avail-group').value
   const resultDiv = document.getElementById('avail-result')
-  if (!val) { resultDiv.innerHTML = ''; return }
-
-  const [pairing, date] = val.split('||')
+  if (!pairing || !date) { resultDiv.innerHTML = ''; return }
   const slots = window._availSlots || []
   const dtLabel = { holiday:'🏮 假日', weekend:'📅 週末', weekday:'📋 平日' }
   const isRdo = pairing.includes('RDO')
