@@ -632,7 +632,29 @@ app.get('/api/pbs/availability/:month', (req, res) => {
     }
   }
 
-  res.json({ hasResult: true, slots: Object.values(slots) })
+  // CM RDO 歷史參考：從本月資料計算各日期類型額滿時的人數範圍
+  const rdoHints = {}
+  for (const s of Object.values(slots)) {
+    if (s.group !== 'CM' || !s.isRdo) continue
+    const t = s.dateType  // 'weekday' | 'weekend' | 'holiday'
+    if (!rdoHints[t]) rdoHints[t] = { fullCounts: [], notFullMax: 0 }
+    if (s.full) rdoHints[t].fullCounts.push(s.approved)
+    else rdoHints[t].notFullMax = Math.max(rdoHints[t].notFullMax, s.approved)
+  }
+  const cmRdoHints = {}
+  for (const [t, h] of Object.entries(rdoHints)) {
+    if (h.fullCounts.length > 0) {
+      cmRdoHints[t] = {
+        min: Math.min(...h.fullCounts),
+        max: Math.max(...h.fullCounts),
+        fullDays: h.fullCounts.length
+      }
+    } else {
+      cmRdoHints[t] = { noRecord: true, notFullMax: h.notFullMax }
+    }
+  }
+
+  res.json({ hasResult: true, slots: Object.values(slots), cmRdoHints })
 })
 
 // Multer 錯誤 handler（檔案過大等）

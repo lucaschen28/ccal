@@ -4716,6 +4716,7 @@ function _pbsRenderAvail(monthStr, data) {
   }
 
   window._availSlots = data.slots
+  window._availCmRdoHints = data.cmRdoHints || {}
   window._availMonthStr = monthStr
 
   const selStyle = `width:100%;padding:11px 12px;border:1.5px solid #e5e5ea;border-radius:10px;
@@ -4825,6 +4826,22 @@ function _availShow() {
   if (group === 'CM') {
     const s = slots.find(x => x.pairing === pairing && x.date === date && x.group === 'CM')
     if (!s) { resultDiv.innerHTML = ''; return }
+
+    // RDO 歷史參考提示
+    let hintHtml = ''
+    if (s.isRdo) {
+      const h = (window._availCmRdoHints || {})[s.dateType]
+      const typeLabel = { weekday:'平日', weekend:'週末', holiday:'假日' }[s.dateType] || ''
+      if (h && !h.noRecord) {
+        const range = h.min === h.max ? `約 ${h.min} 人` : `${h.min}～${h.max} 人`
+        hintHtml = `<div style="margin-top:8px;font-size:12px;color:#8e8e93;background:#f2f2f7;border-radius:8px;padding:7px 10px;">
+          📊 本月${typeLabel} RDO 參考：選上 <strong>${range}</strong> 後額滿（${h.fullDays} 天記錄）</div>`
+      } else if (h && h.noRecord) {
+        hintHtml = `<div style="margin-top:8px;font-size:12px;color:#8e8e93;background:#f2f2f7;border-radius:8px;padding:7px 10px;">
+          📊 本月${typeLabel} RDO：最多 ${h.notFullMax} 人選，未見額滿</div>`
+      }
+    }
+
     resultDiv.innerHTML = `
       <div style="background:#f9f9f9;border-radius:14px;padding:14px 16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -4834,11 +4851,12 @@ function _availShow() {
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div style="font-size:14px;">已選：<strong style="font-size:18px;">${s.approved}</strong> 人
-            <span style="font-size:12px;color:#8e8e93;">／ 共 ${s.quota} 名</span>
+            ${s.quota!=null ? `<span style="font-size:12px;color:#8e8e93;">／ 共 ${s.quota} 名</span>` : ''}
           </div>
           <div style="font-size:14px;font-weight:700;color:${s.full?'#ff3b30':'#34c759'};">
             ${s.full ? '🔴 額滿' : '🟢 尚有名額'}</div>
         </div>
+        ${hintHtml}
       </div>`
   } else {
     // F/Y 合併顯示
