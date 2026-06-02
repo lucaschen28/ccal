@@ -4491,9 +4491,48 @@ function _pbsShowQuotaInfo() {
         ${tableRows}
       </table>
       <div style="margin-top:12px;font-size:12px;color:#8e8e93;line-height:1.7;">
-        <strong style="color:#1c1c1e;">雙 CM 班號</strong>（本月）：4・8・12・24・32・36・61・81<br>
-        Y 組員名額上限 = 總名額 × 約 60%（剩餘由 F 補足）
+        <strong style="color:#1c1c1e;">雙 CM 班號</strong>（本月）：4・8・12・24・32・36・61・81
       </div>
+      <div style="margin-top:10px;font-size:12px;font-weight:700;color:#8e8e93;margin-bottom:6px;">Y 組員名額上限（FY/MY）</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e5ea;border-radius:10px;overflow:hidden;font-size:12px;">
+        <tr style="background:#f2f2f7;">
+          <td style="padding:5px 8px;font-weight:700;">機型</td>
+          <td style="padding:5px 8px;text-align:center;">駐防</td>
+          <td style="padding:5px 8px;text-align:center;">來回</td>
+          <td style="padding:5px 8px;text-align:center;">越洋 / 超長程</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f5;">
+          <td style="padding:5px 8px;font-weight:700;color:#007aff;">32Q</td>
+          <td style="padding:5px 8px;text-align:center;">3</td>
+          <td style="padding:5px 8px;text-align:center;">4</td>
+          <td style="padding:5px 8px;text-align:center;color:#c7c7cc;">—</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f5;">
+          <td style="padding:5px 8px;font-weight:700;color:#007aff;">330</td>
+          <td style="padding:5px 8px;text-align:center;">6<span style="font-size:10px;color:#8e8e93;display:block;">松羽7</span></td>
+          <td style="padding:5px 8px;text-align:center;">7</td>
+          <td style="padding:5px 8px;text-align:center;color:#c7c7cc;">—</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f5;">
+          <td style="padding:5px 8px;font-weight:700;color:#007aff;">350</td>
+          <td style="padding:5px 8px;text-align:center;">6</td>
+          <td style="padding:5px 8px;text-align:center;">7</td>
+          <td style="padding:5px 8px;text-align:center;">6</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f5;">
+          <td style="padding:5px 8px;font-weight:700;color:#007aff;">738</td>
+          <td style="padding:5px 8px;text-align:center;">3</td>
+          <td style="padding:5px 8px;text-align:center;">4</td>
+          <td style="padding:5px 8px;text-align:center;color:#c7c7cc;">—</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f5;">
+          <td style="padding:5px 8px;font-weight:700;color:#007aff;">777</td>
+          <td style="padding:5px 8px;text-align:center;">8</td>
+          <td style="padding:5px 8px;text-align:center;">8</td>
+          <td style="padding:5px 8px;text-align:center;">8</td>
+        </tr>
+      </table>
+      <div style="margin-top:8px;font-size:11px;color:#c7c7cc;line-height:1.5;">F 組員（FF/MF）可使用剩餘 F+Y 名額</div>
     </div>`
   ov.addEventListener('click', e => { if (e.target === ov) ov.remove() })
   document.body.appendChild(ov)
