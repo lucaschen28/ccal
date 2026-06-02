@@ -400,6 +400,23 @@ app.post('/api/admin/config', adminAuth, (req, res) => {
 
 // ── PBS 選班幫幫忙 ───────────────────────────────────────────
 const PBS_DIR = path.join(_BASE_DIR, 'pbs')
+
+const PBS_CREW_QUOTA = {
+  '32Q': { '區域駐防':6, '區域來回':7 },
+  '330': { '區域駐防':11, '區域來回':12, '越洋':12 },
+  '350': { '區域駐防':12, '區域來回':12, '越洋':12, '超長程':12 },
+  '738': { '區域駐防':5, '區域來回':6 },
+  '777': { '區域駐防':15, '區域來回':15, '越洋':16, '超長程':16 },
+}
+const PBS_Y_QUOTA = {
+  '32Q': { '區域駐防':3, '區域來回':4 },
+  '330': { '區域駐防':6, '區域來回':7 },
+  '350': { '區域駐防':6, '區域來回':7, '越洋':6, '超長程':6 },
+  '738': { '區域駐防':3, '區域來回':4 },
+  '777': { '區域駐防':8, '區域來回':8, '越洋':8, '超長程':8 },
+}
+const PBS_DOUBLE_CM_SET = new Set([4,8,12,24,32,36,61,81])
+const PBS_RT_KEY = { '駐防':'區域駐防', '來回':'區域來回', '越洋':'越洋', '超長程':'超長程' }
 fs.mkdirSync(path.join(PBS_DIR, 'bids'), { recursive: true })
 fs.mkdirSync(path.join(PBS_DIR, 'results'), { recursive: true })
 
@@ -501,9 +518,49 @@ app.get('/api/pbs/prediction/:month', (req, res) => {
       if (hasReject) historicalCutoff = passed
     }
 
+    // ── 名額模擬（F/Y 組員且有填機型+班型才跑）
+    let simulation = null
+    if (myGroup !== 'CM' && bid.aircraft && bid.routeType) {
+      const rtKey = PBS_RT_KEY[bid.routeType] || bid.routeType
+      const totalQuota = (PBS_CREW_QUOTA[bid.aircraft] || {})[rtKey]
+      const yMax = (PBS_Y_QUOTA[bid.aircraft] || {})[rtKey]  // undefined = 未知
+
+      if (totalQuota !== undefined) {
+        const pairNum = parseInt((pairing.match(/^(\d+)/) || [])[1] || '0')
+        const cmSlots = PBS_DOUBLE_CM_SET.has(pairNum) ? 2 : 1
+        const fySlots = totalQuota - cmSlots
+        const ySlotsCap = yMax !== undefined ? yMax : Infinity
+
+        const sorted = [...competitors].sort((a, b) => a.seniority - b.seniority)
+        let fyRem = fySlots
+        let yRem = ySlotsCap
+        let simResult = null
+
+        for (const comp of sorted) {
+          const g = getGroup(comp.cabinClass)
+          const isUser = comp.userId === userId
+          const canIn = fyRem > 0 && !(g === 'Y' && yRem <= 0)
+
+          if (canIn) { fyRem--; if (g === 'Y') yRem-- }
+
+          if (isUser) {
+            simResult = {
+              in: canIn,
+              reason: canIn ? null : (fyRem <= 0 ? 'fy_full' : 'y_full'),
+              fyRem: Math.max(0, fyRem),
+              yRem: yRem === Infinity ? null : Math.max(0, yRem),
+            }
+            break
+          }
+        }
+
+        simulation = { fySlots, yMax: yMax !== undefined ? yMax : null, ...simResult }
+      }
+    }
+
     return { order: bid.order, date, pairing, myRank, myGroup,
              total, fCount, yCount, cmCount,
-             dateType: getDateType(date), historicalCutoff }
+             dateType: getDateType(date), historicalCutoff, simulation }
   })
 
   // 熱度燈號（跟本月其他志願相對比較）

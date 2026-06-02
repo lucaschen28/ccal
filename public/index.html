@@ -4243,6 +4243,15 @@ const PBS_AC_TYPES = ['32Q','330','350','738','777']
 // 雙 CM 班號（班號數字部分）
 const PBS_DOUBLE_CM = new Set([4,8,12,24,32,36,61,81])
 
+// 各機型可選班型
+const PBS_AC_ROUTES = {
+  '32Q': ['駐防','來回'],
+  '330': ['駐防','來回','越洋'],
+  '350': ['駐防','來回','越洋','超長程'],
+  '738': ['駐防','來回'],
+  '777': ['駐防','來回','越洋','超長程'],
+}
+
 // F/Y 名額規則（含CM）
 const PBS_CREW_QUOTA = {
   '32Q': { '區域駐防':6, '區域來回':7 },
@@ -4252,15 +4261,34 @@ const PBS_CREW_QUOTA = {
   '777': { '區域駐防':15, '區域來回':15, '越洋':16, '超長程':16 },
 }
 
+// Y 組員（FY/MY）名額上限
+const PBS_Y_QUOTA = {
+  '32Q': { '區域駐防':3, '區域來回':4 },
+  '330': { '區域駐防':6, '區域來回':7 },  // 330 越洋 Y 上限未確認
+  '350': { '區域駐防':6, '區域來回':7, '越洋':6, '超長程':6 },
+  '738': { '區域駐防':3, '區域來回':4 },
+  '777': { '區域駐防':8, '區域來回':8, '越洋':8, '超長程':8 },
+}
+
+// 班型短名 → 名額表 key
+const PBS_RT_KEY = { '駐防':'區域駐防', '來回':'區域來回', '越洋':'越洋', '超長程':'超長程' }
+
 function _pbsFlightRow(bid, idx) {
   const selAc = bid.aircraft || ''
+  const selRt = bid.routeType || ''
   const acBtns = PBS_AC_TYPES.map(ac => `
     <button onclick="_pbsFlAc(${idx},'${ac}')" id="pbs-flac-${idx}-${ac}"
       style="padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;
              border:1.5px solid ${selAc===ac?'#007aff':'#d1d1d6'};
              background:${selAc===ac?'#007aff':'#fff'};color:${selAc===ac?'#fff':'#3c3c43'};">${ac}</button>`).join('')
+  const rtRoutes = selAc ? (PBS_AC_ROUTES[selAc] || []) : []
+  const rtBtns = rtRoutes.map(rt => `
+    <button onclick="_pbsFlRt(${idx},'${rt}')" data-rt="${rt}"
+      style="padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;
+             border:1.5px solid ${selRt===rt?'#34c759':'#d1d1d6'};
+             background:${selRt===rt?'#34c759':'#fff'};color:${selRt===rt?'#fff':'#3c3c43'};">${rt}</button>`).join('')
   return `
-    <div id="pbs-fl-${idx}" data-aircraft="${selAc}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+    <div id="pbs-fl-${idx}" data-aircraft="${selAc}" data-routetype="${selRt}" style="background:#f9f9f9;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
       <div style="display:flex;align-items:center;margin-bottom:8px;">
         <span style="font-size:12px;font-weight:700;color:#8e8e93;">班次 ${idx+1}</span>
         <button onclick="document.getElementById('pbs-fl-${idx}').remove();_pbsRefreshAddBtns()"
@@ -4274,9 +4302,13 @@ function _pbsFlightRow(bid, idx) {
           value="${bid.pairing||''}" maxlength="10"
           style="flex:1;padding:8px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:${selAc?'6px':'0'};">
         <span style="font-size:11px;color:#8e8e93;margin-right:2px;">機型（選填）</span>
         ${acBtns}
+      </div>
+      <div id="pbs-flrt-wrap-${idx}" style="display:${selAc?'flex':'none'};align-items:center;gap:4px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:#8e8e93;margin-right:2px;">班型</span>
+        ${rtBtns}
       </div>
     </div>`
 }
@@ -4285,12 +4317,35 @@ function _pbsFlAc(idx, ac) {
   const row = document.getElementById(`pbs-fl-${idx}`)
   const cur = row?.dataset.aircraft
   const next = cur === ac ? '' : ac  // 再點一次取消選取
-  if (row) row.dataset.aircraft = next
+  if (row) { row.dataset.aircraft = next; row.dataset.routetype = '' }
   PBS_AC_TYPES.forEach(t => {
     const b = document.getElementById(`pbs-flac-${idx}-${t}`); if (!b) return
     const on = t === next
     b.style.background = on?'#007aff':'#fff'; b.style.color = on?'#fff':'#3c3c43'
     b.style.borderColor = on?'#007aff':'#d1d1d6'
+  })
+  // 更新班型按鈕列
+  const rtWrap = document.getElementById(`pbs-flrt-wrap-${idx}`)
+  if (!rtWrap) return
+  const routes = next ? (PBS_AC_ROUTES[next] || []) : []
+  if (routes.length === 0) { rtWrap.style.display = 'none'; return }
+  rtWrap.style.display = 'flex'
+  rtWrap.innerHTML = `<span style="font-size:11px;color:#8e8e93;margin-right:2px;">班型</span>` +
+    routes.map(rt => `<button onclick="_pbsFlRt(${idx},'${rt}')" data-rt="${rt}"
+      style="padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;
+             border:1.5px solid #d1d1d6;background:#fff;color:#3c3c43;">${rt}</button>`).join('')
+}
+function _pbsFlRt(idx, rt) {
+  const row = document.getElementById(`pbs-fl-${idx}`)
+  const cur = row?.dataset.routetype
+  const next = cur === rt ? '' : rt
+  if (row) row.dataset.routetype = next
+  const rtWrap = document.getElementById(`pbs-flrt-wrap-${idx}`)
+  if (!rtWrap) return
+  rtWrap.querySelectorAll('[data-rt]').forEach(btn => {
+    const on = btn.dataset.rt === next
+    btn.style.background = on?'#34c759':'#fff'; btn.style.color = on?'#fff':'#3c3c43'
+    btn.style.borderColor = on?'#34c759':'#d1d1d6'
   })
 }
 
@@ -4366,7 +4421,8 @@ function _pbsGetBids() {
     const date = document.getElementById(`pbs-fld-${idx}`)?.value.trim() || ''
     const pair = (document.getElementById(`pbs-flp-${idx}`)?.value.trim() || '').toUpperCase()
     const ac   = row.dataset.aircraft || ''
-    if (date && pair) bids.push({ order: order++, date, pairing: pair, type: 'flight', ...(ac && { aircraft: ac }) })
+    const rt   = row.dataset.routetype || ''
+    if (date && pair) bids.push({ order: order++, date, pairing: pair, type: 'flight', ...(ac && { aircraft: ac }), ...(rt && { routeType: rt }) })
   })
   document.getElementById('pbs-rdos-list')?.querySelectorAll('[id^="pbs-rdo-"]').forEach(row => {
     const idx  = row.id.replace('pbs-rdo-','')
@@ -4431,6 +4487,24 @@ function _pbsRenderPred(monthStr, data) {
         名額：<strong style="color:${isDoubleCM?'#34c759':'inherit'};">${isDoubleCM?'2':'1'}</strong> 個 CM
         ${isDoubleCM ? '<span style="color:#34c759;"> ✓ 雙CM班</span>' : '<span style="color:#8e8e93;">・越洋班可能有 2 個，實際以排班為準</span>'}
       </div>` : ''
+    // 模擬結果 banner
+    let simBanner = ''
+    if (!isCM && p.simulation) {
+      const s = p.simulation
+      if (s.in) {
+        const yInfo = s.yMax !== null ? `・Y 剩 ${s.yRem}` : ''
+        simBanner = `<div style="margin-top:7px;background:#f0fff4;border-radius:8px;padding:6px 10px;font-size:12px;color:#1a7f37;font-weight:600;">
+          ✅ 預測選上 <span style="font-weight:400;color:#2da44e;">（F/Y 剩 ${s.fyRem}${yInfo}）</span></div>`
+      } else if (s.reason === 'fy_full') {
+        simBanner = `<div style="margin-top:7px;background:#fff0f0;border-radius:8px;padding:6px 10px;font-size:12px;color:#d1242f;font-weight:600;">
+          ❌ F/Y 名額已滿 <span style="font-weight:400;">（前面 ${s.fySlots} 人搶完）</span></div>`
+      } else if (s.reason === 'y_full') {
+        simBanner = `<div style="margin-top:7px;background:#fff8e6;border-radius:8px;padding:6px 10px;font-size:12px;color:#b76e00;font-weight:600;">
+          ❌ Y 名額已滿 <span style="font-weight:400;">（F/Y 還剩 ${s.fyRem}，但 Y 上限 ${s.yMax} 已達）</span></div>`
+      }
+    } else if (!isCM && !p.simulation) {
+      simBanner = `<div style="margin-top:5px;font-size:11px;color:#c7c7cc;">填機型＋班型可查精確模擬</div>`
+    }
     return `
       <div style="background:#f9f9f9;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
@@ -4441,7 +4515,7 @@ function _pbsRenderPred(monthStr, data) {
         </div>
         <div style="font-size:14px;margin-bottom:2px;">${rank}</div>
         <div style="font-size:12px;color:#8e8e93;">${cnt}</div>
-        ${cmQuota}${hist}
+        ${cmQuota}${simBanner}${hist}
       </div>`
   }).join('')
 
