@@ -585,11 +585,14 @@ app.post('/api/pbs/result/:month/:round', adminAuth, upload.single('pdf'), async
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: '無效月份' })
   if (!req.file) return res.status(400).json({ error: '未收到 PDF' })
   try {
+    console.log(`[PBS] 開始解析 ${month} 第 ${round} 階段，檔案大小 ${req.file.size} bytes`)
     const entries = await pbsParser.parsePBSResultPDF(req.file.buffer)
+    console.log(`[PBS] 解析完成，共 ${entries.length} 筆`)
     const data = { month, round: parseInt(round), uploadedAt: new Date().toISOString(), entries }
     fs.writeFileSync(pbsResultPath(month, round), JSON.stringify(data, null, 2))
     res.json({ ok: true, parsed: entries.length })
   } catch (err) {
+    console.error('[PBS] 解析失敗:', err)
     res.status(500).json({ error: 'PDF 解析失敗：' + err.message })
   }
 })
