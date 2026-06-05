@@ -1,9 +1,10 @@
-const CACHE = 'ccal-v88'
-const SHELL = ['/', '/index.html']
+const CACHE = 'ccal-v89'
+const SHELL = ['/', '/index.html', '/pbs.html']
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)))
-  self.skipWaiting()
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
+  )
 })
 
 self.addEventListener('activate', e => {
@@ -24,10 +25,16 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       fetch(e.request)
         .then(res => {
+          // 線上時更新快取
           caches.open(CACHE).then(c => c.put(e.request, res.clone()))
           return res
         })
-        .catch(() => caches.match('/'))
+        .catch(() =>
+          // 離線時依序找：完整 URL → '/' → '/index.html'
+          caches.match(e.request)
+            .then(r => r || caches.match('/'))
+            .then(r => r || caches.match('/index.html'))
+        )
     )
     return
   }

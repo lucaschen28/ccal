@@ -755,15 +755,28 @@ async function loadSchedule() {
     if (!res.ok) throw new Error('http')
     scheduleData = await res.json()
     await idbSaveSchedule(viewUserId, scheduleData)
+    // localStorage 第二層備份（iOS 離線保底）
+    try { localStorage.setItem(`ccal_sched_${viewUserId}`, JSON.stringify({ entries: scheduleData, cachedAt: Date.now() })) } catch {}
     _hideOfflineBanner()
   } catch {
+    // 第一層：IndexedDB
     const local = await idbGetSchedule(viewUserId)
     if (local) {
       scheduleData = local.entries
       const q = await idbGetSyncQueue()
       _showOfflineBanner(local.cachedAt, q.length)
     } else {
-      scheduleData = []
+      // 第二層：localStorage（IDB 失效時的 iOS 保底）
+      try {
+        const lsRaw = localStorage.getItem(`ccal_sched_${viewUserId}`)
+        const ls = lsRaw ? JSON.parse(lsRaw) : null
+        if (ls) {
+          scheduleData = ls.entries
+          _showOfflineBanner(ls.cachedAt, 0)
+        } else {
+          scheduleData = []
+        }
+      } catch { scheduleData = [] }
     }
   }
   tasks = groupTasks(scheduleData.filter(e => e.type === 'flight'))

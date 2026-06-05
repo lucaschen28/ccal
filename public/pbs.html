@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>選班幫幫忙</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+           background: #f2f2f7; color: #1c1c1e; min-height: 100vh; }
+    .page { max-width: 480px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+    .sub { font-size: 14px; color: #8e8e93; margin-bottom: 24px; }
+    .card { background: #fff; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+    .card-title { font-size: 11px; font-weight: 700; color: #8e8e93; letter-spacing: .5px; margin-bottom: 12px; }
+    select { width: 100%; padding: 11px 12px; border: 1.5px solid #e5e5ea; border-radius: 10px;
+             font-size: 15px; outline: none; background: #fff; appearance: none;
+             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c7c7cc' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+             background-repeat: no-repeat; background-position: right 12px center; margin-bottom: 10px; }
+    select:disabled { color: #c7c7cc; }
+    .result-card { background: #f9f9f9; border-radius: 14px; padding: 14px 16px; margin-top: 4px; }
+    .hint { background: #f2f2f7; border-radius: 8px; padding: 7px 10px;
+            font-size: 12px; color: #8e8e93; margin-top: 8px; }
+    .full { color: #ff3b30; font-weight: 700; }
+    .ok   { color: #34c759; font-weight: 700; }
+    .join-card { background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+                 border-radius: 16px; padding: 20px 18px; color: #fff; }
+    .join-card h2 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .join-card p  { font-size: 13px; opacity: .85; margin-bottom: 16px; line-height: 1.5; }
+    .join-btn { display: block; background: #fff; color: #007aff; border: none; border-radius: 12px;
+                padding: 12px; font-size: 15px; font-weight: 700; text-align: center;
+                cursor: pointer; text-decoration: none; }
+    .loading { text-align: center; color: #8e8e93; padding: 20px; }
+    #month-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tab { flex: 1; padding: 10px; border-radius: 12px; border: 1.5px solid #e5e5ea;
+           background: #fff; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; color: #3c3c43; }
+    .tab.active { background: #007aff; border-color: #007aff; color: #fff; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+    <span style="font-size:28px;">📊</span>
+    <h1>選班幫幫忙</h1>
+  </div>
+  <div class="sub">查詢第一階段選班結果・剩餘名額</div>
+
+  <!-- 月份切換 -->
+  <div id="month-tabs"></div>
+
+  <!-- 查詢區 -->
+  <div class="card">
+    <div class="card-title">查詢剩餘名額</div>
+    <div id="query-area"><div class="loading">載入中…</div></div>
+  </div>
+
+  <!-- 加入 CCal -->
+  <div class="join-card">
+    <h2>✈️ 想看自己的班表？</h2>
+    <p>加入 CCal，除了查選班結果，還可以同步 eCrew 班表、查外站天氣、一鍵丟換班板。</p>
+    <a class="join-btn" href="/" id="join-link">取得邀請碼 →</a>
+  </div>
+</div>
+
+<script>
+const MONTHS = (() => {
+  const now = new Date()
+  const make = (y, m) => `${y}-${String(m).padStart(2,'0')}`
+  const curM = now.getMonth() + 1, curY = now.getFullYear()
+  const nxtM = curM === 12 ? 1 : curM + 1
+  const nxtY = curM === 12 ? curY + 1 : curY
+  return [make(curY, curM), make(nxtY, nxtM)]
+})()
+
+let currentMonth = MONTHS[0]
+let _slots = [], _hints = {}
+
+// 月份 tabs
+const tabsEl = document.getElementById('month-tabs')
+MONTHS.forEach((m, i) => {
+  const [y, mo] = m.split('-')
+  const btn = document.createElement('button')
+  btn.className = 'tab' + (i === 0 ? ' active' : '')
+  btn.textContent = `${y}年${parseInt(mo)}月`
+  btn.onclick = () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    btn.classList.add('active')
+    currentMonth = m
+    loadAvail(m)
+  }
+  tabsEl.appendChild(btn)
+})
+
+async function loadAvail(month) {
+  document.getElementById('query-area').innerHTML = '<div class="loading">載入中…</div>'
+  try {
+    const data = await fetch(`/api/pbs/availability/${month}`).then(r => r.json())
+    if (!data.hasResult) {
+      document.getElementById('query-area').innerHTML =
+        '<div style="color:#8e8e93;font-size:14px;text-align:center;padding:12px 0;">此月份尚未上傳選班結果</div>'
+      return
+    }
+    _slots = data.slots || []
+    _hints = data.cmRdoHints || {}
+    renderQuery()
+  } catch {
+    document.getElementById('query-area').innerHTML =
+      '<div style="color:#ff3b30;font-size:14px;text-align:center;padding:12px 0;">載入失敗，請稍後再試</div>'
+  }
+}
+
+const SEL = s => `width:100%;padding:11px 12px;border:1.5px solid #e5e5ea;border-radius:10px;
+  font-size:15px;outline:none;background:${s?'#fff':'#f9f9f9'};appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c7c7cc' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;margin-bottom:10px;`
+
+function renderQuery() {
+  document.getElementById('query-area').innerHTML = `
+    <div style="margin-bottom:8px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">艙等</div>
+      <select id="p-group" onchange="pFilterGroup()" style="${SEL(true)}">
+        <option value="">請選擇</option>
+        <option value="CM">CM（座艙長）</option>
+        <option value="FY">一般組員（FF / MF / FY / MY）</option>
+      </select>
+    </div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">日期</div>
+      <select id="p-date" onchange="pFilterDate()" style="${SEL(false)}" disabled>
+        <option value="">請先選擇艙等</option>
+      </select>
+    </div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:12px;color:#8e8e93;font-weight:600;margin-bottom:6px;">班號 / RDO</div>
+      <select id="p-slot" onchange="pShow()" style="${SEL(false)}" disabled>
+        <option value="">請先選擇日期</option>
+      </select>
+    </div>
+    <div id="p-result"></div>`
+}
+
+function pGetFiltered(group) {
+  if (group === 'FY') {
+    const seen = new Set()
+    return _slots.filter(s => s.group === 'F' || s.group === 'Y')
+      .filter(s => { const k = `${s.pairing}|${s.date}`; if (seen.has(k)) return false; seen.add(k); return true })
+      .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+  }
+  return _slots.filter(s => s.group === group)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.pairing.localeCompare(b.pairing))
+}
+
+function pFilterGroup() {
+  const group = document.getElementById('p-group').value
+  const dateSel = document.getElementById('p-date')
+  const slotSel = document.getElementById('p-slot')
+  document.getElementById('p-result').innerHTML = ''
+  dateSel.style.background = '#f9f9f9'; slotSel.style.background = '#f9f9f9'
+  dateSel.disabled = true; slotSel.disabled = true
+  dateSel.innerHTML = ''; slotSel.innerHTML = ''
+  if (!group) { dateSel.innerHTML = '<option value="">請先選擇艙等</option>'; return }
+
+  const filtered = pGetFiltered(group)
+  const dtLabel = { holiday:'🏮', weekend:'📅', weekday:'📋' }
+  const dates = [...new Set(filtered.map(s => s.date))].sort()
+  dateSel.disabled = false; dateSel.style.background = '#fff'
+  dateSel.innerHTML = '<option value="">請選擇日期</option>'
+  for (const d of dates) {
+    const s0 = filtered.find(s => s.date === d)
+    const opt = document.createElement('option')
+    opt.value = d
+    opt.textContent = `${d.slice(5).replace('-','/')} ${dtLabel[s0?.dateType]||''}`
+    dateSel.appendChild(opt)
+  }
+  slotSel.innerHTML = '<option value="">請先選擇日期</option>'
+}
+
+function pFilterDate() {
+  const group = document.getElementById('p-group').value
+  const date  = document.getElementById('p-date').value
+  const slotSel = document.getElementById('p-slot')
+  document.getElementById('p-result').innerHTML = ''
+  slotSel.innerHTML = ''
+  if (!date) { slotSel.innerHTML = '<option value="">請先選擇日期</option>'; slotSel.disabled = true; return }
+
+  const filtered = pGetFiltered(group).filter(s => s.date === date)
+  slotSel.disabled = false; slotSel.style.background = '#fff'
+  slotSel.innerHTML = '<option value="">請選擇班號 / RDO</option>'
+  for (const s of filtered) {
+    const opt = document.createElement('option')
+    opt.value = s.pairing
+    opt.textContent = `${s.pairing.includes('RDO') ? '🛋 ' : '✈️ '}${s.pairing}`
+    slotSel.appendChild(opt)
+  }
+}
+
+function pShow() {
+  const pairing = document.getElementById('p-slot').value
+  const date    = document.getElementById('p-date').value
+  const group   = document.getElementById('p-group').value
+  const r = document.getElementById('p-result')
+  if (!pairing || !date) { r.innerHTML = ''; return }
+
+  const dtL = { holiday:'🏮 假日', weekend:'📅 週末', weekday:'📋 平日' }
+  const isRdo = pairing.includes('RDO')
+  const icon  = isRdo ? '🛋' : '✈️'
+
+  if (group === 'CM') {
+    const s = _slots.find(x => x.pairing === pairing && x.date === date && x.group === 'CM')
+    if (!s) { r.innerHTML = ''; return }
+    let hint = ''
+    if (isRdo) {
+      const h = _hints[s.dateType]
+      const tl = { weekday:'平日', weekend:'週末', holiday:'假日' }[s.dateType] || ''
+      if (h && !h.noRecord)
+        hint = `<div class="hint">📊 本月${tl} RDO 參考：選上 ${h.min === h.max ? h.min : h.min+'～'+h.max} 人後額滿（${h.fullDays} 天記錄）</div>`
+      else if (h && h.noRecord)
+        hint = `<div class="hint">📊 本月${tl} RDO：最多 ${h.notFullMax} 人選，未見額滿</div>`
+    }
+    r.innerHTML = `<div class="result-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:18px;font-weight:700;">${icon} ${pairing}</span>
+        <span style="font-size:13px;color:#8e8e93;">${date.slice(5).replace('-','/')}</span>
+        <span style="font-size:12px;color:#8e8e93;">${dtL[s.dateType]||''}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:14px;">已選：<strong style="font-size:18px;">${s.approved}</strong> 人
+          ${s.quota!=null?`<span style="font-size:12px;color:#8e8e93;">／ 共 ${s.quota} 名</span>`:''}
+        </div>
+        <div class="${s.full?'full':'ok'}">${s.full?'🔴 額滿':'🟢 尚有名額'}</div>
+      </div>${hint}</div>`
+  } else {
+    const sF = _slots.find(x => x.pairing === pairing && x.date === date && x.group === 'F')
+    const sY = _slots.find(x => x.pairing === pairing && x.date === date && x.group === 'Y')
+    const total = (sF?.approved||0) + (sY?.approved||0)
+    const full  = sF?.full || sY?.full || false
+    const dt    = sF?.dateType || sY?.dateType || 'weekday'
+    r.innerHTML = `<div class="result-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:18px;font-weight:700;">${icon} ${pairing}</span>
+        <span style="font-size:13px;color:#8e8e93;">${date.slice(5).replace('-','/')}</span>
+        <span style="font-size:12px;color:#8e8e93;">${dtL[dt]||''}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:14px;">合計已選：<strong style="font-size:18px;">${total}</strong> 人</div>
+        <div class="${full?'full':'ok'}">${full?'🔴 額滿':'🟢 尚有名額'}</div>
+      </div>
+      <div style="font-size:12px;color:#8e8e93;">F 組員 ${sF?.approved||0} 人・Y 組員 ${sY?.approved||0} 人</div>
+    </div>`
+  }
+}
+
+loadAvail(currentMonth)
+</script>
+</body>
+</html>
