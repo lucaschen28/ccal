@@ -657,6 +657,80 @@ app.get('/api/pbs/availability/:month', (req, res) => {
   res.json({ hasResult: true, slots: Object.values(slots), cmRdoHints })
 })
 
+// ── 觀看連結（View Token）──────────────────────────────────────
+const VIEW_TOKENS_FILE = path.join(_BASE_DIR, 'view_tokens.json')
+
+function readViewTokens() {
+  try { return JSON.parse(fs.readFileSync(VIEW_TOKENS_FILE, 'utf8')) } catch { return {} }
+}
+function genViewToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let t = ''
+  for (let i = 0; i < 10; i++) t += chars[Math.floor(Math.random() * chars.length)]
+  return t
+}
+function readProfile(userId) {
+  try { return JSON.parse(fs.readFileSync(profilePath(userId), 'utf8')) } catch { return {} }
+}
+
+// 產生 / 取得 token（userId 即為身份，無需額外 auth）
+app.post('/api/view/token', (req, res) => {
+  const userId = (req.body.userId || '').trim().toUpperCase()
+  if (!userId || !/^[A-Z0-9]{4,12}$/.test(userId)) return res.status(400).json({ error: '無效的 userId' })
+  const fp = userPath(userId)
+  if (!fp || !fs.existsSync(fp)) return res.status(404).json({ error: '找不到此用戶' })
+  const tokens = readViewTokens()
+  let token = Object.keys(tokens).find(t => tokens[t] === userId)
+  if (!token) {
+    do { token = genViewToken() } while (tokens[token])
+    tokens[token] = userId
+    fs.writeFileSync(VIEW_TOKENS_FILE, JSON.stringify(tokens))
+  }
+  res.json({ ok: true, token })
+})
+
+// 撤銷 token
+app.delete('/api/view/token', (req, res) => {
+  const userId = (req.body.userId || '').trim().toUpperCase()
+  if (!userId) return res.status(400).json({ error: '無效' })
+  const tokens = readViewTokens()
+  const token = Object.keys(tokens).find(t => tokens[t] === userId)
+  if (token) { delete tokens[token]; fs.writeFileSync(VIEW_TOKENS_FILE, JSON.stringify(tokens)) }
+  res.json({ ok: true })
+})
+
+// 公開讀取：班表 + 聯絡人班表（token 為通行證）
+app.get('/api/view/data/:token', (req, res) => {
+  const tokens = readViewTokens()
+  const userId = tokens[req.params.token]
+  if (!userId) return res.status(404).json({ error: '連結已失效或不存在' })
+  const fp = userPath(userId)
+  if (!fp) return res.status(500).json({ error: '資料錯誤' })
+  const mainSchedule = readData(fp)
+  const mainProfile = readProfile(userId)
+  // 動態讀取聯絡人（永遠反映最新名單）
+  const contactsFp = fp.replace('.json', '_contacts.json')
+  const contacts = readData(contactsFp)  // [{ code, name }]
+  const contactsData = []
+  for (const c of contacts) {
+    const cfp = userPath(c.code)
+    if (!cfp) continue
+    const data = readData(cfp)
+    if (!data.length) continue
+    const cProfile = readProfile(c.code)
+    contactsData.push({
+      code: c.code,
+      name: c.name || cProfile.empId || c.code,
+      empId: cProfile.empId || c.code,
+      schedule: data
+    })
+  }
+  res.json({
+    mainUser: { code: userId, empId: mainProfile.empId || userId, schedule: mainSchedule },
+    contacts: contactsData
+  })
+})
+
 // Multer 錯誤 handler（檔案過大等）
 app.use((err, req, res, next) => {
   if (err?.code === 'LIMIT_FILE_SIZE') {

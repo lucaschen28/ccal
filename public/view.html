@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>班表觀看</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+           background: #f2f2f7; color: #1c1c1e; min-height: 100vh; }
+
+    /* Header */
+    .header { background: #fff; padding: 14px 16px 10px; display: flex;
+              align-items: center; justify-content: space-between;
+              border-bottom: 1px solid #e5e5ea; position: sticky; top: 0; z-index: 10; }
+    .header-title { font-size: 17px; font-weight: 700; }
+    .header-sub   { font-size: 12px; color: #8e8e93; margin-top: 1px; }
+    .nav-btn { background: none; border: none; font-size: 20px; color: #007aff;
+               cursor: pointer; padding: 4px 8px; }
+
+    /* Legend */
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; padding: 10px 16px;
+              background: #fff; border-bottom: 1px solid #f2f2f7; }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #3c3c43; }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 3px; }
+
+    /* Calendar grid */
+    .calendar { padding: 8px 8px 12px; }
+    .weekday-row { display: grid; grid-template-columns: repeat(7,1fr);
+                   gap: 2px; margin-bottom: 2px; }
+    .weekday-label { text-align: center; font-size: 11px; font-weight: 600;
+                     color: #8e8e93; padding: 4px 0; }
+    .weekday-label.sun { color: #ff3b30; }
+    .weekday-label.sat { color: #007aff; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+
+    /* Cell */
+    .cell { background: #fff; border-radius: 8px; min-height: 68px; padding: 3px 3px 4px;
+            position: relative; overflow: hidden; }
+    .cell.other-month { background: #f9f9f9; opacity: .5; }
+    .cell.today .day-num { background: #007aff; color: #fff; border-radius: 50%;
+                            width: 20px; height: 20px; display: flex; align-items: center;
+                            justify-content: center; }
+    .day-num { font-size: 12px; font-weight: 600; color: #1c1c1e; margin-bottom: 2px;
+               width: 20px; height: 20px; display: flex; align-items: center;
+               justify-content: center; }
+    .day-num.sun { color: #ff3b30; }
+    .day-num.sat { color: #007aff; }
+    .cell.today .day-num.sun,
+    .cell.today .day-num.sat { color: #fff; }
+
+    /* Pills */
+    .pill { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 0 3px;
+            height: 14px; line-height: 14px; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; margin: 1px 0; display: block; }
+    .pill.flight  { background: #007aff; color: #fff; }
+    .pill.rdo     { background: #34c759; color: #fff; }
+    .pill.al      { background: #ff9500; color: #fff; }
+    .pill.sby     { background: #8e8e93; color: #fff; }
+    .pill.cm      { background: #af52de; color: #fff; }
+    .pill.other   { background: #e5e5ea; color: #3c3c43; }
+    .pill.past    { opacity: .5; }
+    /* 比對用顏色 */
+    .pill.cmp0 { background: #ff6b35; color: #fff; }
+    .pill.cmp1 { background: #ff2d55; color: #fff; }
+    .pill.cmp2 { background: #5856d6; color: #fff; }
+    /* 橫跨多天 */
+    .pill.bar-start { border-radius: 3px 0 0 3px; margin-right: -3px; }
+    .pill.bar-mid   { border-radius: 0; margin-left: -3px; margin-right: -3px; }
+    .pill.bar-end   { border-radius: 0 3px 3px 0; margin-left: -3px; }
+
+    /* Join card */
+    .join-card { margin: 12px 12px 32px; background: linear-gradient(135deg,#007aff 0%,#5856d6 100%);
+                 border-radius: 16px; padding: 20px; color: #fff; }
+    .join-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .join-card p  { font-size: 13px; opacity: .85; margin-bottom: 14px; line-height: 1.5; }
+    .join-btn { display: block; background: #fff; color: #007aff; border: none;
+                border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700;
+                text-align: center; cursor: pointer; text-decoration: none; }
+
+    .error-msg { text-align: center; padding: 48px 24px; color: #8e8e93; font-size: 15px; }
+    .loading   { text-align: center; padding: 48px 24px; color: #8e8e93; font-size: 15px; }
+  </style>
+</head>
+<body>
+
+<div id="root"><div class="loading">載入中…</div></div>
+
+<script>
+// ── 工具函式 ──────────────────────────────────────────────────
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+function ymd(d) { return d.toISOString().slice(0, 10) }
+function today() { return ymd(new Date()) }
+
+function groupTasks(flights) {
+  const HOME = 'TPE'
+  const sorted = [...flights].sort((a, b) => {
+    const da = a.start || (a.date + 'T00:00:00')
+    const db = b.start || (b.date + 'T00:00:00')
+    return new Date(da) - new Date(db)
+  })
+  const dutyMap = new Map()
+  const noDuty = []
+  for (const f of sorted) {
+    if (f.duty_id) {
+      if (!dutyMap.has(f.duty_id)) dutyMap.set(f.duty_id, [])
+      dutyMap.get(f.duty_id).push(f)
+    } else noDuty.push(f)
+  }
+  const tasks = []
+  for (const [, legs] of dutyMap) {
+    const last = legs[legs.length - 1]
+    const endDate = last.arrival_next_day ? addDays(last.date, 1) : last.date
+    tasks.push({ legs, startDate: legs[0].date, endDate })
+  }
+  for (const f of noDuty) {
+    const last = tasks.length ? tasks[tasks.length - 1] : null
+    const lastLeg = last ? last.legs[last.legs.length - 1] : null
+    if (f.from && f.from !== HOME && lastLeg && lastLeg.to === f.from) {
+      last.legs.push(f)
+      if (f.arrival_next_day) last.endDate = addDays(f.date, 1)
+      else if (f.date > last.endDate) last.endDate = f.date
+    } else {
+      const endDate = f.arrival_next_day ? addDays(f.date, 1) : f.date
+      tasks.push({ legs: [f], startDate: f.date, endDate })
+    }
+  }
+  return tasks
+}
+
+function tasksOnDate(tasks, ds) {
+  return tasks.filter(t => ds >= t.startDate && ds <= t.endDate)
+}
+
+function nonFlightOnDate(schedule, ds) {
+  return schedule.filter(e => {
+    if (!e.type || e.type === 'flight' || e.type === 'private') return false
+    const s = e.startDate || e.date, en = e.endDate || e.date
+    if (ds < s || ds > en) return false
+    if (['ADO', 'OFF', '>OFF'].includes(e.code)) return false
+    return e.manually_added || e.ecrew_imported || ['RDO','AL','XL','HC','CM','SBY'].includes(e.code)
+  })
+}
+
+function pillClass(ev) {
+  if (ev.code === 'RDO' || ev.type === 'day_off') return 'rdo'
+  if (['AL','XL'].includes(ev.code)) return 'al'
+  if (ev.type === 'standby' || ev.code === 'SBY') return 'sby'
+  if (ev.type === 'training' || ev.code === 'CM') return 'cm'
+  return 'other'
+}
+
+// ── 狀態 ─────────────────────────────────────────────────────
+const TOKEN = new URLSearchParams(location.search).get('t') || ''
+let _data = null  // { mainUser, contacts }
+let _curMonth = (() => {
+  const m = new URLSearchParams(location.search).get('m')
+  if (m && /^\d{4}-\d{2}$/.test(m)) return m
+  const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`
+})()
+
+// ── 主流程 ───────────────────────────────────────────────────
+async function init() {
+  if (!TOKEN) { showError('缺少觀看連結，請向分享者取得正確連結。'); return }
+  try {
+    const r = await fetch(`/api/view/data/${TOKEN}`)
+    if (r.status === 404) { showError('此觀看連結已失效，請向分享者取得新連結。'); return }
+    if (!r.ok) { showError('載入失敗，請稍後再試。'); return }
+    _data = await r.json()
+    render()
+  } catch { showError('網路錯誤，請確認連線後重試。') }
+}
+
+function showError(msg) {
+  document.getElementById('root').innerHTML =
+    `<div class="error-msg">⚠️ ${msg}</div>${joinCard()}`
+}
+
+function changeMonth(delta) {
+  const [y, m] = _curMonth.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  _curMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+  render()
+}
+
+// ── 渲染 ─────────────────────────────────────────────────────
+const CMP_COLORS = ['cmp0', 'cmp1', 'cmp2']
+const LEGEND_COLORS = { flight:'#007aff', rdo:'#34c759', al:'#ff9500', sby:'#8e8e93', cm:'#af52de' }
+const CMP_HEX = ['#ff6b35', '#ff2d55', '#5856d6']
+
+function render() {
+  const [y, m] = _curMonth.split('-').map(Number)
+  const mu = _data.mainUser
+  const contacts = _data.contacts || []
+  const todayStr = today()
+
+  // 月曆第一天是週幾
+  const firstDay = new Date(y, m - 1, 1).getDay()  // 0=Sun
+  const daysInMonth = new Date(y, m, 0).getDate()
+  const prevMonthDays = new Date(y, m - 1, 0).getDate()
+
+  // 預先計算 tasks
+  const mainTasks = groupTasks((mu.schedule || []).filter(e => !e.type || e.type === 'flight'))
+  const cmpTasks = contacts.map(c =>
+    groupTasks((c.schedule || []).filter(e => !e.type || e.type === 'flight'))
+  )
+
+  // Legend
+  let legendHtml = `
+    <div class="legend-item"><div class="legend-dot" style="background:#007aff"></div> ${mu.empId||'主'}</div>`
+  contacts.slice(0, 3).forEach((c, i) => {
+    legendHtml += `<div class="legend-item"><div class="legend-dot" style="background:${CMP_HEX[i]}"></div> ${c.name||c.empId}</div>`
+  })
+  legendHtml += `
+    <div class="legend-item"><div class="legend-dot" style="background:#34c759"></div> RDO</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff9500"></div> 年假</div>`
+
+  // 月曆格子
+  let cells = ''
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+
+  for (let i = 0; i < totalCells; i++) {
+    const col = i % 7
+    let ds, isThisMonth = true
+    if (i < firstDay) {
+      ds = String(prevMonthDays - firstDay + i + 1).padStart(2,'0')
+      ds = `${y}-${String(m-1||12).padStart(2,'0')}-${ds}`
+      if (m === 1) ds = `${y-1}-12-${String(prevMonthDays - firstDay + i + 1).padStart(2,'0')}`
+      isThisMonth = false
+    } else {
+      const day = i - firstDay + 1
+      if (day > daysInMonth) {
+        const overDay = day - daysInMonth
+        const nm = m === 12 ? 1 : m + 1
+        const ny = m === 12 ? y + 1 : y
+        ds = `${ny}-${String(nm).padStart(2,'0')}-${String(overDay).padStart(2,'0')}`
+        isThisMonth = false
+      } else {
+        ds = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+      }
+    }
+
+    const dayNum = parseInt(ds.slice(8))
+    const isToday = ds === todayStr
+    const isSun = col === 0, isSat = col === 6
+    let cellCls = 'cell' + (isThisMonth ? '' : ' other-month') + (isToday ? ' today' : '')
+    let numCls = 'day-num' + (isSun ? ' sun' : isSat ? ' sat' : '')
+
+    // 主用戶 pills
+    let pillsHtml = ''
+    // 飛航任務
+    tasksOnDate(mainTasks, ds).forEach(task => {
+      const isStart = ds === task.startDate, isEnd = ds === task.endDate
+      const sameDay = task.startDate === task.endDate
+      const vStart = isStart || col === 0, vEnd = isEnd || col === 6
+      let cls = 'pill flight' + (task.endDate < todayStr ? ' past' : '')
+      if (!sameDay) {
+        if (vStart && !vEnd) cls += ' bar-start'
+        else if (!vStart && vEnd) cls += ' bar-end'
+        else if (!vStart && !vEnd) cls += ' bar-mid'
+      }
+      const txt = (isStart || col === 0) ? (task.legs[0].flight_number || '✈') : ' '
+      pillsHtml += `<div class="${cls}">${txt}</div>`
+    })
+    // 非飛航事件
+    nonFlightOnDate(mu.schedule, ds).forEach(ev => {
+      const evStart = ev.startDate || ev.date, evEnd = ev.endDate || ev.date
+      const isMulti = evStart !== evEnd
+      let cls = 'pill ' + pillClass(ev) + (ev.endDate && ev.endDate < todayStr ? ' past' : '')
+      let txt = ev.code || ev.type || '?'
+      if (isMulti) {
+        const vS = ds === evStart || col === 0, vE = ds === evEnd || col === 6
+        if (vS && !vE) cls += ' bar-start'
+        else if (!vS && vE) cls += ' bar-end'
+        else if (!vS && !vE) { cls += ' bar-mid'; txt = ' ' }
+        if (!vS) txt = ' '
+      }
+      pillsHtml += `<div class="${cls}">${txt}</div>`
+    })
+
+    // 比對用戶 pills
+    contacts.slice(0, 3).forEach((c, ci) => {
+      const cc = CMP_COLORS[ci]
+      tasksOnDate(cmpTasks[ci], ds).forEach(task => {
+        const isStart = ds === task.startDate, isEnd = ds === task.endDate
+        const sameDay = task.startDate === task.endDate
+        const vStart = isStart || col === 0, vEnd = isEnd || col === 6
+        let cls = `pill flight ${cc}` + (task.endDate < todayStr ? ' past' : '')
+        if (!sameDay) {
+          if (vStart && !vEnd) cls += ' bar-start'
+          else if (!vStart && vEnd) cls += ' bar-end'
+          else if (!vStart && !vEnd) cls += ' bar-mid'
+        }
+        const txt = (isStart || col === 0) ? (task.legs[0].flight_number || '✈') : ' '
+        pillsHtml += `<div class="${cls}">${txt}</div>`
+      })
+      nonFlightOnDate(c.schedule, ds).forEach(ev => {
+        if (['ADO','OFF','>OFF'].includes(ev.code)) return
+        pillsHtml += `<div class="pill ${cc}">${ev.code || ev.type}</div>`
+      })
+    })
+
+    cells += `<div class="${cellCls}">
+      <div class="${numCls}">${dayNum}</div>
+      ${pillsHtml}
+    </div>`
+  }
+
+  const monthNames = ['一','二','三','四','五','六','七','八','九','十','十一','十二']
+  const displayMonth = `${y} 年 ${monthNames[m-1]} 月`
+
+  document.getElementById('root').innerHTML = `
+    <div class="header">
+      <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+      <div style="text-align:center;">
+        <div class="header-title">${displayMonth}</div>
+        <div class="header-sub">👁 ${mu.empId || ''}${contacts.length ? ' + ' + contacts.map(c=>c.name||c.empId).join(' + ') : ''}</div>
+      </div>
+      <button class="nav-btn" onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="legend">${legendHtml}</div>
+    <div class="calendar">
+      <div class="weekday-row">
+        <div class="weekday-label sun">日</div>
+        <div class="weekday-label">一</div>
+        <div class="weekday-label">二</div>
+        <div class="weekday-label">三</div>
+        <div class="weekday-label">四</div>
+        <div class="weekday-label">五</div>
+        <div class="weekday-label sat">六</div>
+      </div>
+      <div class="cal-grid">${cells}</div>
+    </div>
+    ${joinCard()}`
+}
+
+function joinCard() {
+  return `<div class="join-card">
+    <h2>✈️ 想看自己的班表？</h2>
+    <p>加入 CCal，同步 eCrew 班表、查外站天氣、換班小幫手一次搞定。</p>
+    <a class="join-btn" href="/">了解更多 →</a>
+  </div>`
+}
+
+init()
+</script>
+</body>
+</html>

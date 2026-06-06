@@ -1,5 +1,5 @@
-const CACHE = 'ccal-v91'
-const SHELL = ['/', '/index.html', '/pbs.html']
+const CACHE = 'ccal-v92'
+const SHELL = ['/', '/index.html', '/pbs.html', '/view.html']
 
 self.addEventListener('install', e => {
   e.waitUntil(
