@@ -293,6 +293,34 @@ app.post('/api/auth-pin', (req, res) => {
   }
 })
 
+// iOS App 裝置註冊（不需要 PIN，以員工編號建立或取回帳號）
+app.post('/api/auth/device', (req, res) => {
+  const { empId } = req.body
+  if (!empId || !/^\d{4,8}$/.test(String(empId))) {
+    return res.status(400).json({ ok: false, error: '無效的員工編號' })
+  }
+  // 先查是否已有此員編的帳號
+  try {
+    const files = fs.readdirSync(DATA_DIR).filter(f => f.endsWith('_profile.json'))
+    for (const file of files) {
+      try {
+        const profile = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'))
+        if (profile.empId === String(empId)) {
+          const userId = file.replace('_profile.json', '')
+          return res.json({ ok: true, userId })
+        }
+      } catch {}
+    }
+  } catch {}
+  // 沒有舊帳號 → 建新帳號
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let userId = ''
+  for (let i = 0; i < 6; i++) userId += chars[Math.floor(Math.random() * chars.length)]
+  const fp = path.join(DATA_DIR, `${userId}_profile.json`)
+  fs.writeFileSync(fp, JSON.stringify({ empId: String(empId), createdAt: new Date().toISOString(), source: 'ios' }))
+  res.json({ ok: true, userId })
+})
+
 // 驗證存取密碼（新訪客用，已有代碼的直接略過）
 app.post('/api/auth', (req, res) => {
   const expected = process.env.CCAL_ACCESS_CODE
