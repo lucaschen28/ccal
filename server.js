@@ -349,12 +349,24 @@ app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未收到 PDF 檔案' })
   try {
     const newEntries = await parseECrewPDF(req.file.buffer)
+    // 沒解析到任何班次 → 不動資料，避免誤洗
+    if (!newEntries.length) {
+      const cur = readData(fp)
+      return res.json({ ok: true, imported: 0, total: cur.length, note: '未解析到班次，資料未變更' })
+    }
     const all = readData(fp)
     const manualEntries = all.filter(e => e.manually_added)
     const oldPdfEntries = all.filter(e => !e.manually_added)
-    // 舊 PDF 先放，新 PDF 後放（新覆蓋舊的同 id）
+
+    // 新 PDF 涵蓋的日期範圍 → range 內舊 PDF 整批替換，range 外保留
+    const newDates = newEntries.map(e => e.date).filter(Boolean).sort()
+    const minDate = newDates[0]
+    const maxDate = newDates[newDates.length - 1]
+    const keptOld = oldPdfEntries.filter(e => e.date < minDate || e.date > maxDate)
+
+    // 合併（range 外舊 PDF + 新 PDF + 手動新增），同 id 以新覆蓋
     const seen = new Map()
-    oldPdfEntries.forEach(e => seen.set(e.id, e))
+    keptOld.forEach(e => seen.set(e.id, e))
     newEntries.forEach(e => seen.set(e.id, e))
     const combined = [...seen.values(), ...manualEntries]
     linkLayovers(combined)
@@ -365,7 +377,7 @@ app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
     })
     const merged = [...finalSeen.values()]
     fs.writeFileSync(fp, JSON.stringify(merged, null, 2))
-    res.json({ ok: true, imported: newEntries.length, total: merged.length })
+    res.json({ ok: true, imported: newEntries.length, total: merged.length, range: [minDate, maxDate] })
   } catch (err) {
     console.error('PDF 解析失敗:', err)
     res.status(500).json({ error: 'PDF 解析失敗：' + err.message })
