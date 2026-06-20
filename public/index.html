@@ -234,6 +234,33 @@
 </head>
 <body>
 
+<!-- 公告視窗（移植 App 中） -->
+<div id="announce-overlay" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:16px;max-width:340px;width:100%;padding:24px 22px 18px;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+    <div style="font-size:34px;text-align:center;margin-bottom:10px;">📣</div>
+    <div style="font-size:17px;font-weight:700;text-align:center;margin-bottom:12px;color:#1c1c1e;">公告</div>
+    <div style="font-size:14px;line-height:1.7;color:#3c3c43;text-align:center;margin-bottom:18px;">
+      正在製作移植到 App 版本，<br>如果有使用上的問題，敬請見諒。
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#8e8e93;margin-bottom:16px;cursor:pointer;">
+      <input type="checkbox" id="announce-dontshow" style="width:16px;height:16px;">
+      不要再顯示這個訊息
+    </label>
+    <button onclick="closeAnnounce()" style="width:100%;padding:13px;background:#007aff;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;">我知道了</button>
+  </div>
+</div>
+<script>
+  function closeAnnounce() {
+    if (document.getElementById('announce-dontshow').checked) {
+      localStorage.setItem('cCalAnnounceHidden', '1')
+    }
+    document.getElementById('announce-overlay').style.display = 'none'
+  }
+  if (localStorage.getItem('cCalAnnounceHidden') !== '1') {
+    document.getElementById('announce-overlay').style.display = 'flex'
+  }
+</script>
+
 <!-- 內建瀏覽器（WebView）偵測提示 -->
 <div id="inapp-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#fff;overflow-y:auto;flex-direction:column;align-items:center;justify-content:flex-start;padding:48px 24px 32px;text-align:center;">
   <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
