@@ -355,20 +355,22 @@ app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
       return res.json({ ok: true, imported: 0, total: cur.length, note: '未解析到班次，資料未變更' })
     }
     const all = readData(fp)
-    const manualEntries = all.filter(e => e.manually_added)
-    const oldPdfEntries = all.filter(e => !e.manually_added)
+    // 「私人」(type=private) 永遠保留，不受 eCrew 上傳影響
+    const privateEntries = all.filter(e => e.type === 'private')
+    // 「班表」(工作班) 才會被 eCrew 取代
+    const workEntries = all.filter(e => e.type !== 'private')
 
-    // 新 PDF 涵蓋的日期範圍 → range 內舊 PDF 整批替換，range 外保留
+    // eCrew = 權威最新班表：range 內舊班表整批替換，range 外班表保留
     const newDates = newEntries.map(e => e.date).filter(Boolean).sort()
     const minDate = newDates[0]
     const maxDate = newDates[newDates.length - 1]
-    const keptOld = oldPdfEntries.filter(e => e.date < minDate || e.date > maxDate)
+    const keptWork = workEntries.filter(e => e.date < minDate || e.date > maxDate)
 
-    // 合併（range 外舊 PDF + 新 PDF + 手動新增），同 id 以新覆蓋
+    // 合併（range 外舊班表 + 新 eCrew 班表 + 私人），同 id 以新覆蓋
     const seen = new Map()
-    keptOld.forEach(e => seen.set(e.id, e))
+    keptWork.forEach(e => seen.set(e.id, e))
     newEntries.forEach(e => seen.set(e.id, e))
-    const combined = [...seen.values(), ...manualEntries]
+    const combined = [...seen.values(), ...privateEntries]
     linkLayovers(combined)
     // 過夜班連結去重：同 id 保留 duty_id 較早的
     const finalSeen = new Map()
