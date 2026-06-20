@@ -366,10 +366,32 @@ app.post('/api/import/:userId', upload.single('pdf'), async (req, res) => {
     const maxDate = newDates[newDates.length - 1]
     const keptWork = workEntries.filter(e => e.date < minDate || e.date > maxDate)
 
-    // 合併（range 外舊班表 + 新 eCrew 班表 + 私人），同 id 以新覆蓋
+    // range 內舊班表（建 id 索引，供欄位級合併）
+    const inRangeOldById = new Map()
+    workEntries.forEach(e => {
+      if (e.date >= minDate && e.date <= maxDate) inRangeOldById.set(e.id, e)
+    })
+
+    // 合併：range 外舊班表保留；新班表同 id 做「欄位級合併」
+    // 規則：預定只被預定覆蓋、實際只被實際覆蓋 → 飛完後預定+實際並存
     const seen = new Map()
     keptWork.forEach(e => seen.set(e.id, e))
-    newEntries.forEach(e => seen.set(e.id, e))
+    newEntries.forEach(n => {
+      const old = inRangeOldById.get(n.id)
+      if (old) {
+        seen.set(n.id, {
+          ...n,
+          reporting:           n.reporting           || old.reporting,
+          departure_scheduled: n.departure_scheduled || old.departure_scheduled,
+          arrival_scheduled:   n.arrival_scheduled   || old.arrival_scheduled,
+          departure_actual:    n.departure_actual    || old.departure_actual,
+          arrival_actual:      n.arrival_actual       || old.arrival_actual,
+        })
+      } else {
+        seen.set(n.id, n)   // 全新班次（含改班號的）
+      }
+      // 注意：range 內舊班表若新檔沒有對應 id（如改班號的舊班），不放進 seen → 自動淘汰
+    })
     const combined = [...seen.values(), ...privateEntries]
     linkLayovers(combined)
     // 過夜班連結去重：同 id 保留 duty_id 較早的
