@@ -90,7 +90,7 @@ function parsePDFText(text) {
     if (/^[SR,]+$/.test(firstLine)) continue
 
     // ── 待命（S1~S8 現場待命 / HS1~HS8 居家待命）─────────────
-    const standbyMatch = firstLine.match(/^(HS[1-8]|S[1-8])(?:\s|$)/)
+    const standbyMatch = firstLine.match(/^(HS[1-8]|S[1-8])/)
     if (standbyMatch) {
       const sbCode = standbyMatch[1]
       const allSbText = body.join(' ')
