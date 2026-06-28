@@ -113,7 +113,7 @@ function parsePDFText(text) {
     }
 
     // ── 受訓 ──────────────────────────────────────────────────
-    const TRAINING_CODES = ['CM', 'SEP', 'CRM', 'LT', 'OE', 'RECUR']
+    const TRAINING_CODES = ['CM', 'SEP', 'CRM', 'LT', 'OE', 'RECUR', 'AC']
     const trainingCode = body.find(l => TRAINING_CODES.includes(l.trim()))
     if (trainingCode) {
       // 找所有 HH:MM - HH:MM 時間段
